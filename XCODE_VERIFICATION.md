@@ -1,7 +1,13 @@
 # 万象记 / Mosaic — Xcode 手动验收清单 / Manual Verification Checklist
 
-> 本项目的纯逻辑核心(`MosaicKit`)已在命令行用 `swift run mosaic-checks` 验证(117 断言通过)。
-> 但 **iOS App target 没有在本环境编译过**(本机只有 Command Line Tools)。请按本清单在**完整 Xcode**(建议 16+,iOS 17 SDK)中打开、配置、运行并逐项验收。
+> ## ✅ 已自动验证 / Already verified (Xcode 26 + iOS 26 模拟器)
+> - `MosaicKit` 核心:`swift run mosaic-checks` → **119 断言通过**。
+> - iOS App target:`xcodebuild build` → **BUILD SUCCEEDED**(0 error,仅 2 个无害告警)。
+> - 集成测试:`xcodebuild test`(MosaicTests,10 个用例,覆盖 SwiftData + SummaryService + Mock AI)→ **10/10 通过**。
+> - 启动冒烟:已在模拟器安装并启动,**无崩溃**,文件夹列表空状态正常渲染(ModelContainer 的 CloudKit→本地回退工作正常)。
+>
+> ## 仍需你在真机/账号环境手动验收 / Still requires you (device / account)
+> 以下是自动化覆盖不到的:**签名 + iCloud 配置**、**真机功能**(相机、麦克风、端上转写)、**真实 API Key 的 AI 链路**、以及**完整 UI 手动走查**。请按下文操作。
 
 ---
 
