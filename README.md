@@ -1,0 +1,74 @@
+# 万象记 / Mosaic
+
+An iOS multimedia note app. Each note card mixes **text, images, audio, documents, and links**; the app generates an AI **base summary** of the whole card and, after edits, **incremental update summaries** that describe only what changed. Built with SwiftUI + SwiftData, prepared for CloudKit sync. See [`prd.md`](prd.md) for the full product spec.
+
+## Architecture
+
+The codebase is split into two layers so the bug-prone logic can be unit-tested even without Xcode:
+
+```
+Mosaic/
+├── Package.swift                 # MosaicKit (library) + mosaic-checks (test runner)
+├── Sources/MosaicKit/            # PURE Swift core — no SwiftData, no UIKit
+│   ├── Provider/                 # AIProvider, ProviderConfig (URL/temperature/validation)
+│   ├── AI/                       # Prompts, DTOs, request builder, response parser, AIClient, errors
+│   ├── Aggregation/              # CardContent value types, content aggregator (+ truncation)
+│   ├── Diff/                     # ContentHasher, SummarySnapshot, SnapshotDiffer (change detection)
+│   └── Security/                 # KeychainService (+ in-memory variant)
+├── Sources/MosaicKitChecks/      # Runnable test suite (assertion harness) — `swift run mosaic-checks`
+└── App/
+    ├── project.yml               # XcodeGen spec (generates Mosaic.xcodeproj)
+    └── Mosaic/
+        ├── App/                  # MosaicApp, RootView, ModelContainerFactory (SwiftData+CloudKit)
+        ├── Persistence/          # @Model: Folder, Card, Block, AISummaryEntity, UpdateLogEntity
+        ├── Services/             # MediaStore, AudioRecorder/Player, SpeechTranscriber,
+        │                         #   ImagePipeline, DocumentImporter, SummaryService
+        ├── Settings/             # SettingsStore (UserDefaults + Keychain), SettingsView
+        ├── Features/             # Folders / Cards (collapsed bar + summary sticker) / Editor (blocks)
+        └── Components/           # Design system, UIKit bridges, flow layout
+```
+
+**Boundary:** `MosaicKit` never imports SwiftData or UIKit. The app adapts its SwiftData `Block` models into `MosaicKit.CardBlockContent` value types (`Block.toContent()`), so all hashing/diffing/aggregation/AI logic is platform-agnostic and testable.
+
+## Building & running
+
+### Core logic (works with just the Swift toolchain / Command Line Tools)
+
+```bash
+swift build                 # builds MosaicKit
+swift run mosaic-checks     # runs the core test suite (exits non-zero on failure)
+```
+
+`mosaic-checks` is the unit-test suite (117+ assertions covering provider config, JSON parsing robustness, defensive DTO decoding, content hashing, snapshot diff, aggregation/truncation, request building incl. vision on/off, full HTTP/transport error mapping via a stubbed URLSession, and Keychain logic). It is used in place of XCTest/Swift Testing, which are **not** bundled with the Command Line Tools toolchain.
+
+### iOS app (requires full Xcode)
+
+```bash
+brew install xcodegen        # if needed
+cd App && xcodegen generate  # regenerates Mosaic.xcodeproj from project.yml
+open App/Mosaic.xcodeproj
+```
+
+Then set your signing team and an iCloud container identifier, and run on a device/simulator.
+
+## Configuration
+
+1. **Settings → AI 服务商**: choose Kimi / DeepSeek / Custom.
+2. Enter your **API Key** (stored in the Keychain only) and, for Custom, a Base URL + model name.
+3. Tap **测试连接** to verify.
+4. On first summary generation you'll see a one-time **privacy notice** before any content is sent.
+
+Model defaults (verify against providers' latest docs): Kimi `kimi-k2.6` (vision), DeepSeek `deepseek-v4-flash` / `deepseek-v4-pro` (vision off by default until verified).
+
+## Known limitations / environment blockers
+
+This project was built in an environment **without full Xcode** (Command Line Tools only). Consequences:
+
+- **The iOS app target was not compiled here** — no iOS SDK / simulator available. The pure-Swift `MosaicKit` core *is* compiled and tested. The app layer was written to Apple's APIs and reviewed by static analysis; please build it in full Xcode.
+- **Media-file CloudKit sync is a follow-up.** Media (audio/images/documents) is stored as files in the app sandbox (`MediaStore`); SwiftData metadata syncs via CloudKit, but binary media does not yet sync as CloudKit assets. This is the documented sequencing in PRD §10.1 and the seam is isolated in `MediaStore`.
+- **CloudKit requires setup**: a real iCloud container id (replace `iCloud.com.mosaic.app` in `App/Mosaic/Mosaic.entitlements`) and a signed-in iCloud account. The container falls back to a local store if CloudKit is unavailable, so the app still runs offline.
+- **Deployment target is iOS 17** (SwiftData / `@Observable` requirement), slightly above the PRD's suggested iOS 16 floor.
+
+## PRD coverage (MVP / P0)
+
+Folders (CRUD, color/icon, count, delete-confirm) · Cards (CRUD, sort by updatedAt, AI title fallback) · Block editor (text/image/audio/file/link, add/delete/reorder, autosave, offline) · On-device audio transcription · Image compression + vision · PDF text extraction · Link open/in-app browser · Collapsed bar + AI summary sticker (base + reverse-chron update logs) · Incremental update via block-level snapshot diff (base preserved) · Strict-JSON prompts + defensive parsing · Settings (Keychain key, test connection, auto-update toggle, privacy notice) · CloudKit-ready schema.

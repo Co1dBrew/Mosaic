@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Generated Xcode project (regenerate with: cd App && xcodegen generate)
+App/Mosaic.xcodeproj/
+
+# Secrets / local config
+*.local
+Secrets.xcconfig
