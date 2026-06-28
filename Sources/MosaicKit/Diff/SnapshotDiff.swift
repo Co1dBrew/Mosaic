@@ -6,11 +6,25 @@ public struct BlockDescriptor: Codable, Equatable, Sendable {
     public var hash: String
     public var kind: BlockKind
     public var brief: String
+    /// Trimmed text length at snapshot time (0 for non-text), used to measure the
+    /// *delta* of a later edit rather than the whole block size.
+    public var textLength: Int
 
-    public init(hash: String, kind: BlockKind, brief: String) {
+    public init(hash: String, kind: BlockKind, brief: String, textLength: Int = 0) {
         self.hash = hash
         self.kind = kind
         self.brief = brief
+        self.textLength = textLength
+    }
+
+    enum CodingKeys: String, CodingKey { case hash, kind, brief, textLength }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        hash = try c.decode(String.self, forKey: .hash)
+        kind = try c.decode(BlockKind.self, forKey: .kind)
+        brief = try c.decode(String.self, forKey: .brief)
+        textLength = (try? c.decodeIfPresent(Int.self, forKey: .textLength)) ?? 0
     }
 }
 
@@ -102,15 +116,27 @@ public enum SnapshotDiffer {
     }
 
     /// Whether a diff is large enough to warrant an automatic update summary
-    /// (PRD §4.5 "变更过小 → 跳过本次自动更新"). Any added/deleted block, or any
-    /// change to a non-text block, is always significant. Pure text edits must
-    /// exceed `minTextChars` of combined changed length.
-    public static func isSignificant(_ diff: CardDiff, minTextChars: Int = 12) -> Bool {
-        if !diff.added.isEmpty || !diff.deleted.isEmpty { return true }
+    /// (PRD §4.5 "变更过小 → 跳过本次自动更新", to "避免频繁调用、控制费用").
+    ///
+    /// Any deletion, or any added/modified non-text block (image/audio/file/link),
+    /// is always significant. For text, the *delta* matters — added text length
+    /// plus the absolute change in length of modified text blocks (using the
+    /// snapshot's recorded length) must reach `minTextChars`. This means editing
+    /// one character in a long paragraph is NOT treated as significant.
+    public static func isSignificant(_ diff: CardDiff, snapshot: SummarySnapshot, minTextChars: Int = 12) -> Bool {
+        if !diff.deleted.isEmpty { return true }
+        if diff.added.contains(where: { $0.kind != .text }) { return true }
         if diff.modified.contains(where: { $0.kind != .text }) { return true }
-        let changedChars = diff.modified
-            .compactMap { $0.text?.trimmingCharacters(in: .whitespacesAndNewlines).count }
-            .reduce(0, +)
-        return changedChars >= minTextChars
+
+        func len(_ s: String?) -> Int { (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines).count }
+        var magnitude = 0
+        for block in diff.added where block.kind == .text {
+            magnitude += len(block.text)
+        }
+        for block in diff.modified where block.kind == .text {
+            let oldLen = snapshot.entries[block.id]?.textLength ?? 0
+            magnitude += abs(len(block.text) - oldLen)
+        }
+        return magnitude >= minTextChars
     }
 }

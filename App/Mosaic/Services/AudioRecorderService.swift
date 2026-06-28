@@ -129,7 +129,7 @@ final class AudioRecorderService {
         guard let recorder, state == .recording else { return }
         recorder.updateMeters()
         elapsed = recorder.currentTime
-        let power = recorder.averagePower(forChannel: 0)        // dBFS, -160...0
+        let power = Double(recorder.averagePower(forChannel: 0)) // dBFS, -160...0
         let normalized = max(0, min(1, pow(10, power / 20)))     // ~amplitude 0...1
         waveform.append(normalized)
         // Cap stored samples to keep memory bounded.

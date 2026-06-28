@@ -41,3 +41,22 @@ targets:
     dependencies:
       - package: MosaicKit
         product: MosaicKit
+    scheme:
+      testTargets:
+        - MosaicTests
+
+  MosaicTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: MosaicTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: com.mosaic.app.tests
+        SWIFT_VERSION: "5.0"
+    dependencies:
+      - target: Mosaic
+      - package: MosaicKit
+        product: MosaicKit

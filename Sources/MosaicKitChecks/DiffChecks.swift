@@ -53,23 +53,33 @@ func runDiffChecks(_ r: CheckRunner) {
 
     r.suite("SnapshotDiffer.isSignificant")
 
-    // Tiny text edit -> not significant
-    let tiny = CardDiff(modified: [CardBlockContent(id: "1", order: 0, kind: .text, text: "ab")])
-    r.expect(!SnapshotDiffer.isSignificant(tiny), "2-char text edit below threshold")
+    let emptySnap = SummarySnapshot()
 
-    // Large text edit -> significant
-    let big = CardDiff(modified: [CardBlockContent(id: "1", order: 0, kind: .text, text: String(repeating: "字", count: 50))])
-    r.expect(SnapshotDiffer.isSignificant(big), "large text edit is significant")
+    // Tiny added text -> not significant
+    let tinyAdd = CardDiff(added: [CardBlockContent(id: "9", order: 0, kind: .text, text: "ab")])
+    r.expect(!SnapshotDiffer.isSignificant(tinyAdd, snapshot: emptySnap), "2-char added text below threshold")
 
-    // Added block -> always significant
-    let added = CardDiff(added: [CardBlockContent(id: "9", order: 0, kind: .text, text: "x")])
-    r.expect(SnapshotDiffer.isSignificant(added), "added block always significant")
+    // Large added text -> significant
+    let bigAdd = CardDiff(added: [CardBlockContent(id: "9", order: 0, kind: .text, text: String(repeating: "字", count: 50))])
+    r.expect(SnapshotDiffer.isSignificant(bigAdd, snapshot: emptySnap), "large added text is significant")
+
+    // Added non-text block -> always significant
+    let imgAdd = CardDiff(added: [CardBlockContent(id: "7", order: 0, kind: .image, imageAssetRef: "a.jpg")])
+    r.expect(SnapshotDiffer.isSignificant(imgAdd, snapshot: emptySnap), "added image always significant")
 
     // Deleted -> significant
     let deleted = CardDiff(deleted: [DeletedBlock(id: "1", kind: .text, brief: "x")])
-    r.expect(SnapshotDiffer.isSignificant(deleted), "deletion always significant")
+    r.expect(SnapshotDiffer.isSignificant(deleted, snapshot: emptySnap), "deletion always significant")
 
     // Non-text modify -> significant
     let imgMod = CardDiff(modified: [CardBlockContent(id: "2", order: 0, kind: .image, imageAssetRef: "z.jpg")])
-    r.expect(SnapshotDiffer.isSignificant(imgMod), "image change always significant")
+    r.expect(SnapshotDiffer.isSignificant(imgMod, snapshot: emptySnap), "image change always significant")
+
+    // Text DELTA: tiny edit to a long block -> not significant; large delta -> significant
+    let original = CardBlockContent(id: "1", order: 0, kind: .text, text: String(repeating: "x", count: 30))
+    let baseSnap = SummarySnapshot.make(from: [original])
+    let oneCharEdit = CardDiff(modified: [CardBlockContent(id: "1", order: 0, kind: .text, text: String(repeating: "x", count: 31))])
+    r.expect(!SnapshotDiffer.isSignificant(oneCharEdit, snapshot: baseSnap), "1-char delta on long block not significant")
+    let bigEdit = CardDiff(modified: [CardBlockContent(id: "1", order: 0, kind: .text, text: String(repeating: "x", count: 30) + String(repeating: "y", count: 20))])
+    r.expect(SnapshotDiffer.isSignificant(bigEdit, snapshot: baseSnap), "20-char delta is significant")
 }

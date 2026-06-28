@@ -78,7 +78,7 @@ final class SummaryService {
         let diff = SnapshotDiffer.diff(current: current, snapshot: snapshot)
 
         guard diff.hasChanges else { return false }
-        if !force && !SnapshotDiffer.isSignificant(diff) {
+        if !force && !SnapshotDiffer.isSignificant(diff, snapshot: snapshot) {
             // Skip auto-update for small changes (PRD §4.5 "变更过小 → 跳过").
             // The snapshot is intentionally NOT advanced: these edits stay
             // pending against the last summarized baseline and accumulate until

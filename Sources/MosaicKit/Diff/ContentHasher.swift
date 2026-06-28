@@ -50,6 +50,9 @@ public enum ContentHasher {
     }
 
     public static func descriptor(for block: CardBlockContent) -> BlockDescriptor {
-        BlockDescriptor(hash: hash(for: block), kind: block.kind, brief: brief(for: block))
+        let textLength = block.kind == .text
+            ? (block.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).count
+            : 0
+        return BlockDescriptor(hash: hash(for: block), kind: block.kind, brief: brief(for: block), textLength: textLength)
     }
 }
