@@ -25,14 +25,15 @@ struct SettingsView: View {
                     }
                 }
 
-                if settings.provider == .custom {
-                    TextField("Base URL(兼容 OpenAI /chat/completions)", text: $settings.customBaseURL)
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("Base URL", text: $settings.customBaseURL, prompt: Text(settings.provider.defaultBaseURL ?? "https://.../v1"))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
-                } else {
-                    LabeledContent("Base URL", value: settings.resolvedBaseURL)
-                        .font(.footnote)
+                    if settings.provider == .kimi {
+                        Text("Kimi 国内 Key 请改用 https://api.moonshot.cn/v1")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
 
                 HStack {

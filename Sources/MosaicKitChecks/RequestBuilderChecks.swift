@@ -23,7 +23,7 @@ func runRequestBuilderChecks(_ r: CheckRunner) {
 
     if let body = bodyJSON(req) {
         r.expectEqual(body["model"] as? String, "kimi-k2.6")
-        r.expectEqual(body["max_tokens"] as? Int, 1024)
+        r.expectEqual(body["max_tokens"] as? Int, 2048)
         r.expectNotNil(body["response_format"], "json mode -> response_format present")
         let messages = body["messages"] as? [[String: Any]]
         r.expectEqual(messages?.count, 2)
@@ -59,15 +59,17 @@ func runRequestBuilderChecks(_ r: CheckRunner) {
 
     if let upd = try? AIRequestBuilder.updateSummaryRequest(config: visionConfig, previousSummaryText: "旧总结", changeSetText: "变更", images: []),
        let body = bodyJSON(upd) {
-        r.expectEqual(body["max_tokens"] as? Int, 512, "update uses 512 max tokens")
+        r.expectEqual(body["max_tokens"] as? Int, 1024, "update uses 1024 max tokens")
     } else {
         r.expect(false, "update request should build")
     }
 
     if let test = try? AIRequestBuilder.testConnectionRequest(config: visionConfig),
        let body = bodyJSON(test) {
-        r.expectEqual(body["max_tokens"] as? Int, 1, "test connection uses minimal tokens")
+        r.expectEqual(body["max_tokens"] as? Int, 16, "test connection uses minimal tokens")
         r.expectNil(body["response_format"], "test connection does not force json mode")
+        // visionConfig uses kimi-k2.6 → temperature forced to 1.0 (must not be 0).
+        r.expectEqual(body["temperature"] as? Double, 1.0, "test connection uses resolved temperature")
     } else {
         r.expect(false, "test request should build")
     }

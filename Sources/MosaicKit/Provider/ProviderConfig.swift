@@ -27,8 +27,14 @@ public struct ProviderConfig: Equatable, Sendable {
         self.apiKey = apiKey
         self.supportsVision = supportsVision
         self.useJSONMode = useJSONMode
-        // Clamp temperature into the provider's allowed range.
-        self.temperature = min(max(temperature, 0), provider.temperatureMax)
+        // Clamp temperature into the provider's allowed range, then apply
+        // model-specific overrides: Kimi's K2.x series only accepts temperature == 1.
+        let clamped = min(max(temperature, 0), provider.temperatureMax)
+        if provider == .kimi, model.lowercased().contains("kimi-k2") {
+            self.temperature = 1.0
+        } else {
+            self.temperature = clamped
+        }
     }
 
     /// Builds the `/chat/completions` endpoint URL from `baseURL`, tolerating

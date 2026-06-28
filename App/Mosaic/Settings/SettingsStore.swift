@@ -15,11 +15,15 @@ final class SettingsStore {
     var provider: AIProvider {
         didSet {
             defaults.set(provider.rawValue, forKey: Keys.provider)
-            // Reset model & vision to the new provider's defaults if appropriate.
+            // Reset model, vision, and base URL to the new provider's defaults.
             if provider != .custom, !provider.recommendedModels.contains(modelName) {
                 modelName = provider.defaultModel
             }
             visionEnabled = provider.defaultSupportsVision
+            // Prefill the editable base URL with the new provider's default so the
+            // user can see and (if needed) override it — e.g. switch a China-region
+            // Kimi key to https://api.moonshot.cn/v1.
+            customBaseURL = provider.defaultBaseURL ?? ""
         }
     }
 
@@ -62,7 +66,9 @@ final class SettingsStore {
         let resolvedProvider = AIProvider(rawValue: providerRaw) ?? .kimi
         self.provider = resolvedProvider
         self.modelName = defaults.string(forKey: Keys.modelName) ?? resolvedProvider.defaultModel
-        self.customBaseURL = defaults.string(forKey: Keys.customBaseURL) ?? ""
+        let storedBaseURL = defaults.string(forKey: Keys.customBaseURL) ?? ""
+        // Prefill from the provider default on first run so the field is never blank.
+        self.customBaseURL = storedBaseURL.isEmpty ? (resolvedProvider.defaultBaseURL ?? "") : storedBaseURL
         self.autoUpdateSummary = defaults.object(forKey: Keys.autoUpdate) as? Bool ?? true
         self.hasAcceptedAIPrivacyNotice = defaults.bool(forKey: Keys.privacyAccepted)
         self.iCloudSyncEnabled = defaults.object(forKey: Keys.iCloudSync) as? Bool ?? true
@@ -91,9 +97,12 @@ final class SettingsStore {
 
     // MARK: Resolved config
 
-    /// The resolved base URL for the current provider.
+    /// The resolved base URL: the user's (possibly edited) value, falling back to
+    /// the provider default. Editable for all providers so region-specific keys
+    /// (e.g. Kimi 国内 → https://api.moonshot.cn/v1) work.
     var resolvedBaseURL: String {
-        provider.defaultBaseURL ?? customBaseURL
+        let trimmed = customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? (provider.defaultBaseURL ?? "") : trimmed
     }
 
     /// Builds a `ProviderConfig` for an AI request, or returns the validation

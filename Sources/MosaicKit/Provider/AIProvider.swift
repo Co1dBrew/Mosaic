@@ -30,7 +30,17 @@ public enum AIProvider: String, CaseIterable, Codable, Sendable, Identifiable {
     /// Recommended model names (developer should verify against latest docs).
     public var recommendedModels: [String] {
         switch self {
-        case .kimi: return ["kimi-k2.6"]
+        // Default to a non-reasoning, vision-capable Moonshot model: it accepts
+        // temperature 0.2 and returns content directly. The kimi-k2.x reasoning
+        // models are also offered but require temperature == 1 and a larger token
+        // budget (handled in ProviderConfig / AIRequestBuilder).
+        case .kimi: return [
+            "moonshot-v1-8k-vision-preview",
+            "moonshot-v1-32k-vision-preview",
+            "moonshot-v1-128k-vision-preview",
+            "moonshot-v1-8k",
+            "kimi-k2.6"
+        ]
         case .deepseek: return ["deepseek-v4-flash", "deepseek-v4-pro"]
         case .custom: return []
         }

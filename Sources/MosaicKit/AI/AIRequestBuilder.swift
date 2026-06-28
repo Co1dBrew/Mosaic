@@ -4,8 +4,11 @@ import Foundation
 /// aggregated card content. Pure and synchronous so it is fully unit-testable.
 public enum AIRequestBuilder {
 
-    public static let baseMaxTokens = 1024
-    public static let updateMaxTokens = 512
+    // Generous budgets so reasoning models (which spend tokens "thinking" before
+    // the JSON answer) still return complete content; non-reasoning models are
+    // only billed for what they actually emit.
+    public static let baseMaxTokens = 2048
+    public static let updateMaxTokens = 1024
     public static let requestTimeout: TimeInterval = 60
 
     /// Builds the request for the initial/base summary (PRD §4.6, §5.1, §5.3).
@@ -54,12 +57,14 @@ public enum AIRequestBuilder {
         return try makeRequest(config: config, body: body)
     }
 
-    /// A minimal request used by "Test connection" (PRD §4.7).
+    /// A minimal request used by "Test connection" (PRD §4.7). Uses the resolved
+    /// `config.temperature` (not a hardcoded 0) so models that mandate a specific
+    /// temperature — e.g. kimi-k2.x requires 1 — don't fail the connection test.
     public static func testConnectionRequest(config: ProviderConfig) throws -> URLRequest {
         let body = ChatRequest(
             model: config.model,
-            temperature: 0,
-            maxTokens: 1,
+            temperature: config.temperature,
+            maxTokens: 16,
             responseFormatJSON: false,
             messages: [ChatRequest.Message(role: "user", content: .text("ping"))]
         )

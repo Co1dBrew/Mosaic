@@ -27,6 +27,15 @@ func runProviderChecks(_ r: CheckRunner) {
     let cold = ProviderConfig(provider: .deepseek, baseURL: "https://api.deepseek.com/v1", model: "m", apiKey: "k", supportsVision: false, useJSONMode: true, temperature: -3)
     r.expectEqual(cold.temperature, 0.0, "temperature clamps to >= 0")
 
+    // Kimi K2.x models require temperature == 1; moonshot-v1 models keep the configured value.
+    let k2 = ProviderConfig(provider: .kimi, baseURL: "https://api.moonshot.cn/v1", model: "kimi-k2.6", apiKey: "k", supportsVision: true, useJSONMode: true, temperature: 0.2)
+    r.expectEqual(k2.temperature, 1.0, "kimi-k2.x forces temperature 1.0")
+    let mv = ProviderConfig(provider: .kimi, baseURL: "https://api.moonshot.cn/v1", model: "moonshot-v1-8k", apiKey: "k", supportsVision: false, useJSONMode: true, temperature: 0.2)
+    r.expectEqual(mv.temperature, 0.2, "moonshot-v1 keeps configured temperature")
+
+    // CN region base URL builds correctly
+    r.expectEqual(mv.chatCompletionsURL?.absoluteString, "https://api.moonshot.cn/v1/chat/completions")
+
     // Validation
     let noKey = ProviderConfig(provider: .kimi, baseURL: "https://api.moonshot.ai/v1", model: "m", apiKey: "  ", supportsVision: true, useJSONMode: true)
     r.expectEqual(noKey.validationError, .missingAPIKey)
