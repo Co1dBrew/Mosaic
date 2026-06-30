@@ -36,6 +36,7 @@ enum SampleData {
         // Card 1: with text + transcript + AI summary
         let card1 = Card(userTitle: "周三产品评审会要点", folder: folder)
         card1.tags = ["产品评审", "工作"]
+        card1.isPinned = true
         context.insert(card1)
         let t1 = Block(kind: .text, order: 0); t1.text = "今天讨论了下个版本的排期与分工"
         context.insert(t1); t1.card = card1

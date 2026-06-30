@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import MosaicKit
 
 /// A top-level category container (PRD §4.1 / §8).
 ///
@@ -38,9 +39,14 @@ final class Folder {
     /// Number of cards in the folder (PRD §4.1 list shows card count).
     var cardCount: Int { cards?.count ?? 0 }
 
-    /// Cards sorted by last-modified, newest first (PRD §4.2).
+    /// Cards sorted pinned-first, then last-modified newest first (PRD §4.2 + P1).
     var sortedCards: [Card] {
-        (cards ?? []).sorted { $0.updatedAt > $1.updatedAt }
+        (cards ?? []).sorted { lhs, rhs in
+            CardSorting.isOrderedBefore(
+                CardSortKey(id: lhs.id.uuidString, isPinned: lhs.isPinned, updatedAt: lhs.updatedAt),
+                CardSortKey(id: rhs.id.uuidString, isPinned: rhs.isPinned, updatedAt: rhs.updatedAt)
+            )
+        }
     }
 
     func touch() { updatedAt = Date() }

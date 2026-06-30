@@ -93,6 +93,13 @@ struct CardListView: View {
                         onToggleExpand: { toggleExpand(card) }
                     )
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                    .swipeActions(edge: .leading) {
+                        Button { togglePin(card) } label: {
+                            Label(card.isPinned ? "取消置顶" : "置顶",
+                                  systemImage: card.isPinned ? "pin.slash" : "pin")
+                        }
+                        .tint(.orange)
+                    }
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) { cardToDelete = card } label: {
                             Label("删除", systemImage: "trash")
@@ -102,6 +109,13 @@ struct CardListView: View {
             }
             .listStyle(.plain)
         }
+    }
+
+    /// Toggles pin without bumping updatedAt, so pinned cards keep their
+    /// relative recency order (PRD: pinned still sorted by updatedAt desc).
+    private func togglePin(_ card: Card) {
+        card.isPinned.toggle()
+        try? modelContext.save()
     }
 
     private func toggleExpand(_ card: Card) {

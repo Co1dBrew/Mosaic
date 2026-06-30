@@ -111,6 +111,14 @@ in the summary sticker to turn AI topics into tags; the folder card list shows a
 tag filter bar; tags feed search (`CardSearchText.tags`). `--cards-demo` (DEBUG)
 seeds tagged sample cards for QA.
 
+## Pinning (P1)
+
+Cards can be pinned (existing `Card.isPinned`, no schema change). Folder lists
+sort **pinned first, then `updatedAt` descending** via the pure, unit-tested
+`CardSorting` in MosaicKit. Toggle from the card list (leading swipe) or the
+editor toolbar (📌); pinned cards show a pin badge on the collapsed bar. Toggling
+pin does not change `updatedAt`, so pinned cards keep their recency order.
+
 ## Design system
 
 Shared UI lives in `App/Mosaic/Components/AppStyles.swift`: `AppSpacing`,

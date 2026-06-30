@@ -25,10 +25,18 @@ struct CardRowView: View {
             HStack(alignment: .top, spacing: 10) {
                 Button(action: onOpen) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(card.displayTitle)
-                            .font(.headline)
-                            .lineLimit(1)
-                            .foregroundStyle(.primary)
+                        HStack(spacing: AppSpacing.xs) {
+                            if card.isPinned {
+                                Image(systemName: "pin.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                                    .accessibilityLabel("已置顶")
+                            }
+                            Text(card.displayTitle)
+                                .font(.headline)
+                                .lineLimit(1)
+                                .foregroundStyle(.primary)
+                        }
                         if let oneLiner {
                             Text(oneLiner)
                                 .font(.subheadline)

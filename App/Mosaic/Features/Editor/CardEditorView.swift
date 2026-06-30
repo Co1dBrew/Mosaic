@@ -63,6 +63,15 @@ struct CardEditorView: View {
         .navigationTitle(card.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    card.isPinned.toggle()
+                    try? modelContext.save()
+                } label: {
+                    Image(systemName: card.isPinned ? "pin.fill" : "pin")
+                }
+                .accessibilityLabel(card.isPinned ? "取消置顶" : "置顶")
+            }
             ToolbarItem(placement: .topBarTrailing) { EditButton() }
             ToolbarItemGroup(placement: .bottomBar) {
                 addContentMenu
