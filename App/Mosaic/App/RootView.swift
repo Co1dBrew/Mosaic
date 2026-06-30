@@ -17,6 +17,22 @@ struct RootView: View {
                     .task { SampleData.seedIfEmpty(modelContext) }
             } else if ProcessInfo.processInfo.arguments.contains("--cards-demo") {
                 CardsDemoView()
+            } else if ProcessInfo.processInfo.arguments.contains("--markdown-demo") {
+                ScrollView {
+                    MarkdownBlockView(markdown: """
+                    # 会议纪要
+                    今天讨论了**排期**与*分工*。
+                    - 确定下周三上线
+                    - 新增三位负责人
+                    1. 设计先行
+                    2. 后端跟进
+                    ---
+                    详见 [产品文档](https://example.com)
+                    """)
+                    .appCard(background: Color(.tertiarySystemBackground))
+                    .padding()
+                }
+                .navigationTitle("Markdown 预览")
             } else {
                 FolderListView()
             }

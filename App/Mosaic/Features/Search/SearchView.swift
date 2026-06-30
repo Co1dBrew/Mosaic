@@ -110,7 +110,7 @@ enum CardSearchText {
         var parts: [String] = [card.displayTitle]
         for block in card.orderedBlocks {
             switch block.kind {
-            case .text:  parts.append(block.text)
+            case .text:  parts.append(MarkdownText.plainText(from: block.text)) // search plain text, not Markdown markers
             case .audio: parts.append(block.transcript)
             case .file:  parts.append(block.fileName); parts.append(block.extractedText)
             case .link:  parts.append(block.url); parts.append(block.linkTitle); parts.append(block.linkDescription)

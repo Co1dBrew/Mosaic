@@ -119,6 +119,18 @@ sort **pinned first, then `updatedAt` descending** via the pure, unit-tested
 editor toolbar (📌); pinned cards show a pin badge on the collapsed bar. Toggling
 pin does not change `updatedAt`, so pinned cards keep their recency order.
 
+## Lightweight rich text (P1)
+
+Text blocks support **MVP-level Markdown-like rich text** (not a full WYSIWYG
+editor): headings, bold, italic, bullet/numbered lists, and dividers. The source
+Markdown is stored in the existing `Block.text` string — **no schema change**, and
+plain-text blocks keep working (Markdown is a superset). Editing uses
+`RichMarkdownEditor` (UITextView + a Markdown keyboard toolbar with real
+selection handling); a per-block toggle switches to a rendered `MarkdownBlockView`
+preview. Pure `MarkdownText` (MosaicKit, unit-tested) extracts **plain text** for
+AI summaries and search (so `#`/`*`/`-`/`---` don't pollute them) and parses
+lines for rendering. `--markdown-demo` (DEBUG) shows the renderer.
+
 ## Design system
 
 Shared UI lives in `App/Mosaic/Components/AppStyles.swift`: `AppSpacing`,

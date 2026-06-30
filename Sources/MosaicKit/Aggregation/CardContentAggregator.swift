@@ -73,7 +73,9 @@ public enum CardContentAggregator {
 
         switch block.kind {
         case .text:
-            let t = clean(block.text)
+            // Text blocks store lightweight Markdown — extract plain text so the
+            // AI summary isn't polluted by #, *, -, --- markers (PRD §4.3.1).
+            let t = MarkdownText.plainText(from: block.text ?? "")
             return t.isEmpty ? nil : "【文字】\n\(t)"
 
         case .audio:
