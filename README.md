@@ -86,6 +86,20 @@ Either way the resulting transcript is stored on the audio block and feeds the A
 summary. Transcription orchestration lives in `TranscriptionService`; the cloud
 request building/parsing is in `MosaicKit/Transcription` (unit-tested).
 
+## Search (P1)
+
+Global card search from the folder-list toolbar (🔍). Matching is a pure,
+unit-tested `SearchMatcher` in MosaicKit (multi-term AND, case- &
+diacritic-insensitive, tag-aware). The app builds a per-card "haystack" from the
+title, text blocks, audio transcripts, document `extractedText`, link
+URL/title/description, image captions, the AI base summary, and update logs
+(`CardSearchText.haystack`). Filtering goes through a reserved `SearchScope`
+(global / folder / tag / pinned) — Phase 1 uses the unconstrained (global) scope;
+later filters slot in without changing call sites. The search field is debounced
+(~250ms). Tags are wired into search but empty until the Tags phase adds
+`Card.tags`. A DEBUG `--search-demo` launch arg seeds sample data and opens
+search prefilled, for QA.
+
 ## Design system
 
 Shared UI lives in `App/Mosaic/Components/AppStyles.swift`: `AppSpacing`,

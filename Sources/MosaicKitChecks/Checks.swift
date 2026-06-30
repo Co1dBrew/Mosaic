@@ -13,6 +13,7 @@ struct Checks {
         runAggregatorChecks(r)
         runRequestBuilderChecks(r)
         runKeychainChecks(r)
+        runSearchChecks(r)
         await runClientChecks(r)
         await runTranscriptionChecks(r)
         await runLiveChecks(r)

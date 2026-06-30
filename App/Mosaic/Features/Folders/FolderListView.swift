@@ -50,7 +50,12 @@ struct FolderListView: View {
                     Image(systemName: "gearshape")
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                NavigationLink {
+                    SearchView()
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                }
                 Button { isCreating = true } label: {
                     Image(systemName: "plus")
                 }
