@@ -10,6 +10,10 @@ final class Card {
     /// Optional user title; when empty the AI summary may supply one (PRD §4.2 / §4.8).
     var userTitle: String = ""
     var isPinned: Bool = false
+    /// User tags (PRD §4.9). Stored as a defaulted [String] — same shape as the
+    /// already-synced topic/keypoint arrays, so it's a safe SwiftData lightweight
+    /// migration (old cards default to []) and CloudKit-compatible.
+    var tags: [String] = []
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 
@@ -63,6 +67,23 @@ final class Card {
     func touch() {
         updatedAt = Date()
         folder?.touch()
+    }
+
+    // MARK: Tags (normalized + de-duped via MosaicKit TagUtilities)
+
+    func addTag(_ raw: String) {
+        let updated = TagUtilities.add(raw, to: tags)
+        if updated != tags { tags = updated; touch() }
+    }
+
+    func removeTag(_ tag: String) {
+        let updated = TagUtilities.remove(tag, from: tags)
+        if updated != tags { tags = updated; touch() }
+    }
+
+    func addTopicsAsTags(_ topics: [String]) {
+        let updated = TagUtilities.addingTopics(topics, to: tags)
+        if updated != tags { tags = updated; touch() }
     }
 
     /// Builds the platform-agnostic content snapshot consumed by MosaicKit.

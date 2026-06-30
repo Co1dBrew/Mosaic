@@ -135,6 +135,10 @@ struct SummaryStickerView: View {
 
             if !summary.baseTopics.isEmpty {
                 FlowChips(items: summary.baseTopics)
+                SecondaryActionButton(title: "把主题加为标签", systemImage: "tag") {
+                    card.addTopicsAsTags(summary.baseTopics)
+                    try? card.modelContext?.save()
+                }
             }
 
             if !summary.baseKeyPoints.isEmpty {

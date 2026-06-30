@@ -39,6 +39,10 @@ struct CardEditorView: View {
                     .onChange(of: card.userTitle) { _, _ in scheduleAutosave() }
             }
 
+            Section("标签") {
+                TagEditorView(card: card, onChange: commitNow)
+            }
+
             Section {
                 if card.orderedBlocks.isEmpty {
                     Text("点击下方「添加内容」,把文字、录音、图片、文档、链接塞进这张卡片。")

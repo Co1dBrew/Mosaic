@@ -100,6 +100,17 @@ later filters slot in without changing call sites. The search field is debounced
 `Card.tags`. A DEBUG `--search-demo` launch arg seeds sample data and opens
 search prefilled, for QA.
 
+## Tags (P1)
+
+Cards carry `tags: [String]` (defaulted — safe SwiftData lightweight migration,
+CloudKit-compatible, old cards → `[]`). Normalization/de-dup is the pure,
+unit-tested `TagUtilities` in MosaicKit: trims/collapses whitespace, de-dups
+case- & diacritic-insensitively (so "Work" == "work"; Chinese preserved with
+original casing). Edit tags as chips in the card editor; tap **把主题加为标签**
+in the summary sticker to turn AI topics into tags; the folder card list shows a
+tag filter bar; tags feed search (`CardSearchText.tags`). `--cards-demo` (DEBUG)
+seeds tagged sample cards for QA.
+
 ## Design system
 
 Shared UI lives in `App/Mosaic/Components/AppStyles.swift`: `AppSpacing`,

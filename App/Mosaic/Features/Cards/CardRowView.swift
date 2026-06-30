@@ -47,6 +47,11 @@ struct CardRowView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
+                        if !card.tags.isEmpty {
+                            FlowLayout(spacing: AppSpacing.xs) {
+                                ForEach(card.tags, id: \.self) { TagChip(text: $0) }
+                            }
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())

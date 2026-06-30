@@ -1,7 +1,26 @@
 #if DEBUG
 import Foundation
+import SwiftUI
 import SwiftData
 import MosaicKit
+
+/// DEBUG-only screen (via `--cards-demo`) that seeds data then shows the first
+/// folder's card list, for screenshotting tags / pinning UI.
+struct CardsDemoView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var folders: [Folder]
+
+    var body: some View {
+        Group {
+            if let folder = folders.first {
+                CardListView(folder: folder)
+            } else {
+                ProgressView()
+            }
+        }
+        .task { SampleData.seedIfEmpty(modelContext) }
+    }
+}
 
 /// DEBUG-only sample data for screenshots/QA (e.g. the `--search-demo` launch
 /// argument). Never used in normal or release builds.
@@ -16,6 +35,7 @@ enum SampleData {
 
         // Card 1: with text + transcript + AI summary
         let card1 = Card(userTitle: "周三产品评审会要点", folder: folder)
+        card1.tags = ["产品评审", "工作"]
         context.insert(card1)
         let t1 = Block(kind: .text, order: 0); t1.text = "今天讨论了下个版本的排期与分工"
         context.insert(t1); t1.card = card1
@@ -31,6 +51,7 @@ enum SampleData {
 
         // Card 2: text only, different folder-less content
         let card2 = Card(userTitle: "读书笔记:设计模式", folder: folder)
+        card2.tags = ["读书", "设计模式"]
         context.insert(card2)
         let t2 = Block(kind: .text, order: 0); t2.text = "关于工厂模式与观察者模式的一些想法"
         context.insert(t2); t2.card = card2

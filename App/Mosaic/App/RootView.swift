@@ -15,6 +15,8 @@ struct RootView: View {
             } else if ProcessInfo.processInfo.arguments.contains("--search-demo") {
                 SearchView(initialQuery: "评审")
                     .task { SampleData.seedIfEmpty(modelContext) }
+            } else if ProcessInfo.processInfo.arguments.contains("--cards-demo") {
+                CardsDemoView()
             } else {
                 FolderListView()
             }

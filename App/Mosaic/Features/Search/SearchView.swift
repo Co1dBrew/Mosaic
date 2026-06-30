@@ -129,8 +129,8 @@ enum CardSearchText {
         return parts.filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
-    /// Tags participate in search (Phase 2 wires `Card.tags`; empty until then).
+    /// Tags participate in search (PRD §4.9).
     static func tags(for card: Card) -> [String] {
-        []
+        card.tags
     }
 }
