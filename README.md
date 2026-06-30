@@ -131,6 +131,16 @@ preview. Pure `MarkdownText` (MosaicKit, unit-tested) extracts **plain text** fo
 AI summaries and search (so `#`/`*`/`-`/`---` don't pollute them) and parses
 lines for rendering. `--markdown-demo` (DEBUG) shows the renderer.
 
+## Export / Share (P1)
+
+Export a single card as **Markdown** or **plain text** via the editor's bottom
+share menu → iOS share sheet (a temp file is written so it can be saved to Files).
+The pure, unit-tested `CardExportFormatter` (MosaicKit) renders, in block order:
+title, folder, created/updated time, tags, all blocks (text as Markdown / plain,
+transcripts, image captions, document name + extracted-text excerpt, links), the
+AI base summary, and update logs. Works with no summary and no tags. Nothing is
+uploaded. PDF export is a deliberate future enhancement (not in this MVP).
+
 ## Design system
 
 Shared UI lives in `App/Mosaic/Components/AppStyles.swift`: `AppSpacing`,

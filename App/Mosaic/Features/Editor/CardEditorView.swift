@@ -30,6 +30,8 @@ struct CardEditorView: View {
     @State private var pendingTranscribeBlockID: UUID?
     @State private var banner: String?
     @State private var autosaveTask: Task<Void, Never>?
+    @State private var shareItems: [Any] = []
+    @State private var showShare = false
 
     var body: some View {
         List {
@@ -76,6 +78,7 @@ struct CardEditorView: View {
             ToolbarItemGroup(placement: .bottomBar) {
                 addContentMenu
                 Spacer()
+                shareMenu
             }
         }
         .photosPicker(isPresented: $showPhotosPicker, selection: $photoItems, maxSelectionCount: 9, matching: .images)
@@ -113,7 +116,31 @@ struct CardEditorView: View {
         } message: {
             Text("你选择了「API 云端转写」。这会把这段录音的音频文件通过 HTTPS 上传到你在「设置」中配置的第三方服务进行识别。若不希望上传音频,可在「设置」改用「Apple 本地转写」(不上传音频)。")
         }
+        .sheet(isPresented: $showShare) {
+            ShareSheet(items: shareItems)
+        }
         .onDisappear(perform: handleExit)
+    }
+
+    private var shareMenu: some View {
+        Menu {
+            ForEach(CardExportFormat.allCases, id: \.self) { format in
+                Button("导出为 \(format.displayName)") { export(format) }
+            }
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+        }
+    }
+
+    private func export(_ format: CardExportFormat) {
+        commitNow() // flush pending edits so the export is current
+        do {
+            let url = try CardExportService.writeTempFile(for: card, format: format)
+            shareItems = [url]
+            showShare = true
+        } catch {
+            banner = "导出失败,请重试。"
+        }
     }
 
     // MARK: Block rendering

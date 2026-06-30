@@ -17,6 +17,7 @@ struct Checks {
         runTagsChecks(r)
         runPinningChecks(r)
         runMarkdownChecks(r)
+        runExportChecks(r)
         await runClientChecks(r)
         await runTranscriptionChecks(r)
         await runLiveChecks(r)
