@@ -11,10 +11,10 @@ struct CardEditorView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.summaryService) private var summaryService
+    @Environment(\.transcriptionService) private var transcriptionService
     @Environment(SettingsStore.self) private var settings
 
     @State private var player = AudioPlayerService()
-    @State private var transcriber = SpeechTranscriber()
 
     @State private var showRecorder = false
     @State private var showCamera = false
@@ -25,6 +25,9 @@ struct CardEditorView: View {
     @State private var showPhotosPicker = false
 
     @State private var transcribingBlockIDs: Set<UUID> = []
+    @State private var transcriptionErrors: [UUID: String] = [:]
+    @State private var showAudioUploadConsent = false
+    @State private var pendingTranscribeBlockID: UUID?
     @State private var banner: String?
     @State private var autosaveTask: Task<Void, Never>?
 
@@ -84,6 +87,19 @@ struct CardEditorView: View {
         .alert("提示", isPresented: Binding(get: { banner != nil }, set: { if !$0 { banner = nil } })) {
             Button("好") { banner = nil }
         } message: { Text(banner ?? "") }
+        .alert("上传音频以进行云端转写", isPresented: $showAudioUploadConsent) {
+            Button("取消", role: .cancel) { pendingTranscribeBlockID = nil }
+            Button("同意并上传") {
+                settings.hasAcceptedAudioUploadNotice = true
+                if let id = pendingTranscribeBlockID,
+                   let block = card.orderedBlocks.first(where: { $0.id == id }) {
+                    runTranscription(block)
+                }
+                pendingTranscribeBlockID = nil
+            }
+        } message: {
+            Text("你选择了「API 云端转写」。这会把这段录音的音频文件通过 HTTPS 上传到你在「设置」中配置的第三方服务进行识别。若不希望上传音频,可在「设置」改用「Apple 本地转写」(不上传音频)。")
+        }
         .onDisappear(perform: handleExit)
     }
 
@@ -101,6 +117,7 @@ struct CardEditorView: View {
                 block: block,
                 player: player,
                 isTranscribing: transcribingBlockIDs.contains(block.id),
+                transcriptionError: transcriptionErrors[block.id],
                 onEdit: scheduleAutosave,
                 onRetranscribe: { transcribe(block) }
             )
@@ -184,17 +201,31 @@ struct CardEditorView: View {
     }
 
     private func transcribe(_ block: Block) {
-        guard !block.audioRelativePath.isEmpty else { return }
+        guard !block.audioRelativePath.isEmpty, let service = transcriptionService else { return }
+        // Cloud mode uploads audio — require explicit consent first (PRD privacy).
+        if service.needsAudioUploadConsent {
+            pendingTranscribeBlockID = block.id
+            showAudioUploadConsent = true
+            return
+        }
+        runTranscription(block)
+    }
+
+    private func runTranscription(_ block: Block) {
+        guard let service = transcriptionService else { return }
         transcribingBlockIDs.insert(block.id)
+        transcriptionErrors[block.id] = nil
         let path = block.audioRelativePath
         Task { @MainActor in
             defer { transcribingBlockIDs.remove(block.id) }
             do {
-                let text = try await transcriber.transcribe(relativePath: path)
+                let text = try await service.transcribe(relativePath: path)
                 block.transcript = text
                 commitNow()
+            } catch let error as TranscriptionError {
+                transcriptionErrors[block.id] = error.userMessage
             } catch {
-                banner = (error as? LocalizedError)?.errorDescription ?? "转写失败"
+                transcriptionErrors[block.id] = error.localizedDescription
             }
         }
     }

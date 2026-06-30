@@ -81,27 +81,26 @@ struct SummaryStickerView: View {
     // MARK: Subviews
 
     private var loadingView: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: AppSpacing.sm) {
             ProgressView()
             Text("AI 正在总结…").font(.subheadline).foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, AppSpacing.md)
     }
 
     private func errorView(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             Label(message, systemImage: "exclamationmark.triangle")
                 .font(.subheadline)
                 .foregroundStyle(.primary)
-            HStack(spacing: 12) {
+            FlowLayout(spacing: AppSpacing.sm) {
                 if errorRetryable {
-                    Button("重试") { lastRetry?() }
-                        .buttonStyle(.borderedProminent)
+                    SecondaryActionButton(title: "重试", systemImage: "arrow.clockwise") { lastRetry?() }
                 }
                 if errorIsConfig {
-                    NavigationLink("去设置") { SettingsView() }
-                        .buttonStyle(.bordered)
+                    NavigationLink { SettingsView() } label: { Label("去设置", systemImage: "gearshape") }
+                        .buttonStyle(SecondaryActionButtonStyle())
                 }
             }
         }
@@ -111,15 +110,13 @@ struct SummaryStickerView: View {
     }
 
     private var emptyOrPromptView: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             Text("还没有 AI 总结")
                 .font(.subheadline).foregroundStyle(.secondary)
-            Button {
+                .frame(maxWidth: .infinity, alignment: .center)
+            PrimaryActionButton(title: "生成总结", systemImage: "sparkles") {
                 gate { generateBase() }
-            } label: {
-                Label("生成总结", systemImage: "sparkles")
             }
-            .buttonStyle(.borderedProminent)
         }
     }
 
@@ -189,24 +186,13 @@ struct SummaryStickerView: View {
     }
 
     private var actionButtons: some View {
-        HStack(spacing: 12) {
-            Button { gate { update() } } label: {
-                Label("立即更新", systemImage: "arrow.triangle.2.circlepath")
-            }
-            .font(.caption)
-            Button { showRegenerateConfirm = true } label: {
-                Label("重新生成", systemImage: "sparkles")
-            }
-            .font(.caption)
-            Button(role: .destructive) { showClearConfirm = true } label: {
-                Label("清除", systemImage: "trash")
-            }
-            .font(.caption)
-            Spacer()
+        // FlowLayout wraps the actions at large Dynamic Type instead of clipping.
+        FlowLayout(spacing: AppSpacing.sm) {
+            SecondaryActionButton(title: "立即更新", systemImage: "arrow.triangle.2.circlepath") { gate { update() } }
+            SecondaryActionButton(title: "重新生成", systemImage: "sparkles") { showRegenerateConfirm = true }
+            DestructiveActionButton(title: "清除", systemImage: "trash") { showClearConfirm = true }
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .padding(.top, 4)
+        .padding(.top, AppSpacing.xs)
     }
 
     // MARK: Actions

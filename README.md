@@ -60,6 +60,37 @@ Then set your signing team and an iCloud container identifier, and run on a devi
 
 Model defaults (verify against providers' latest docs): Kimi `kimi-k2.6` (vision), DeepSeek `deepseek-v4-flash` / `deepseek-v4-pro` (vision off by default until verified).
 
+## Speech-to-text: two modes (privacy)
+
+Transcription is switchable in **Settings → 语音转写**:
+
+- **Apple 本地转写 (default)** — `SpeechTranscriber` via the Speech framework with
+  `requiresOnDeviceRecognition = true`. Runs entirely on-device; **the original
+  audio never leaves the device**. Works offline. Privacy-friendly; accuracy
+  depends on the on-device model.
+- **API 云端转写** — `URLSessionCloudTranscriber` uploads the recorded audio file
+  to an OpenAI-compatible `/audio/transcriptions` endpoint (e.g. Whisper) and
+  reuses the AI provider's API key / base URL (overridable). **This uploads the
+  audio to a third party**, so the app shows a one-time audio-upload consent
+  dialog before the first cloud transcription and refuses to upload without it.
+  "Test connection" never uploads user audio.
+
+Language preference (自动 / 中文 / English) maps to the Apple locale
+(`zh-CN` / `en-US` / system) or the API `language` hint (`zh` / `en` / omitted).
+Either way the resulting transcript is stored on the audio block and feeds the AI
+summary. Transcription orchestration lives in `TranscriptionService`; the cloud
+request building/parsing is in `MosaicKit/Transcription` (unit-tested).
+
+## Design system
+
+Shared UI lives in `App/Mosaic/Components/AppStyles.swift`: `AppSpacing`,
+`AppRadius`, `AppMetrics` (44pt min tap target), the `PrimaryActionButtonStyle` /
+`SecondaryActionButtonStyle` / `DestructiveActionButtonStyle` button styles and
+their `PrimaryActionButton` / `SecondaryActionButton` / `DestructiveActionButton`
+wrappers, plus `appCard()`. All primary actions use these (centered labels,
+≥44pt, Dynamic Type via `minimumScaleFactor`, dark-mode-safe system colors). A
+DEBUG-only `--ui-gallery` launch argument renders a component gallery for QA.
+
 ## Known limitations / environment blockers
 
 This project was built in an environment **without full Xcode** (Command Line Tools only). Consequences:

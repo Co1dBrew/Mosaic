@@ -7,7 +7,15 @@ import MosaicKit
 struct RootView: View {
     var body: some View {
         NavigationStack {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-gallery") {
+                DebugGalleryView()
+            } else {
+                FolderListView()
+            }
+            #else
             FolderListView()
+            #endif
         }
     }
 }

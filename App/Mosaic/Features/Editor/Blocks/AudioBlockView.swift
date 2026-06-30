@@ -6,6 +6,7 @@ struct AudioBlockView: View {
     @Bindable var block: Block
     let player: AudioPlayerService
     let isTranscribing: Bool
+    var transcriptionError: String? = nil
     let onEdit: () -> Void
     let onRetranscribe: () -> Void
 
@@ -29,8 +30,11 @@ struct AudioBlockView: View {
                     Image(systemName: isCurrent && player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 34))
                         .foregroundStyle(Color.accentColor)
+                        .frame(width: AppMetrics.minTapTarget, height: AppMetrics.minTapTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(isCurrent && player.isPlaying ? "暂停" : "播放")
 
                 VStack(alignment: .leading, spacing: 4) {
                     GeometryReader { geo in
@@ -56,31 +60,41 @@ struct AudioBlockView: View {
                 }
             }
 
+            // Transcription status (visible without expanding).
+            if isTranscribing {
+                HStack(spacing: AppSpacing.sm) {
+                    ProgressView().controlSize(.small)
+                    Text("转写中…").font(.caption).foregroundStyle(.secondary)
+                }
+            } else if let transcriptionError {
+                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.sm) {
+                    Label(transcriptionError, systemImage: "exclamationmark.triangle")
+                        .font(.caption2).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    SecondaryActionButton(title: "重试", systemImage: "arrow.clockwise") { onRetranscribe() }
+                }
+            }
+
             DisclosureGroup(isExpanded: $showTranscript) {
-                VStack(alignment: .leading, spacing: 8) {
-                    if isTranscribing {
-                        HStack(spacing: 8) { ProgressView(); Text("转写中…").font(.caption).foregroundStyle(.secondary) }
-                    }
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
                     TextField("转写文字(可编辑)", text: $block.transcript, axis: .vertical)
                         .font(.caption)
                         .lineLimit(1...10)
                         .onChange(of: block.transcript) { _, _ in onEdit() }
-                    Button { onRetranscribe() } label: {
-                        Label("重新转写", systemImage: "arrow.clockwise")
-                    }
-                    .font(.caption)
-                    .disabled(isTranscribing)
+                    SecondaryActionButton(title: "重新转写", systemImage: "arrow.clockwise") { onRetranscribe() }
+                        .disabled(isTranscribing)
                 }
-                .padding(.top, 4)
+                .padding(.top, AppSpacing.xs)
             } label: {
                 Label(block.transcript.isEmpty ? "转写稿(空)" : "转写稿", systemImage: "text.quote")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(10)
+        .padding(AppSpacing.md)
         .background(Color(.tertiarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
     }
 }
 

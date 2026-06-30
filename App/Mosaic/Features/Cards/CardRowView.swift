@@ -59,15 +59,16 @@ struct CardRowView: View {
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                             .foregroundStyle(.secondary)
                             .font(.body.weight(.semibold))
-                            .frame(width: 30, height: 30)
+                            .frame(width: AppMetrics.minTapTarget, height: AppMetrics.minTapTarget)
                         if unreadCount > 0 {
                             Circle()
                                 .fill(.red)
-                                .frame(width: 8, height: 8)
-                                .offset(x: 2, y: -2)
+                                .frame(width: 9, height: 9)
+                                .offset(x: -4, y: 6)
                         }
                     }
                     .contentShape(Rectangle())
+                    .accessibilityLabel(isExpanded ? "收起 AI 摘要" : "展开 AI 摘要")
                 }
                 .buttonStyle(.plain)
             }

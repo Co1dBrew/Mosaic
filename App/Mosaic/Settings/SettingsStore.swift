@@ -58,6 +58,33 @@ final class SettingsStore {
         didSet { defaults.set(jsonModeEnabled, forKey: Keys.jsonMode) }
     }
 
+    // MARK: Transcription (PRD §4.3.2 + switchable architecture)
+
+    /// Local Apple Speech (default, privacy-friendly) vs cloud API STT.
+    var transcriptionMode: TranscriptionMode {
+        didSet { defaults.set(transcriptionMode.rawValue, forKey: Keys.transcriptionMode) }
+    }
+
+    var transcriptionLanguage: TranscriptionLanguage {
+        didSet { defaults.set(transcriptionLanguage.rawValue, forKey: Keys.transcriptionLanguage) }
+    }
+
+    /// Cloud STT model (e.g. "whisper-1").
+    var sttModel: String {
+        didSet { defaults.set(sttModel, forKey: Keys.sttModel) }
+    }
+
+    /// Optional cloud STT base URL; empty = reuse the AI provider's base URL.
+    var sttBaseURLOverride: String {
+        didSet { defaults.set(sttBaseURLOverride, forKey: Keys.sttBaseURLOverride) }
+    }
+
+    /// Consent to upload audio for cloud transcription (separate from the content
+    /// privacy notice — audio leaves the device only in cloud mode).
+    var hasAcceptedAudioUploadNotice: Bool {
+        didSet { defaults.set(hasAcceptedAudioUploadNotice, forKey: Keys.audioUploadAccepted) }
+    }
+
     init(defaults: UserDefaults = .standard, keychain: KeychainStoring = KeychainService()) {
         self.defaults = defaults
         self.keychain = keychain
@@ -77,6 +104,28 @@ final class SettingsStore {
         self.iCloudSyncEnabled = defaults.object(forKey: Keys.iCloudSync) as? Bool ?? false
         self.visionEnabled = defaults.object(forKey: Keys.visionEnabled) as? Bool ?? resolvedProvider.defaultSupportsVision
         self.jsonModeEnabled = defaults.object(forKey: Keys.jsonMode) as? Bool ?? true
+
+        self.transcriptionMode = TranscriptionMode(rawValue: defaults.string(forKey: Keys.transcriptionMode) ?? "") ?? .localAppleSpeech
+        self.transcriptionLanguage = TranscriptionLanguage(rawValue: defaults.string(forKey: Keys.transcriptionLanguage) ?? "") ?? .auto
+        self.sttModel = defaults.string(forKey: Keys.sttModel) ?? "whisper-1"
+        self.sttBaseURLOverride = defaults.string(forKey: Keys.sttBaseURLOverride) ?? ""
+        self.hasAcceptedAudioUploadNotice = defaults.bool(forKey: Keys.audioUploadAccepted)
+    }
+
+    // MARK: Cloud transcription config
+
+    /// Builds a `CloudTranscriptionConfig`, reusing the AI provider's API key and
+    /// (unless overridden) base URL.
+    func makeCloudTranscriptionConfig() -> Result<CloudTranscriptionConfig, TranscriptionError> {
+        let base = sttBaseURLOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+        let config = CloudTranscriptionConfig(
+            baseURL: base.isEmpty ? resolvedBaseURL : base,
+            model: sttModel,
+            apiKey: currentAPIKey,
+            languageHint: transcriptionLanguage.apiLanguageHint
+        )
+        if let error = config.validationError { return .failure(error) }
+        return .success(config)
     }
 
     // MARK: API key (Keychain)
@@ -133,5 +182,10 @@ final class SettingsStore {
         static let iCloudSync = "settings.iCloudSyncEnabled"
         static let visionEnabled = "settings.visionEnabled"
         static let jsonMode = "settings.jsonModeEnabled"
+        static let transcriptionMode = "settings.transcriptionMode"
+        static let transcriptionLanguage = "settings.transcriptionLanguage"
+        static let sttModel = "settings.sttModel"
+        static let sttBaseURLOverride = "settings.sttBaseURLOverride"
+        static let audioUploadAccepted = "settings.hasAcceptedAudioUploadNotice"
     }
 }

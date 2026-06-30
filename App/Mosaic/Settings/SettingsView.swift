@@ -90,6 +90,39 @@ struct SettingsView: View {
             }
 
             Section {
+                Picker("转写方式", selection: $settings.transcriptionMode) {
+                    ForEach(TranscriptionMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                Picker("识别语言", selection: $settings.transcriptionLanguage) {
+                    ForEach(TranscriptionLanguage.allCases) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                if settings.transcriptionMode == .cloudAPI {
+                    TextField("STT 模型(如 whisper-1)", text: $settings.sttModel)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField("STT Base URL(留空复用上方)", text: $settings.sttBaseURLOverride, prompt: Text(settings.resolvedBaseURL))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                    if settings.hasAcceptedAudioUploadNotice {
+                        Button("重置音频上传同意状态") { settings.hasAcceptedAudioUploadNotice = false }
+                    }
+                }
+            } header: {
+                Text("语音转写")
+            } footer: {
+                if settings.transcriptionMode == .cloudAPI {
+                    Text("API 云端转写会把录音音频上传到所选服务商进行识别(需该服务支持 OpenAI 兼容的 /audio/transcriptions,如 Whisper)。首次会弹窗征得同意。Apple 本地转写不上传音频。")
+                } else {
+                    Text("Apple 本地转写在设备上完成,不上传音频,可离线,隐私更好;但准确率可能不及云端。可切换为「API 云端转写」。")
+                }
+            }
+
+            Section {
                 Toggle("启用 iCloud 同步", isOn: $settings.iCloudSyncEnabled)
             } header: {
                 Text("同步与数据")
