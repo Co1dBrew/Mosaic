@@ -96,4 +96,6 @@ public enum KeychainAccount {
     public static func apiKey(for provider: AIProvider) -> String {
         "apiKey.\(provider.rawValue)"
     }
+    /// Optional separate key for a cloud STT provider (empty = reuse the chat key).
+    public static let sttAPIKey = "apiKey.stt"
 }

@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Environment(\.summaryService) private var summaryService
 
     @State private var apiKeyDraft = ""
+    @State private var sttKeyDraft = ""
     @State private var testState: TestState = .idle
 
     enum TestState: Equatable {
@@ -108,6 +109,10 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                    SecureField("STT API Key(留空复用上方 Key)", text: $sttKeyDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .onChange(of: sttKeyDraft) { _, newValue in settings.sttAPIKey = newValue }
                     if settings.hasAcceptedAudioUploadNotice {
                         Button("重置音频上传同意状态") { settings.hasAcceptedAudioUploadNotice = false }
                     }
@@ -149,7 +154,7 @@ struct SettingsView: View {
         }
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { apiKeyDraft = settings.currentAPIKey }
+        .onAppear { apiKeyDraft = settings.currentAPIKey; sttKeyDraft = settings.sttAPIKey }
         .onChange(of: settings.provider) { _, _ in
             apiKeyDraft = settings.currentAPIKey
             testState = .idle

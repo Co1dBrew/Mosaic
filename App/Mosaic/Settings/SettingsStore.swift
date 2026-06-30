@@ -118,10 +118,11 @@ final class SettingsStore {
     /// (unless overridden) base URL.
     func makeCloudTranscriptionConfig() -> Result<CloudTranscriptionConfig, TranscriptionError> {
         let base = sttBaseURLOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sttKey = sttAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         let config = CloudTranscriptionConfig(
             baseURL: base.isEmpty ? resolvedBaseURL : base,
             model: sttModel,
-            apiKey: currentAPIKey,
+            apiKey: sttKey.isEmpty ? currentAPIKey : sttKey,
             languageHint: transcriptionLanguage.apiLanguageHint
         )
         if let error = config.validationError { return .failure(error) }
@@ -141,6 +142,12 @@ final class SettingsStore {
 
     func setAPIKey(_ key: String, for provider: AIProvider) {
         try? keychain.setString(key, for: KeychainAccount.apiKey(for: provider))
+    }
+
+    /// Optional separate API key for cloud STT (empty = reuse the chat provider key).
+    var sttAPIKey: String {
+        get { keychain.string(for: KeychainAccount.sttAPIKey) ?? "" }
+        set { try? keychain.setString(newValue, for: KeychainAccount.sttAPIKey) }
     }
 
     var hasAPIKey: Bool {

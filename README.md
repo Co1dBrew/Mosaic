@@ -69,11 +69,16 @@ Transcription is switchable in **Settings → 语音转写**:
   audio never leaves the device**. Works offline. Privacy-friendly; accuracy
   depends on the on-device model.
 - **API 云端转写** — `URLSessionCloudTranscriber` uploads the recorded audio file
-  to an OpenAI-compatible `/audio/transcriptions` endpoint (e.g. Whisper) and
-  reuses the AI provider's API key / base URL (overridable). **This uploads the
-  audio to a third party**, so the app shows a one-time audio-upload consent
-  dialog before the first cloud transcription and refuses to upload without it.
-  "Test connection" never uploads user audio.
+  to an OpenAI-compatible `/audio/transcriptions` endpoint (e.g. Whisper). By
+  default it reuses the AI provider's API key / base URL, with optional **STT
+  Base URL** and **STT API Key** overrides so STT can use a *different* provider
+  than chat. **This uploads the audio to a third party**, so the app shows a
+  one-time audio-upload consent dialog before the first cloud transcription and
+  refuses to upload without it. "Test connection" never uploads user audio.
+  - Note: not every chat provider offers STT. **Moonshot/Kimi and DeepSeek do
+    NOT currently expose `/audio/transcriptions`** (verified: 404), so for cloud
+    STT point the STT Base URL/Key at an OpenAI-compatible Whisper service (e.g.
+    OpenAI `whisper-1`). A 404 surfaces as "服务商不支持语音转写".
 
 Language preference (自动 / 中文 / English) maps to the Apple locale
 (`zh-CN` / `en-US` / system) or the API `language` hint (`zh` / `en` / omitted).
