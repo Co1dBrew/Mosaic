@@ -71,7 +71,10 @@ final class SettingsStore {
         self.customBaseURL = storedBaseURL.isEmpty ? (resolvedProvider.defaultBaseURL ?? "") : storedBaseURL
         self.autoUpdateSummary = defaults.object(forKey: Keys.autoUpdate) as? Bool ?? true
         self.hasAcceptedAIPrivacyNotice = defaults.bool(forKey: Keys.privacyAccepted)
-        self.iCloudSyncEnabled = defaults.object(forKey: Keys.iCloudSync) as? Bool ?? true
+        // Default OFF: iCloud/CloudKit requires a paid Apple Developer account.
+        // The schema stays CloudKit-ready; enable this after adding the iCloud
+        // capability + entitlements (see Mosaic.entitlements).
+        self.iCloudSyncEnabled = defaults.object(forKey: Keys.iCloudSync) as? Bool ?? false
         self.visionEnabled = defaults.object(forKey: Keys.visionEnabled) as? Bool ?? resolvedProvider.defaultSupportsVision
         self.jsonModeEnabled = defaults.object(forKey: Keys.jsonMode) as? Bool ?? true
     }

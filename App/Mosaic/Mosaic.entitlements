@@ -1,20 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>com.apple.developer.icloud-container-identifiers</key>
-	<array>
-		<string>iCloud.com.mosaic.app</string>
-	</array>
-	<key>com.apple.developer.icloud-services</key>
-	<array>
-		<string>CloudKit</string>
-	</array>
-	<key>com.apple.developer.ubiquity-container-identifiers</key>
-	<array>
-		<string>iCloud.com.mosaic.app</string>
-	</array>
-	<key>aps-environment</key>
-	<string>development</string>
-</dict>
+<!--
+  Default build: NO special capabilities, so it signs with a free/personal
+  Apple team. CloudKit + Push require a PAID Apple Developer account.
+
+  To enable iCloud sync (paid account only): add the keys below, then in Xcode
+  add the iCloud (CloudKit) + Push Notifications capabilities and create the
+  container, and turn on "启用 iCloud 同步" in the app's Settings.
+
+  <key>com.apple.developer.icloud-container-identifiers</key>
+  <array><string>iCloud.com.your.bundleid</string></array>
+  <key>com.apple.developer.icloud-services</key>
+  <array><string>CloudKit</string></array>
+  <key>com.apple.developer.ubiquity-container-identifiers</key>
+  <array><string>iCloud.com.your.bundleid</string></array>
+  <key>aps-environment</key>
+  <string>development</string>
+-->
+<dict/>
 </plist>

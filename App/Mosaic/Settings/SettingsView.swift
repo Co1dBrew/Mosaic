@@ -94,7 +94,7 @@ struct SettingsView: View {
             } header: {
                 Text("同步与数据")
             } footer: {
-                Text("更改 iCloud 同步设置后,需要重启 App 才能生效。")
+                Text("iCloud 同步需要付费 Apple 开发者账号(并在工程中开启 iCloud/CloudKit 能力)。免费个人账号请保持关闭。更改后需重启 App 生效。")
             }
 
             Section {

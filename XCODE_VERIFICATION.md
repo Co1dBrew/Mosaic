@@ -31,16 +31,11 @@ open Mosaic.xcodeproj
 
 打开 **Target `Mosaic` → Signing & Capabilities**:
 
-1. **Team**:选择你的开发者账号 Team。
+1. **Team**:选择你的开发者账号 Team(免费个人账号即可)。
 2. **Bundle Identifier**:当前为 `com.mosaic.app`。请改成你自己的唯一反向域名,例如 `com.<yourname>.mosaic`。
-3. **CloudKit 容器(二选一)**:
-   - **A. 暂时不用 iCloud(最快跑起来,推荐先这样)**:
-     删除 `App/Mosaic/Mosaic.entitlements` 里的全部键(iCloud 容器、ubiquity、aps-environment),或在 Signing & Capabilities 里移除 **iCloud** 与 **Push Notifications** 能力。`ModelContainerFactory` 在无 CloudKit 时会自动回退到本地存储,App 仍可正常离线使用。
-   - **B. 启用 iCloud 同步**:
-     - 把 entitlements 里的容器标识 `iCloud.com.mosaic.app` 改成 `iCloud.<你的 bundle id>`(或你在账号里创建的容器)。
-     - 在 Signing & Capabilities 中添加 **iCloud → CloudKit**,勾选/创建该容器;并添加 **Push Notifications**(用于 CloudKit 订阅推送)。
-     - 真机需登录 iCloud 账号。
-4. **Background Modes**:Info.plist 已开启 `remote-notification`(供 CloudKit 推送)。不用 CloudKit 时可忽略。
+3. **CloudKit / Push:默认已关闭** —— `Mosaic.entitlements` 现为空,**不声明 iCloud / Push 能力**,因此**免费个人账号可直接签名运行**(`ModelContainerFactory` 使用本地存储,App 完整可离线使用)。
+   - **如需启用 iCloud 同步(仅限付费 Apple 开发者账号)**:按 `Mosaic.entitlements` 文件顶部注释把 iCloud/aps 键加回(容器改成 `iCloud.<你的 bundle id>`),在 Signing & Capabilities 添加 **iCloud → CloudKit** 与 **Push Notifications**,真机登录 iCloud,并在 App「设置」里打开「启用 iCloud 同步」。
+4. 改了 `Mosaic.entitlements` 后,**重新生成工程**:`cd App && xcodegen generate`(`.xcodeproj` 是生成物,不入库)。
 
 > ⚠️ 常见坑:如果 entitlements 引用了一个你账号里**不存在**的 CloudKit 容器,签名会失败。所以要么按 A 删除相关键,要么按 B 创建并对齐容器标识。
 
