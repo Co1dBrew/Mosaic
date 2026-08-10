@@ -51,7 +51,8 @@ enum ModelContainerFactory {
     /// - Never CloudKit-backed: embeddings are device-local, large, and cheap to
     ///   rebuild. Syncing them would spend the user's quota on regenerable bytes.
     static let derivedSchema = Schema([
-        EmbeddingRecordEntity.self
+        EmbeddingRecordEntity.self,
+        ImageTextExtractionEntity.self
     ])
 
     static func makeDerived(inMemory: Bool = false) -> ModelContainer {
