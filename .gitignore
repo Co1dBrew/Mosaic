@@ -20,3 +20,4 @@ App/Mosaic.xcodeproj/
 # Secrets / local config
 *.local
 Secrets.xcconfig
+design/

@@ -20,6 +20,8 @@ struct Checks {
         runExportChecks(r)
         await runClientChecks(r)
         await runTranscriptionChecks(r)
+        await RetrievalFoundationChecks.run(r)
+        await RetrievalWeek2Checks.run(r)
         await runLiveChecks(r)
 
         r.finish()

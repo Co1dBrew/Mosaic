@@ -40,4 +40,37 @@ enum ModelContainerFactory {
         let memory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try! ModelContainer(for: schema, configurations: [memory])
     }
+
+    // MARK: Derived retrieval data
+
+    /// Derived data lives in its **own schema and its own store file**, separate
+    /// from user notes.
+    ///
+    /// - "Delete all derived data" becomes "delete one file" and cannot touch a
+    ///   note, because notes are not in that file.
+    /// - Never CloudKit-backed: embeddings are device-local, large, and cheap to
+    ///   rebuild. Syncing them would spend the user's quota on regenerable bytes.
+    static let derivedSchema = Schema([
+        EmbeddingRecordEntity.self
+    ])
+
+    static func makeDerived(inMemory: Bool = false) -> ModelContainer {
+        if inMemory {
+            let config = ModelConfiguration(schema: derivedSchema, isStoredInMemoryOnly: true)
+            return try! ModelContainer(for: derivedSchema, configurations: [config])
+        }
+        let config = ModelConfiguration(
+            "MosaicDerived",
+            schema: derivedSchema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .none
+        )
+        if let container = try? ModelContainer(for: derivedSchema, configurations: [config]) {
+            return container
+        }
+        // Derived data is rebuildable, so an in-memory fallback loses nothing
+        // permanent — the next scan simply re-queues everything.
+        let memory = ModelConfiguration(schema: derivedSchema, isStoredInMemoryOnly: true)
+        return try! ModelContainer(for: derivedSchema, configurations: [memory])
+    }
 }

@@ -160,6 +160,9 @@ This project was built in an environment **without full Xcode** (Command Line To
 - **CloudKit requires setup**: a real iCloud container id (replace `iCloud.com.mosaic.app` in `App/Mosaic/Mosaic.entitlements`) and a signed-in iCloud account. The container falls back to a local store if CloudKit is unavailable, so the app still runs offline.
 - **Deployment target is iOS 17** (SwiftData / `@Observable` requirement), slightly above the PRD's suggested iOS 16 floor.
 
+## Figma URl
+https://www.figma.com/design/vUc6N3SJ01327qX27lFeug/Mosaic?m=auto&t=srI2bH5QHDjrubSL-6
+
 ## PRD coverage (MVP / P0)
 
 Folders (CRUD, color/icon, count, delete-confirm) · Cards (CRUD, sort by updatedAt, AI title fallback) · Block editor (text/image/audio/file/link, add/delete/reorder, autosave, offline) · On-device audio transcription · Image compression + vision · PDF text extraction · Link open/in-app browser · Collapsed bar + AI summary sticker (base + reverse-chron update logs) · Incremental update via block-level snapshot diff (base preserved) · Strict-JSON prompts + defensive parsing · Settings (Keychain key, test connection, auto-update toggle, privacy notice) · CloudKit-ready schema.
