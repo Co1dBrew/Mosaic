@@ -22,6 +22,7 @@ struct Checks {
         await runTranscriptionChecks(r)
         await RetrievalFoundationChecks.run(r)
         await RetrievalWeek2Checks.run(r)
+        await RetrievalWeek3Checks.run(r)
         await EmbeddingProviderChecks.run(r)
         EmbeddingProviderChecks.runCloud(r)
         await runLiveChecks(r)
