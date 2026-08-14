@@ -329,10 +329,20 @@ enum RetrievalWeek2Checks {
                  "a partially-current index is still worth searching")
 
         // Mapping onto the designed RetrievalCapability vocabulary.
-        r.expect(IndexState.ready.capability == "full", "ready → full")
-        r.expect(IndexState.building(progress: 0).capability == "indexBuilding", "building → indexBuilding")
-        r.expect(IndexState.failed(reason: "x").capability == "semanticUnavailable",
-                 "failed → semanticUnavailable")
+        func capability(_ state: IndexState, hasProvider: Bool = true) -> RetrievalCapability {
+            RetrievalCapability.derive(indexState: state, semanticProviderAvailable: hasProvider)
+        }
+        r.expect(capability(.ready) == .full, "ready → full")
+        r.expect(capability(.building(progress: 0)) == .indexBuilding, "building → indexBuilding")
+        r.expect(capability(.rebuilding(pending: 3)) == .indexRebuilding, "rebuilding → indexRebuilding")
+        r.expect(capability(.stale(pending: 3)) == .indexRebuilding,
+                 "stale → indexRebuilding（用户看到的是「正在更新」，不是两种状态）")
+        r.expect(capability(.failed(reason: "x")) == .semanticUnavailable, "failed → semanticUnavailable")
+        // 没有句向量模型时，索引再「就绪」也不是 full —— 空库上只看 IndexState 会说假话。
+        r.expect(capability(.ready, hasProvider: false) == .semanticUnavailable,
+                 "没有模型 → semanticUnavailable，哪怕索引无待办")
+        r.expect(RetrievalCapability.full.allowsSemantic, "只有 full 允许语义路")
+        r.expect(!RetrievalCapability.indexBuilding.allowsSemantic, "建立中不走语义路")
     }
 
     // MARK: 7 · End-to-end: edit → chunk → embed → store → search

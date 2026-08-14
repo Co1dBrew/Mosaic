@@ -49,16 +49,9 @@ public enum IndexState: Sendable, Equatable, Codable, CustomStringConvertible {
     /// the property is a constant so no future state can accidentally disable it.
     public var allowsKeywordRetrieval: Bool { true }
 
-    /// Projection onto the designed `RetrievalCapability`.
-    public var capability: String {
-        switch self {
-        case .ready: return "full"
-        case .building: return "indexBuilding"
-        case .rebuilding: return "indexRebuilding"
-        case .stale: return "indexRebuilding"
-        case .failed: return "semanticUnavailable"
-        }
-    }
+    // 用户侧投影见 `RetrievalCapability.derive(indexState:semanticProviderAvailable:)`。
+    // 这里**故意不提供** `capability` 属性：单看索引状态会在「本机根本没有句向量模型」
+    // 的空库上报出 `full`，那是一句假话。调用方必须一并回答 provider 在不在。
 }
 
 /// Derives index state from facts, rather than letting call sites set it.
