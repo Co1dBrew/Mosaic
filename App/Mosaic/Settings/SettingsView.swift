@@ -84,6 +84,32 @@ struct SettingsView: View {
                 Text("Key 仅安全保存在本机钥匙串(Keychain),不会明文落盘或上传我方服务器。调用费用由你的账户承担。")
             }
 
+            // 注：这一段的字段名刻意保留 Embedding 等英文原词 —— 用户是照着服务商
+            // 文档填参数，改成「智能搜索模型」反而对不上。§1.1.1 的禁用词表约束的是
+            // **搜索产品界面**的叙述性文案（本段的标题与说明已按它改写）。
+            Section {
+                TextField("Embedding 模型", text: $settings.embeddingModel, prompt: Text("text-embedding-3-small"))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                TextField("Embedding 维度", value: $settings.embeddingDimension, format: .number)
+                    .keyboardType(.numberPad)
+                TextField("Embedding Base URL（留空复用上方）",
+                          text: $settings.embeddingBaseURLOverride,
+                          prompt: Text(settings.resolvedBaseURL))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                Toggle("允许把笔记文字发送到云端以启用智能搜索",
+                       isOn: $settings.hasAcceptedCloudEmbeddingNotice)
+            } header: {
+                Text("智能搜索")
+            } footer: {
+                // §1.1.1 用户侧禁用词表：这里是用户可见的设置页，
+                // 不能出现「语义检索 / 向量 / embedding」。字段名保留英文是因为
+                // 它们是用户要照着服务商文档填的参数，不是产品概念。
+                Text("纯英文笔记优先使用本机模型(离线、不上传)。笔记含中文且本机没有可离线使用的中文模型时,需要打开上面的开关才会把笔记文字发送到你配置的第三方服务;开关关闭时只按关键词搜索,不会发送任何内容。Kimi / DeepSeek 若未提供 /v1/embeddings 接口,请把 Base URL 指到支持该接口的地址。")
+            }
+
             Section("摘要设置") {
                 Toggle("内容变更后自动追加更新总结", isOn: $settings.autoUpdateSummary)
                 Toggle("发送图片给 AI(视觉理解)", isOn: $settings.visionEnabled)
@@ -144,7 +170,7 @@ struct SettingsView: View {
             } header: {
                 Text("隐私")
             } footer: {
-                Text("首次生成总结前会弹窗告知:文字内容与图片会通过 HTTPS 发送到你选择的第三方 AI 服务;原始录音不会上传(改用本地转写文字)。")
+                Text("首次生成总结前会弹窗告知:文字内容与图片会通过 HTTPS 发送到你选择的第三方 AI 服务;原始录音不会上传(改用本地转写文字)。智能搜索默认只在本机进行;只有你在上方明确开启后,笔记文字才会发送到同一套服务。")
             }
 
             // D0 —— Developer Mode 入口（design/DEVTOOLS.md §1.1）。

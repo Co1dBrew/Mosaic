@@ -92,6 +92,32 @@ final class SettingsStore {
         didSet { defaults.set(hasAcceptedAudioUploadNotice, forKey: Keys.audioUploadAccepted) }
     }
 
+    // MARK: Cloud embedding（中文语义在 iOS 上的退路）
+
+    /// OpenAI 兼容 `/v1/embeddings` 的模型名。留空则云端路线不可用。
+    var embeddingModel: String {
+        didSet { defaults.set(embeddingModel, forKey: Keys.embeddingModel) }
+    }
+
+    /// 声明维度，必须与服务端返回一致。维度不符宁可不写进索引。
+    var embeddingDimension: Int {
+        didSet { defaults.set(embeddingDimension, forKey: Keys.embeddingDimension) }
+    }
+
+    /// 可选；空 = 复用上方 AI 服务商的 Base URL。
+    var embeddingBaseURLOverride: String {
+        didSet { defaults.set(embeddingBaseURLOverride, forKey: Keys.embeddingBaseURLOverride) }
+    }
+
+    /// 用户是否已明确同意「把笔记文字发到云端做智能搜索」。
+    ///
+    /// **与 `hasAcceptedAIPrivacyNotice` 分开**：摘要是用户主动点一次、发一篇；
+    /// 这里是启动后台自动跑、发**整库**。用较轻的授权去换较重的行为，
+    /// 是这类隐私事故最常见的形态。默认 false。
+    var hasAcceptedCloudEmbeddingNotice: Bool {
+        didSet { defaults.set(hasAcceptedCloudEmbeddingNotice, forKey: Keys.cloudEmbeddingAccepted) }
+    }
+
     init(defaults: UserDefaults = .standard, keychain: KeychainStoring = KeychainService()) {
         self.defaults = defaults
         self.keychain = keychain
@@ -118,6 +144,11 @@ final class SettingsStore {
         self.sttModel = defaults.string(forKey: Keys.sttModel) ?? "whisper-1"
         self.sttBaseURLOverride = defaults.string(forKey: Keys.sttBaseURLOverride) ?? ""
         self.hasAcceptedAudioUploadNotice = defaults.bool(forKey: Keys.audioUploadAccepted)
+
+        self.embeddingModel = defaults.string(forKey: Keys.embeddingModel) ?? "text-embedding-3-small"
+        self.embeddingDimension = defaults.object(forKey: Keys.embeddingDimension) as? Int ?? 1536
+        self.embeddingBaseURLOverride = defaults.string(forKey: Keys.embeddingBaseURLOverride) ?? ""
+        self.hasAcceptedCloudEmbeddingNotice = defaults.bool(forKey: Keys.cloudEmbeddingAccepted)
     }
 
     // MARK: Cloud transcription config
@@ -162,6 +193,35 @@ final class SettingsStore {
         !currentAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// 云端 embedding 是否具备最小配置（Key + 模型 + URL）。
+    /// 不在这里构造 provider —— 构造会把 Key 拷进内存里的请求对象。
+    var isCloudEmbeddingConfigured: Bool {
+        let key = currentAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model = embeddingModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = embeddingBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !key.isEmpty && !model.isEmpty && !base.isEmpty && embeddingDimension > 0
+    }
+
+    var embeddingBaseURL: String {
+        let override = embeddingBaseURLOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+        return override.isEmpty ? resolvedBaseURL : override
+    }
+
+    /// 构造云端 provider。**同意闸门在这里，不在调用方** ——
+    /// 放在调用方就意味着「每一个新调用点都要记得检查」，那种约定迟早会漏。
+    func makeCloudEmbeddingProvider() -> Result<any EmbeddingProvider, EmbeddingProviderError> {
+        guard isCloudEmbeddingConfigured else {
+            return .failure(.unavailable("未配置云端 embedding（需要 API Key、模型名和 Base URL）"))
+        }
+        guard hasAcceptedCloudEmbeddingNotice else {
+            return .failure(.unavailable("尚未同意把笔记文字发送到云端"))
+        }
+        return .success(CloudEmbeddingProvider(baseURL: embeddingBaseURL,
+                                               apiKey: currentAPIKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                                               model: embeddingModel.trimmingCharacters(in: .whitespacesAndNewlines),
+                                               dimension: embeddingDimension))
+    }
+
     // MARK: Resolved config
 
     /// The resolved base URL: the user's (possibly edited) value, falling back to
@@ -203,5 +263,9 @@ final class SettingsStore {
         static let sttModel = "settings.sttModel"
         static let sttBaseURLOverride = "settings.sttBaseURLOverride"
         static let audioUploadAccepted = "settings.hasAcceptedAudioUploadNotice"
+        static let embeddingModel = "settings.embeddingModel"
+        static let embeddingDimension = "settings.embeddingDimension"
+        static let embeddingBaseURLOverride = "settings.embeddingBaseURLOverride"
+        static let cloudEmbeddingAccepted = "settings.hasAcceptedCloudEmbeddingNotice"
     }
 }
