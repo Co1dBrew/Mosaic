@@ -1,8 +1,9 @@
 # Mosaic / 万象记 — 项目交接说明
 
 > 复制这份内容到新对话，即可让新窗口快速接手。
-> 最后更新：2026-08-10 · **Goal 1 Week 1–6 的可自动完成部分已全部完成**
+> 最后更新：2026-08-13 · **Goal 1 Week 1–6 的可自动完成部分已全部完成**
 > （Week 5 全部 · Week 6 实验与收口；剩余为真机 / 人工 / PRD 依赖项）
+> TD-9：**本机 App 已确认**没有中文句向量模型，语义检索不可用，关键词不受影响。
 
 ---
 
@@ -247,10 +248,10 @@ Figma      node test/all.js                ✅ 5 套件全绿（本轮未改）
            devtools node test/run.js       ✅ 6/6
 ```
 
-> ⚠️ **模拟器上 `Embedding Provider` 显示「不可用」**（实测 iPhone Air · iOS 26）：
-> `NLEmbedding.sentenceEmbedding(for: .simplifiedChinese)` 返回 nil；同样的代码在
-> macOS 上能拿到模型（Golden Set 实测就跑在它之上）。**真机是否有模型还没验过。**
-> 在此之前，模拟器上只有 keyword 路可评测。见 TD-9。
+> ⚠️ **本机没有中文句向量**（2026-08-13 确认，与 iOS 26 模拟器一致）。
+> 生产路线见 `EmbeddingRouter`：本机有中文模型 → 离线中文；笔记含中文且本机没有
+> → 云端 `/v1/embeddings`（设置里配模型）；纯英文 → 本机英文。未配置云端时，
+> 含中文的库语义关闭、关键词照常。见 TD-9。
 
 ---
 
@@ -365,7 +366,7 @@ OCR → DerivedWorkScanner.plan → AIJobCoordinator → provider.embed
 | **TD-6** | 向量索引仅在内存，启动时从 derived store 重建（20k chunks ≈ 30MB @ dim 384） | 开放 |
 | **TD-10** | **向量检索没有相关性下限**：按余弦取 Top K，再离谱的 query 也会拿回整个语料 → 语义可用时 `.noResults` 几乎不可达。**不能随手拍阈值** —— 余弦绝对值没有解释力，而 **TD-11 查明了原因：它被文本长度混淆**。要靠 Golden Set + 一组负例 query 校准 | 扩 Golden Set 时一并做 |
 | **TD-11** *(new)* | **`NLEmbedding` 余弦受文本长度支配**：拉长 16 倍余弦掉 0.0496，而相关/无关只差 0.0115（4.3 倍）。长笔记天然吃亏；TD-10 的阈值因此不能只看余弦 | 开放。`RetrievalWeek6Checks.checkCosineLengthBias` 钉住现象；换模型时重测 |
-| **TD-9** | **iOS 上没有中文句向量模型**。实测矩阵（iPhone Air · iOS 26 模拟器，`NLEmbeddingAvailabilityTests`）：`zh-Hans ❌ · zh-Hant ❌ · ja ❌ · en ✅ 512 维`；macOS 上 zh-Hans ✅ 640 维。**不拿英文模型顶替** —— 换语言就是换向量空间。**顺带后果**：生产配置是 hybrid，这类设备上根本无法验证它 → Gate 恒为 STALE（这是对的，不是 Gate 坏了） | **真机复测 —— 需要用户** |
+| **TD-9** | **iOS 上没有中文句向量模型**。模拟器矩阵：`zh-Hans ❌ · en ✅ 512 维`；macOS zh-Hans ✅。**2026-08-13 本机确认**。现已按语言分流：本机中文 → 离线；有中文无本机中文 → 云端 embedding；纯英文 → 本机英文。**不拿英文模型嵌中文笔记。** 云端未配置时含中文库 Gate 仍为 STALE | **已确认；云端退路已接线。** 用户需在设置填写支持 `/v1/embeddings` 的模型 |
 | — | ~~`NLEmbedding` 对**长文本**的稳定性未验证~~ | **已测（§18.2/18.3）**：长文用例在三种 chunk 策略下全败，根因是 TD-11 |
 | — | benchmark 是在 Mac 上用确定性向量测的，**iPhone 数字一定不同** | Week 6 真机复测 |
 
