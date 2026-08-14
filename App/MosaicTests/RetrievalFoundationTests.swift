@@ -122,12 +122,12 @@ final class RetrievalFoundationTests: XCTestCase {
         XCTAssertEqual(vector.count, 8)
 
         let decision = stack.store.commit(DerivedResult(key: key12, payload: vector),
-                                          chunkID: "c0",
+                                          chunkID: key12.chunkID,
                                           embeddingVersion: provider.modelInfo.version,
                                           noteContext: ctx)
         XCTAssertFalse(decision.isAccepted, "stale v12 result must not persist")
         XCTAssertEqual(decision.rejection, .contentChanged(expected: hash12, current: hash13))
-        XCTAssertNil(stack.store.record(for: anchor), "nothing written")
+        XCTAssertNil(stack.store.record(forChunk: key12.chunkID), "nothing written")
         XCTAssertEqual(stack.store.recordCount(), 0)
 
         // The v13 job then succeeds and becomes authoritative.
@@ -136,19 +136,19 @@ final class RetrievalFoundationTests: XCTestCase {
         let text13 = RetrievableText.extract(from: block.toContent())!.text
         let vector13 = try await provider.embed(text13)
         let accept = stack.store.commit(DerivedResult(key: key13, payload: vector13),
-                                        chunkID: "c1",
+                                        chunkID: key13.chunkID,
                                         embeddingVersion: provider.modelInfo.version,
                                         noteContext: ctx)
         XCTAssertTrue(accept.isAccepted)
-        XCTAssertEqual(stack.store.record(for: anchor)?.contentHash, hash13)
+        XCTAssertEqual(stack.store.record(forChunk: key13.chunkID)?.contentHash, hash13)
 
         // A late v12 result arriving after v13 landed must still be refused.
         let late = stack.store.commit(DerivedResult(key: key12, payload: vector),
-                                      chunkID: "c0",
+                                      chunkID: key12.chunkID,
                                       embeddingVersion: provider.modelInfo.version,
                                       noteContext: ctx)
         XCTAssertFalse(late.isAccepted, "late old result refused even after a good write")
-        XCTAssertEqual(stack.store.record(for: anchor)?.vector, vector13,
+        XCTAssertEqual(stack.store.record(forChunk: key13.chunkID)?.vector, vector13,
                        "v13 remains authoritative")
         XCTAssertEqual(stack.store.recordCount(), 1, "no duplicate rows")
     }
@@ -172,13 +172,13 @@ final class RetrievalFoundationTests: XCTestCase {
         var accepted = 0
         for key in keys {
             let vec = try await provider.embed(key.contentHash)
-            if stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: "c",
+            if stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: key.chunkID,
                                   embeddingVersion: version, noteContext: ctx).isAccepted {
                 accepted += 1
             }
         }
         XCTAssertEqual(accepted, 1, "only the result matching current content persists")
-        XCTAssertEqual(stack.store.record(for: anchor)?.contentHash, finalHash)
+        XCTAssertEqual(stack.store.record(forChunk: keys[0].chunkID)?.contentHash, finalHash)
         XCTAssertEqual(stack.store.recordCount(), 1)
     }
 
@@ -195,7 +195,7 @@ final class RetrievalFoundationTests: XCTestCase {
         let vec = try await provider.embed("内容")
         ctx.delete(block)
         try ctx.save()
-        let d1 = stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: "c",
+        let d1 = stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: key.chunkID,
                                     embeddingVersion: version, noteContext: ctx)
         XCTAssertEqual(d1.rejection, .blockDeleted)
 
@@ -206,7 +206,7 @@ final class RetrievalFoundationTests: XCTestCase {
         let vec2 = try await provider.embed("另一条")
         ctx.delete(card2)          // cascade deletes its blocks
         try ctx.save()
-        let d2 = stack.store.commit(DerivedResult(key: key2, payload: vec2), chunkID: "c",
+        let d2 = stack.store.commit(DerivedResult(key: key2, payload: vec2), chunkID: key2.chunkID,
                                     embeddingVersion: version, noteContext: ctx)
         XCTAssertEqual(d2.rejection, .noteDeleted)
 
@@ -215,7 +215,7 @@ final class RetrievalFoundationTests: XCTestCase {
         let key3 = EmbeddingJobKey(ref: ref(card3, block3), contentHash: hash(block3),
                                    embeddingVersion: "old-model")
         let vec3 = try await provider.embed("第三条")
-        let d3 = stack.store.commit(DerivedResult(key: key3, payload: vec3), chunkID: "c",
+        let d3 = stack.store.commit(DerivedResult(key: key3, payload: vec3), chunkID: key3.chunkID,
                                     embeddingVersion: version, noteContext: ctx)
         XCTAssertEqual(d3.rejection, .embeddingVersionChanged(expected: "old-model", current: version))
 
@@ -241,10 +241,11 @@ final class RetrievalFoundationTests: XCTestCase {
         try ctx.save()
         let noteID = card.id.uuidString
 
-        func plan() -> DerivedWorkPlan {
+        func plan(_ store: DerivedDataStore = stack.store) -> DerivedWorkPlan {
             DerivedWorkScanner.plan(noteID: noteID,
                                     blocks: card.blockContents(),
-                                    existingRecords: stack.store.existingRecords(noteID: noteID),
+                                    strategy: .block,
+                                    existingRecords: store.existingRecords(noteID: noteID),
                                     embeddingVersion: version)
         }
 
@@ -254,28 +255,30 @@ final class RetrievalFoundationTests: XCTestCase {
         // Complete two of three, then "crash".
         for item in plan().pending.prefix(2) {
             let vec = try await provider.embed(item.text)
-            stack.store.commit(DerivedResult(key: item.key, payload: vec), chunkID: item.key.blockID,
+            stack.store.commit(DerivedResult(key: item.key, payload: vec), chunkID: item.chunkID,
+                               chunkStrategy: ChunkStrategy.block.identity,
                                embeddingVersion: version, noteContext: ctx)
         }
 
         // Restart: brand-new store object over the same container, nothing in memory.
         let afterRestart = DerivedDataStore(container: stack.derived)
         let restartPlan = DerivedWorkScanner.plan(
-            noteID: noteID, blocks: card.blockContents(),
+            noteID: noteID, blocks: card.blockContents(), strategy: .block,
             existingRecords: afterRestart.existingRecords(noteID: noteID),
             embeddingVersion: version)
         XCTAssertEqual(restartPlan.pending.count, 1, "restart re-queues exactly the unfinished block")
         XCTAssertEqual(restartPlan.upToDate.count, 2)
-        XCTAssertTrue(restartPlan.orphans.isEmpty, "an interrupted job leaves no orphan")
+        XCTAssertTrue(restartPlan.orphanChunkIDs.isEmpty, "an interrupted job leaves no orphan")
 
         // Finish it; a further restart finds nothing to do (idempotent).
         for item in restartPlan.pending {
             let vec = try await provider.embed(item.text)
-            afterRestart.commit(DerivedResult(key: item.key, payload: vec), chunkID: item.key.blockID,
+            afterRestart.commit(DerivedResult(key: item.key, payload: vec), chunkID: item.chunkID,
+                                chunkStrategy: ChunkStrategy.block.identity,
                                 embeddingVersion: version, noteContext: ctx)
         }
         let settled = DerivedWorkScanner.plan(
-            noteID: noteID, blocks: card.blockContents(),
+            noteID: noteID, blocks: card.blockContents(), strategy: .block,
             existingRecords: afterRestart.existingRecords(noteID: noteID),
             embeddingVersion: version)
         XCTAssertFalse(settled.hasWork, "fully derived note reports no work — no stuck 'running' state")
@@ -286,11 +289,11 @@ final class RetrievalFoundationTests: XCTestCase {
         ctx.delete(victim)
         try ctx.save()
         let withOrphan = DerivedWorkScanner.plan(
-            noteID: noteID, blocks: card.blockContents(),
+            noteID: noteID, blocks: card.blockContents(), strategy: .block,
             existingRecords: afterRestart.existingRecords(noteID: noteID),
             embeddingVersion: version)
-        XCTAssertEqual(withOrphan.orphans.count, 1)
-        afterRestart.deleteRecords(for: withOrphan.orphans)
+        XCTAssertEqual(withOrphan.orphanChunkIDs.count, 1)
+        afterRestart.deleteChunks(withOrphan.orphanChunkIDs)
         XCTAssertEqual(afterRestart.recordCount(), 2, "orphan cleaned up")
     }
 
@@ -306,7 +309,7 @@ final class RetrievalFoundationTests: XCTestCase {
         let anchor = ref(card, block)
         let key = EmbeddingJobKey(ref: anchor, contentHash: hash(block), embeddingVersion: version)
         let vec = try await provider.embed("重要笔记内容")
-        XCTAssertTrue(stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: "c",
+        XCTAssertTrue(stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: key.chunkID,
                                          embeddingVersion: version, noteContext: ctx).isAccepted)
         XCTAssertEqual(stack.store.recordCount(), 1)
 
@@ -323,7 +326,7 @@ final class RetrievalFoundationTests: XCTestCase {
 
         // And it is fully rebuildable.
         let rebuilt = DerivedWorkScanner.plan(noteID: card.id.uuidString,
-                                              blocks: card.blockContents(),
+                                              blocks: card.blockContents(), strategy: .block,
                                               existingRecords: stack.store.existingRecords(noteID: card.id.uuidString),
                                               embeddingVersion: version)
         XCTAssertEqual(rebuilt.pending.count, 1, "wiped derived data is simply re-derived")
@@ -349,7 +352,7 @@ final class RetrievalFoundationTests: XCTestCase {
         try ctx.save()
         let noteID = card.id.uuidString
 
-        let plan = DerivedWorkScanner.plan(noteID: noteID, blocks: card.blockContents(),
+        let plan = DerivedWorkScanner.plan(noteID: noteID, blocks: card.blockContents(), strategy: .block,
                                            existingRecords: [:], embeddingVersion: version)
         XCTAssertEqual(plan.pending.count, 6)
 
@@ -362,7 +365,7 @@ final class RetrievalFoundationTests: XCTestCase {
         }
         for (key, task) in jobs {
             let vec = try await task.value
-            stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: key.blockID,
+            stack.store.commit(DerivedResult(key: key, payload: vec), chunkID: key.chunkID,
                                embeddingVersion: version, noteContext: ctx)
         }
 
@@ -371,7 +374,7 @@ final class RetrievalFoundationTests: XCTestCase {
         XCTAssertLessThanOrEqual(stats.peakConcurrent, 2, "concurrency limit honoured")
         XCTAssertEqual(stack.store.recordCount(), 6, "one record per block")
 
-        let settled = DerivedWorkScanner.plan(noteID: noteID, blocks: card.blockContents(),
+        let settled = DerivedWorkScanner.plan(noteID: noteID, blocks: card.blockContents(), strategy: .block,
                                               existingRecords: stack.store.existingRecords(noteID: noteID),
                                               embeddingVersion: version)
         XCTAssertFalse(settled.hasWork, "pipeline reached a settled state")

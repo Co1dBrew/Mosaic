@@ -7,6 +7,7 @@ struct CardListView: View {
     let folder: Folder
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(RetrievalEnvironment.self) private var retrieval: RetrievalEnvironment?
     @State private var selectedCard: Card?
     @State private var expandedCardIDs: Set<UUID> = []
     @State private var cardToDelete: Card?
@@ -135,9 +136,14 @@ struct CardListView: View {
     }
 
     private func delete(_ card: Card) {
+        let noteID = card.id.uuidString
         for block in card.blocks ?? [] { MediaStore.shared.deleteMedia(for: block) }
         modelContext.delete(card)
         folder.touch()
         try? modelContext.save()
+        // derived 数据必须跟着笔记走 —— 留下来的向量会让搜索命中一篇已经不存在的笔记。
+        if let retrieval {
+            Task { await retrieval.indexing.noteWasDeleted(noteID) }
+        }
     }
 }

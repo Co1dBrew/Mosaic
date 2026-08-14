@@ -43,6 +43,13 @@ final class SettingsStore {
         didSet { defaults.set(hasAcceptedAIPrivacyNotice, forKey: Keys.privacyAccepted) }
     }
 
+    /// Developer Mode。**默认 OFF** —— 首次安装 / TestFlight / App Store 一律关闭
+    /// （`design/DEVTOOLS.md` §1.2）。关闭时「开发者工具」整行不出现，而不是置灰：
+    /// 置灰会让普通用户去猜它是什么，反而制造好奇。
+    var developerModeEnabled: Bool {
+        didSet { defaults.set(developerModeEnabled, forKey: Keys.developerMode) }
+    }
+
     var iCloudSyncEnabled: Bool {
         didSet { defaults.set(iCloudSyncEnabled, forKey: Keys.iCloudSync) }
     }
@@ -102,6 +109,7 @@ final class SettingsStore {
         // The schema stays CloudKit-ready; enable this after adding the iCloud
         // capability + entitlements (see Mosaic.entitlements).
         self.iCloudSyncEnabled = defaults.object(forKey: Keys.iCloudSync) as? Bool ?? false
+        self.developerModeEnabled = defaults.object(forKey: Keys.developerMode) as? Bool ?? false
         self.visionEnabled = defaults.object(forKey: Keys.visionEnabled) as? Bool ?? resolvedProvider.defaultSupportsVision
         self.jsonModeEnabled = defaults.object(forKey: Keys.jsonMode) as? Bool ?? true
 
@@ -187,6 +195,7 @@ final class SettingsStore {
         static let autoUpdate = "settings.autoUpdateSummary"
         static let privacyAccepted = "settings.hasAcceptedAIPrivacyNotice"
         static let iCloudSync = "settings.iCloudSyncEnabled"
+        static let developerMode = "settings.developerModeEnabled"
         static let visionEnabled = "settings.visionEnabled"
         static let jsonMode = "settings.jsonModeEnabled"
         static let transcriptionMode = "settings.transcriptionMode"

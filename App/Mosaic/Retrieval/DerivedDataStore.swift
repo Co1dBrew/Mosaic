@@ -182,6 +182,13 @@ final class DerivedDataStore {
         ((try? context.fetch(FetchDescriptor<EmbeddingRecordEntity>())) ?? []).map { $0.toValue() }
     }
 
+    /// Every chunk id stored for one note — what a note deletion has to clean up.
+    func chunkIDs(noteID: String) -> [String] {
+        var fetch = FetchDescriptor<EmbeddingRecordEntity>(predicate: #Predicate { $0.noteID == noteID })
+        fetch.fetchLimit = 50_000
+        return ((try? context.fetch(fetch)) ?? []).map(\.chunkID)
+    }
+
     // MARK: Embedding mutations
 
     func deleteChunks(_ chunkIDs: [String]) {
@@ -248,6 +255,15 @@ final class DerivedDataStore {
                                                      engineIdentifier: engineIdentifier,
                                                      extractedAt: extraction.extractedAt))
         }
+        try? context.save()
+    }
+
+    /// Drops one note's OCR. Called when the note is deleted — OCR is keyed by
+    /// block hash, so an orphaned row would never be invalidated by content change.
+    func deleteOCR(noteID: String) {
+        var fetch = FetchDescriptor<ImageTextExtractionEntity>(predicate: #Predicate { $0.noteID == noteID })
+        fetch.fetchLimit = 10_000
+        for e in (try? context.fetch(fetch)) ?? [] { context.delete(e) }
         try? context.save()
     }
 

@@ -8,11 +8,16 @@ import MosaicKit
 /// reorder, autosave, offline editing, and auto-update-summary on exit.
 struct CardEditorView: View {
     @Bindable var card: Card
+    /// 从搜索结果进来时的落点（`SEARCH_CONTRACT.md` §3 · backlog 5.10）。
+    /// 平时进入编辑器是 `nil` —— 那时既不滚动也不高亮。
+    var landing: SearchAnchor?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.summaryService) private var summaryService
     @Environment(\.transcriptionService) private var transcriptionService
     @Environment(SettingsStore.self) private var settings
+    /// 可选：Preview / 测试里没有注入检索栈。索引缺席不该让编辑器崩。
+    @Environment(RetrievalEnvironment.self) private var retrieval: RetrievalEnvironment?
 
     @State private var player = AudioPlayerService()
 
@@ -32,8 +37,27 @@ struct CardEditorView: View {
     @State private var autosaveTask: Task<Void, Never>?
     @State private var shareItems: [Any] = []
     @State private var showShare = false
+    @State private var landingController = SearchLandingController()
+    /// 落点 block 的高度与可视区高度 —— `SearchLanding.scrollTarget` 用它们决定
+    /// 居中还是顶部对齐。测不到时退化为居中，而不是不滚。
+    @State private var landingBlockHeight: CGFloat = 0
+    @State private var viewportHeight: CGFloat = 0
 
     var body: some View {
+        GeometryReader { geo in
+            editorList
+                .onAppear { viewportHeight = geo.size.height }
+                .onChange(of: geo.size.height) { _, new in viewportHeight = new }
+        }
+    }
+
+    private var editorList: some View {
+        ScrollViewReader { proxy in
+            listContent(proxy: proxy)
+        }
+    }
+
+    private func listContent(proxy: ScrollViewProxy) -> some View {
         List {
             Section {
                 TextField("标题(可留空,由 AI 生成)", text: $card.userTitle)
@@ -55,6 +79,11 @@ struct CardEditorView: View {
                     ForEach(card.orderedBlocks) { block in
                         blockRow(block)
                             .listRowSeparator(.hidden)
+                            // IG-3：稳定唯一 id 是 Result → Note 的硬前置。
+                            .id(block.id.uuidString)
+                            .landingHighlight(isActive: landingController.isHighlighted(block.id.uuidString),
+                                              opacity: landingController.highlightOpacity)
+                            .background(landingMeasurement(for: block))
                     }
                     .onMove(perform: moveBlocks)
                     .onDelete(perform: deleteBlocks)
@@ -119,7 +148,44 @@ struct CardEditorView: View {
         .sheet(isPresented: $showShare) {
             ShareSheet(items: shareItems)
         }
+        // §3.3「可中断」：用户滚动 / 点击 → 立即淡出。`simultaneousGesture` 才不会
+        // 抢掉块内部的按钮与文本选择 —— 高亮是提示，不能因此吃掉一次交互。
+        .simultaneousGesture(DragGesture(minimumDistance: 4).onChanged { _ in
+            landingController.interrupt()
+        })
+        .simultaneousGesture(TapGesture().onEnded { landingController.interrupt() })
+        .onAppear { performLanding(proxy: proxy) }
         .onDisappear(perform: handleExit)
+    }
+
+    // MARK: 落点（backlog 5.10）
+
+    /// 只在落点 block 上挂 `GeometryReader` —— 给每一行都挂等于在编辑器的滚动路径上
+    /// 常驻一堆几何读取，而这里只需要一个高度。
+    @ViewBuilder
+    private func landingMeasurement(for block: Block) -> some View {
+        if landing?.blockID == block.id.uuidString {
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { landingBlockHeight = geo.size.height }
+                    .onChange(of: geo.size.height) { _, new in landingBlockHeight = new }
+            }
+        }
+    }
+
+    private func performLanding(proxy: ScrollViewProxy) {
+        guard let landing else { return }
+        let existing = Set(card.orderedBlocks.map { $0.id.uuidString })
+        landingController.land(anchor: landing, existingBlockIDs: existing) { blockID in
+            // **无动画**：在 push 转场之前 / 之中完成定位，笔记页出现时已经停在目标位置。
+            switch SearchLanding.scrollTarget(blockHeight: Double(landingBlockHeight),
+                                              viewportHeight: Double(viewportHeight)) {
+            case .center:
+                proxy.scrollTo(blockID, anchor: .center)
+            case let .top(unitY):
+                proxy.scrollTo(blockID, anchor: UnitPoint(x: 0.5, y: unitY))
+            }
+        }
     }
 
     private var shareMenu: some View {
@@ -158,6 +224,8 @@ struct CardEditorView: View {
                 player: player,
                 isTranscribing: transcribingBlockIDs.contains(block.id),
                 transcriptionError: transcriptionErrors[block.id],
+                // 转写命中要先展开再滚动（§3.2）—— 折叠状态下滚过去只能看到一个播放条。
+                expandsTranscript: landingController.expandsTranscript(block.id.uuidString),
                 onEdit: scheduleAutosave,
                 onRetranscribe: { transcribe(block) }
             )
@@ -317,6 +385,8 @@ struct CardEditorView: View {
     // MARK: Persistence / exit
 
     private func scheduleAutosave() {
+        // 开始编辑同样打断高亮（§3.3「可中断」）。
+        landingController.interrupt()
         autosaveTask?.cancel()
         autosaveTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 800_000_000)
@@ -328,6 +398,9 @@ struct CardEditorView: View {
     private func commitNow() {
         card.touch()
         try? modelContext.save()
+        // 保存之后才通知索引 —— 索引读的是 SwiftData 里的权威内容，先通知会扫到旧值。
+        // 服务自己会合并 + 防抖：自动保存在一次输入里会触发很多次。
+        retrieval?.indexing.noteDidChange(card.id.uuidString)
     }
 
     /// On leaving the editor: flush autosave and auto-generate an update summary

@@ -147,6 +147,19 @@ struct SettingsView: View {
                 Text("首次生成总结前会弹窗告知:文字内容与图片会通过 HTTPS 发送到你选择的第三方 AI 服务;原始录音不会上传(改用本地转写文字)。")
             }
 
+            // D0 —— Developer Mode 入口（design/DEVTOOLS.md §1.1）。
+            // 默认 OFF；关闭时「开发者工具」整行不出现，而不是置灰。
+            Section {
+                Toggle("开发者模式", isOn: $settings.developerModeEnabled)
+                if settings.developerModeEnabled {
+                    NavigationLink("开发者工具") { DeveloperModeView() }
+                }
+            } header: {
+                Text("开发者")
+            } footer: {
+                Text("仅供开发与评测使用。开启后可进入 Retrieval Lab / Trace。")
+            }
+
             Section("关于") {
                 LabeledContent("应用", value: "万象记 Mosaic")
                 LabeledContent("版本", value: appVersion)

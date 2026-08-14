@@ -7,6 +7,9 @@ struct AudioBlockView: View {
     let player: AudioPlayerService
     let isTranscribing: Bool
     var transcriptionError: String? = nil
+    /// 从搜索的转写命中进来时由落点控制器置为 true（`SEARCH_CONTRACT.md` §3.2）。
+    /// **只展开，不折叠** —— 用户展开过之后不该因为这个标志复位而被合上。
+    var expandsTranscript: Bool = false
     let onEdit: () -> Void
     let onRetranscribe: () -> Void
 
@@ -95,6 +98,8 @@ struct AudioBlockView: View {
         .padding(AppSpacing.md)
         .background(Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
+        .onAppear { if expandsTranscript { showTranscript = true } }
+        .onChange(of: expandsTranscript) { _, expand in if expand { showTranscript = true } }
     }
 }
 
