@@ -23,6 +23,8 @@ struct Checks {
         await RetrievalFoundationChecks.run(r)
         await RetrievalWeek2Checks.run(r)
         await RetrievalWeek3Checks.run(r)
+        await RetrievalWeek5Checks.run(r)
+        await RetrievalWeek6Checks.run(r)
         await EmbeddingProviderChecks.run(r)
         EmbeddingProviderChecks.runCloud(r)
         await EvalChecks.run(r)
