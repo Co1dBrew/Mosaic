@@ -139,19 +139,15 @@ enum RetrievalFoundationChecks {
         do { _ = try await mock.embed("   "); r.expect(false, "empty input should throw") }
         catch { r.expect(true, "empty input rejected") }
 
-        // Replaceability: the pipeline talks to the protocol, so swapping in a
-        // provider that is not implemented yet fails loudly at the seam.
-        let providers: [any EmbeddingProvider] = [
-            MockEmbeddingProvider(), LocalEmbeddingProvider(), CloudEmbeddingProvider()
-        ]
-        r.expect(providers.count == 3, "three conformers compile against one protocol")
-        do {
-            _ = try await providers[1].embed("x")
-            r.expect(false, "LocalEmbeddingProvider should报 unavailable")
-        } catch let e as EmbeddingProviderError {
-            if case .unavailable = e { r.expect(true, "unimplemented provider fails loudly, not silently") }
-            else { r.expect(false, "wrong error kind") }
-        } catch { r.expect(false, "wrong error type") }
+        // 可替换性：管线只依赖协议。三个实现（mock / 本地 NLEmbedding / 云端）
+        // 编译于同一个协议之下 —— 这正是 TD-5 能被一个文件关闭的原因。
+        var providers: [any EmbeddingProvider] = [MockEmbeddingProvider()]
+        if let local = try? LocalEmbedding.make() { providers.append(local) }
+        providers.append(CloudEmbeddingProvider(baseURL: "https://x.test/v1", apiKey: "k",
+                                                model: "text-embedding-3-small", dimension: 1536))
+        r.expect(providers.count >= 2, "多个实现共用一个协议（\(providers.count) 个）")
+        r.expect(Set(providers.map { $0.modelInfo.version }).count == providers.count,
+                 "每个 provider 的 version 互不相同 —— 换 provider 必须让索引失效")
 
         // Version identity flows into the job key.
         let k = EmbeddingJobKey(noteID: "N", blockID: "B", contentHash: "h", embeddingVersion: mock.modelInfo.version)

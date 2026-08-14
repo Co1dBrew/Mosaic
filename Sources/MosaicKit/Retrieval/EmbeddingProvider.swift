@@ -122,26 +122,123 @@ public struct MockEmbeddingProvider: EmbeddingProvider {
 
 // MARK: - Future conformers (seams, not implementations)
 
-/// On-device embedding. **Week 2.** Present so the replaceability seam is real and
-/// compiled, not so it can be used — every call fails loudly rather than returning
-/// a plausible-looking wrong vector.
-public struct LocalEmbeddingProvider: EmbeddingProvider {
-    public let modelInfo: EmbeddingModelInfo
-    public init(modelInfo: EmbeddingModelInfo = .init(identifier: "local-unconfigured", dimension: 0, version: "local-v0")) {
-        self.modelInfo = modelInfo
-    }
-    public func embed(_ text: String) async throws -> [Float] {
-        throw EmbeddingProviderError.unavailable("LocalEmbeddingProvider is not implemented until Week 2")
+/// 本地 embedding 的解析入口。
+///
+/// TD-5 已在 Week 3 后关闭：真实实现是 `NLEmbeddingProvider`（Apple
+/// `NaturalLanguage`，中文 640 维，完全离线）。这里只负责「拿一个能用的本地
+/// provider」，拿不到就明确失败，而不是退回 mock —— 静默退回 mock 会让评测数字
+/// 看起来正常但毫无意义。
+public enum LocalEmbedding {
+    public static func make(language: NLEmbeddingProvider.Language = .simplifiedChinese) throws -> any EmbeddingProvider {
+        guard let provider = NLEmbeddingProvider(language: language) else {
+            throw EmbeddingProviderError.unavailable("系统未提供 \(language.rawValue) 句向量模型")
+        }
+        return provider
     }
 }
 
-/// Cloud embedding. **Week 2.** Same reasoning as `LocalEmbeddingProvider`.
+/// # 云端 embedding —— OpenAI 兼容 `/v1/embeddings`
+///
+/// 存在的意义不是「云端更强」，而是 Week 6 要做的 **Local vs Cloud 对比实验**
+/// 需要一个真实的对照组：质量 / 延迟 / 成本三项，拿数据说话。
+///
+/// 复用既有的 `ProviderConfig`（baseURL / apiKey 与摘要功能同一套配置），
+/// 所以不引入第二套凭据管理。
+///
+/// **维度由服务端决定**，构造时必须显式声明并与实际返回校验 —— 维度不符意味着
+/// 索引里会混进不可比的向量，宁可失败也不能写进去。
 public struct CloudEmbeddingProvider: EmbeddingProvider {
     public let modelInfo: EmbeddingModelInfo
-    public init(modelInfo: EmbeddingModelInfo = .init(identifier: "cloud-unconfigured", dimension: 0, version: "cloud-v0")) {
-        self.modelInfo = modelInfo
+    private let baseURL: String
+    private let apiKey: String
+    private let session: URLSession
+
+    public init(baseURL: String, apiKey: String, model: String, dimension: Int,
+                session: URLSession = .shared) {
+        self.baseURL = baseURL
+        self.apiKey = apiKey
+        self.session = session
+        self.modelInfo = EmbeddingModelInfo(identifier: "cloud-\(model)",
+                                            dimension: dimension,
+                                            version: "cloud-\(model)-d\(dimension)")
     }
+
     public func embed(_ text: String) async throws -> [Float] {
-        throw EmbeddingProviderError.unavailable("CloudEmbeddingProvider is not implemented until Week 2")
+        try await embed(batch: [text]).first ?? []
+    }
+
+    /// 真正的批量请求 —— 云端按请求计费，逐条发送会把成本乘以条数。
+    public func embed(batch texts: [String]) async throws -> [[Float]] {
+        let cleaned = texts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard !cleaned.isEmpty, cleaned.allSatisfy({ !$0.isEmpty }) else {
+            throw EmbeddingProviderError.invalidInput("empty text in batch")
+        }
+        let request = try Self.makeRequest(baseURL: baseURL, apiKey: apiKey,
+                                           model: modelInfo.identifier
+                                               .replacingOccurrences(of: "cloud-", with: ""),
+                                           inputs: cleaned)
+        let (data, response) = try await runTransport(request)
+        guard let http = response as? HTTPURLResponse else {
+            throw EmbeddingProviderError.transport("no HTTP response")
+        }
+        try Self.mapStatus(http.statusCode, body: data)
+        let vectors = try Self.parse(data, expectedCount: cleaned.count, dimension: modelInfo.dimension)
+        return vectors.map { VectorMath.normalize($0) }
+    }
+
+    private func runTransport(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do { return try await session.data(for: request) }
+        catch { throw EmbeddingProviderError.transport(error.localizedDescription) }
+    }
+
+    // MARK: 可单测的纯函数部分
+
+    public static func makeRequest(baseURL: String, apiKey: String,
+                                   model: String, inputs: [String]) throws -> URLRequest {
+        let trimmed = baseURL.trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: trimmed + "/embeddings") else {
+            throw EmbeddingProviderError.rejected("invalid baseURL: \(baseURL)")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let body: [String: Any] = ["model": model, "input": inputs]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    /// 状态码 → 错误类型。**可重试与不可重试必须分开**，否则 401 会被无谓地重试三次。
+    public static func mapStatus(_ code: Int, body: Data) throws {
+        switch code {
+        case 200...299: return
+        case 429: throw EmbeddingProviderError.rateLimited
+        case 401, 403: throw EmbeddingProviderError.rejected("认证失败（\(code)）")
+        case 400...499: throw EmbeddingProviderError.rejected("请求被拒绝（\(code)）")
+        default: throw EmbeddingProviderError.transport("服务端错误（\(code)）")
+        }
+    }
+
+    /// 解析 OpenAI 兼容响应，并**按 `index` 重排** —— 服务端不保证返回顺序，
+    /// 顺序错乱会让向量与文本对不上，而且完全静默。
+    public static func parse(_ data: Data, expectedCount: Int, dimension: Int) throws -> [[Float]] {
+        struct Response: Decodable {
+            struct Item: Decodable { let index: Int; let embedding: [Double] }
+            let data: [Item]
+        }
+        guard let decoded = try? JSONDecoder().decode(Response.self, from: data) else {
+            throw EmbeddingProviderError.rejected("响应无法解析")
+        }
+        guard decoded.data.count == expectedCount else {
+            throw EmbeddingProviderError.rejected(
+                "返回条数不符：期望 \(expectedCount)，得到 \(decoded.data.count)")
+        }
+        let ordered = decoded.data.sorted { $0.index < $1.index }
+        for item in ordered where item.embedding.count != dimension {
+            throw EmbeddingProviderError.rejected(
+                "维度不符：期望 \(dimension)，得到 \(item.embedding.count)")
+        }
+        return ordered.map { $0.embedding.map(Float.init) }
     }
 }
