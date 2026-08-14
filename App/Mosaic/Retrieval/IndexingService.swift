@@ -48,7 +48,8 @@ final class IndexingService {
     /// 上一次失败原因（provider 不可用 / 嵌入报错）。静默失败会让索引看起来是空的。
     private(set) var lastError: String?
 
-    private let provider: (any EmbeddingProvider)?
+    /// 当前这条索引在用的 provider。换 provider = 换向量空间，必须重建。
+    private(set) var provider: (any EmbeddingProvider)?
     private let vectors: InMemoryVectorStore
     private let derived: DerivedDataStore
     private let extractor: (any ImageTextExtractor)?
@@ -96,8 +97,42 @@ final class IndexingService {
     /// 把 derived store 里的向量灌进内存索引。索引没有构建步骤，
     /// 所以它不可能相对来源过期（`RETRIEVAL_ARCHITECTURE.md` §9.6）。
     func loadPersistedIndex() async {
-        await vectors.upsert(derived.allRecords())
+        // 只灌回**当前** embedding 版本的记录。换过 provider 的旧向量
+        // 维度不同，留在内存里会污染检索。
+        let version = embeddingVersion
+        let matching = derived.allRecords().filter { $0.embeddingVersion == version }
+        await vectors.removeAll()
+        await vectors.upsert(matching)
         indexedChunks = await vectors.count()
+    }
+
+    /// 只换引用，不重建。启动时在 `loadPersistedIndex` 之前调用。
+    func adoptProvider(_ new: (any EmbeddingProvider)?, unavailableReason: String? = nil) {
+        provider = new
+        if provider == nil {
+            lastError = unavailableReason ?? lastError
+        } else if lastError?.contains("中文") == true || lastError?.contains("句向量") == true {
+            lastError = nil
+        }
+    }
+
+    /// 换 embedding 路线（中文云端 / 英文本地）。版本没变则只刷新状态。
+    func applyProvider(_ new: (any EmbeddingProvider)?, unavailableReason: String? = nil) async {
+        let changed = new?.modelInfo.version != provider?.modelInfo.version
+        adoptProvider(new, unavailableReason: unavailableReason)
+        guard changed else { await refreshState(); return }
+        scanned.removeAll()
+        await vectors.removeAll()
+        await indexAll()
+    }
+
+    func fetchCards() -> [Card] {
+        allCards()
+    }
+
+    /// 单篇查找。编辑路径上的路线判定只看被改的那一篇，不扫全库。
+    func card(withID id: String) -> Card? {
+        card(id: id)
     }
 
     /// Promote 之后换用新的生产配置（backlog 5.4）。
@@ -272,7 +307,7 @@ final class IndexingService {
                                          runningJobs: await coordinator.inFlightCount,
                                          hasEmbeddings: indexedChunks > 0,
                                          failure: provider == nil
-                                             ? "本机没有可用的本地句向量模型"
+                                             ? (lastError ?? "语义检索不可用；关键词搜索不受影响")
                                              : lastError)
     }
 

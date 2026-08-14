@@ -143,7 +143,7 @@ struct CardListView: View {
         try? modelContext.save()
         // derived 数据必须跟着笔记走 —— 留下来的向量会让搜索命中一篇已经不存在的笔记。
         if let retrieval {
-            Task { await retrieval.indexing.noteWasDeleted(noteID) }
+            Task { await retrieval.noteWasDeleted(noteID) }
         }
     }
 }

@@ -25,10 +25,12 @@ final class NLEmbeddingAvailabilityTests: XCTestCase {
         }
         print("NLEmbedding available on this platform: \(available)")
 
-        // 实测记录（2026-08-10）：
-        //   macOS 26          zh-Hans ✅ 640 维
+        // 实测记录：
+        //   macOS 26          zh-Hans ✅ 640 维（2026-08-10）
         //   iOS 26 模拟器      zh-Hans ❌ / zh-Hant ❌ / ja ❌ / **en ✅ 512 维**
-        // 真机尚未验证（Week 6 真机复测）。所以这里不断言「中文一定可用」——
+        //   本机 App           2026-08-13 Developer Mode：Provider「不可用」，
+        //                     语义关闭、关键词不受影响（与模拟器一致）
+        // 所以这里不断言「中文一定可用」——
         // 断言一个平台事实会让用例在另一个平台上无谓地红。
         XCTAssertFalse(available.isEmpty, "一门语言的句向量都没有的话，语义检索在这个平台上根本不成立")
     }

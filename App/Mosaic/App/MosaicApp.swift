@@ -23,10 +23,9 @@ struct MosaicApp: App {
         // （RETRIEVAL_ARCHITECTURE.md §2）。
         let derived = ModelContainerFactory.makeDerived()
         _derivedContainer = State(initialValue: derived)
-        // 真实本地 embedding（Apple NaturalLanguage，zh-Hans 640 维，完全离线）。
-        // 拿不到时**不退回 mock** —— 静默退回会让评测数字看起来正常但毫无意义。
-        // 宁可让 Developer Mode 明确显示 provider 不可用。
-        let embedding: (any EmbeddingProvider)? = try? LocalEmbedding.make()
+        // Provider 在启动扫描笔记之后才选定（中文 → 云端 / 纯英文 → 本机英文）。
+        // 这里先空着，不默认中文本地模型 —— iOS 上那个模型不存在，预先失败会
+        // 让纯英文库也用不上本机英文。
         let vectors = InMemoryVectorStore()
         let derivedStore = DerivedDataStore(container: derived)
         // 生产配置从注册表来，不是 `RetrievalConfig.production` 这个常量（backlog 5.1）——
@@ -35,19 +34,20 @@ struct MosaicApp: App {
         // TD-8：索引服务。在它之前 derived store 只有测试在写，真机上索引永远是空的。
         // 它读的是 `container.mainContext` —— 与视图拿到的 `\.modelContext` 同一个上下文，
         // 所以 StaleGuard 校验读到的就是权威内容（RETRIEVAL_ARCHITECTURE.md §5）。
-        let indexing = IndexingService(provider: embedding,
+        let indexing = IndexingService(provider: nil,
                                        vectors: vectors,
                                        derived: derivedStore,
                                        noteContext: notes.mainContext,
                                        extractor: VisionImageTextExtractor(),
                                        config: release.productionConfig)
         _retrieval = State(initialValue: RetrievalEnvironment(
-            provider: embedding,
+            provider: nil,
             vectors: vectors,
             recorder: RetrievalTraceRecorder(),
             derived: derivedStore,
             indexing: indexing,
-            release: release
+            release: release,
+            settings: settings
         ))
     }
 

@@ -81,10 +81,24 @@ final class SearchViewModel {
         self.semanticDebounceNanos = semanticDebounceNanos
     }
 
+    /// 跟索引走，不抓 init 时那份 —— 中文入库后路线可能从本机英文切到云端。
+    private var liveProvider: (any EmbeddingProvider)? {
+        indexing?.provider ?? provider
+    }
+
     /// 索引口径必须与 `IndexingService` 一致 —— 用另一套 chunk 策略去查同一个索引，
     /// vector 命中的 chunkID 在当前语料里找不到，会被静默丢弃。
     private var indexedStrategy: ChunkStrategy {
         indexing?.config.chunkStrategy ?? RetrievalConfig.production.chunkStrategy
+    }
+
+    private var liveRoute: EmbeddingRoute {
+        if let version = liveProvider?.modelInfo.version {
+            if version.contains("zh-Hans") { return .localChinese }
+            if version.contains("nl-en") { return .localEnglish }
+            if version.hasPrefix("cloud-") { return .cloud }
+        }
+        return .unavailable("语义检索不可用")
     }
 
     // MARK: 输入
@@ -116,7 +130,9 @@ final class SearchViewModel {
         }
 
         // 慢通道：长度门控 + 更长的防抖 + capability 允许。
-        guard SemanticGate.shouldRunSemantic(query: query) else { return }
+        // 本机英文索引上的中文 query 不能拿去嵌（换语言 = 换空间）。
+        guard SemanticGate.shouldRunSemantic(query: query),
+              !EmbeddingRouter.shouldSkipSemantic(query: query, route: liveRoute) else { return }
         semanticTask = Task { @MainActor [weak self, semanticDebounceNanos] in
             try? await Task.sleep(nanoseconds: semanticDebounceNanos)
             guard let self, !Task.isCancelled, currentQuery == query else { return }
@@ -138,13 +154,17 @@ final class SearchViewModel {
     func refreshCapability() {
         let state = indexing?.state ?? .ready
         capability = RetrievalCapability.derive(indexState: state,
-                                                semanticProviderAvailable: provider != nil)
+                                                semanticProviderAvailable: liveProvider != nil)
     }
 
     /// `semanticUnavailable` 那条状态栏上的「重试」。用户侧文案不含技术词。
+    /// 状态栏「重试」：先按当前笔记重选路线（用户可能刚填了 API Key），再重建。
+    var onRetrySemantic: (() async -> Void)?
+
     func retrySemantic() {
         guard let indexing else { return }
         Task { @MainActor in
+            await onRetrySemantic?()
             await indexing.indexAll()
             refreshCapability()
             if !currentQuery.isEmpty, capability.allowsSemantic {
@@ -175,12 +195,12 @@ final class SearchViewModel {
         let production = indexing?.config ?? RetrievalConfig.production
         let config = RetrievalConfig(version: production.version,
                                      mode: mode,
-                                     embeddingProvider: provider?.modelInfo.identifier ?? "unavailable",
-                                     embeddingVersion: provider?.modelInfo.version ?? "unavailable",
+                                     embeddingProvider: liveProvider?.modelInfo.identifier ?? "unavailable",
+                                     embeddingVersion: liveProvider?.modelInfo.version ?? "unavailable",
                                      chunkStrategy: indexedStrategy,
                                      topK: 50,
                                      fusion: production.fusion)
-        let service = RetrievalService(provider: provider, vectors: vectors, recorder: recorder)
+        let service = RetrievalService(provider: liveProvider, vectors: vectors, recorder: recorder)
         return await service.retrieve(query: query, chunks: chunks, config: config,
                                       indexState: indexing?.state ?? .ready)
     }

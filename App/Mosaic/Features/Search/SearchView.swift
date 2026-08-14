@@ -21,12 +21,16 @@ struct SearchView: View {
     /// §3.1 的导航载荷：**笔记 + 落点**，不只是笔记。
     /// 只带 noteID 的话，进笔记后只能停在顶部 —— 那正是 5.10 之前的行为。
     @State private var selection: Selection?
+    @State private var showCloudConsent = false
 
     var body: some View {
         VStack(spacing: 0) {
             if let viewModel {
                 // §4.4：状态条紧贴搜索框下方，最高 44pt，非模态，绝不覆盖结果（I4）。
-                SearchStatusBar(capability: viewModel.capability) { viewModel.retrySemantic() }
+                SearchStatusBar(capability: viewModel.capability,
+                                needsCloudConsent: needsCloudConsent) {
+                    if needsCloudConsent { showCloudConsent = true } else { viewModel.retrySemantic() }
+                }
                 content(viewModel)
             } else {
                 ProgressView()
@@ -40,12 +44,30 @@ struct SearchView: View {
             if query.isEmpty && !initialQuery.isEmpty { query = initialQuery }
             // §3.5：从笔记返回时重新读取能力 —— 离开期间索引可能已经就绪。
             viewModel?.refreshCapability()
+            retrieval?.refreshDesiredRoute()
         }
         .onChange(of: query) { _, newValue in viewModel?.queryChanged(newValue) }
         .onDisappear { viewModel?.cancelPendingWork() }
+        // 云端上传的**唯一**同意入口（另一个是设置里的开关）。
+        // 用户侧文案遵守 §1.1.1 禁用词表：不出现 embedding / 向量 / 语义检索。
+        .alert("开启更聪明的搜索？", isPresented: $showCloudConsent) {
+            Button("取消", role: .cancel) { }
+            Button("同意并开启") {
+                Task { await retrieval?.grantCloudEmbeddingConsent() ; viewModel?.refreshCapability() }
+            }
+        } message: {
+            Text("你的笔记里有中文，而这台设备上没有可离线使用的中文模型。开启后，笔记中的文字会通过 HTTPS 发送到你在「设置」里配置的第三方服务来建立索引;不开启则只按关键词搜索,不会发送任何内容。调用费用由你的账户承担。")
+        }
         .navigationDestination(item: $selection) { selection in
             CardEditorView(card: selection.card, landing: selection.anchor)
         }
+    }
+
+    /// 云端已配好、只差用户点头。此时状态条上的动作是「开启」而不是「重试」——
+    /// 「重试」会让人以为是网络出了问题，而实际上是**我们在等他授权**。
+    private var needsCloudConsent: Bool {
+        guard let retrieval else { return false }
+        return retrieval.route.needsCloudConsent || retrieval.desiredRoute?.needsCloudConsent == true
     }
 
     /// 一次点击选中的「笔记 + 落点」。
@@ -103,13 +125,15 @@ struct SearchView: View {
     }
 
     private func makeViewModel() -> SearchViewModel {
-        SearchViewModel(provider: retrieval?.provider,
-                        vectors: retrieval?.vectors ?? InMemoryVectorStore(),
-                        recorder: retrieval?.recorder,
-                        indexing: retrieval?.indexing,
-                        derived: retrieval?.derived ?? DerivedDataStore(
-                            container: ModelContainerFactory.makeDerived(inMemory: true)),
-                        noteContext: modelContext)
+        let vm = SearchViewModel(provider: retrieval?.provider,
+                                 vectors: retrieval?.vectors ?? InMemoryVectorStore(),
+                                 recorder: retrieval?.recorder,
+                                 indexing: retrieval?.indexing,
+                                 derived: retrieval?.derived ?? DerivedDataStore(
+                                    container: ModelContainerFactory.makeDerived(inMemory: true)),
+                                 noteContext: modelContext)
+        vm.onRetrySemantic = { await retrieval?.applyDesiredRoute() }
+        return vm
     }
 }
 
@@ -210,6 +234,9 @@ private struct SearchResultRow: View {
 
 private struct SearchStatusBar: View {
     let capability: RetrievalCapability
+    /// 云端已配好、只差同意。改变的是**动作的名字**，不是状态本身 ——
+    /// capability 仍然是 `semanticUnavailable`（对结果区的含义完全一样）。
+    var needsCloudConsent: Bool = false
     let onRetry: () -> Void
 
     var body: some View {
@@ -220,7 +247,7 @@ private struct SearchStatusBar: View {
                 Text(Copy.statusMessage(capability)).font(.footnote).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 if capability == .semanticUnavailable {
-                    Button("重试", action: onRetry).font(.footnote)
+                    Button(needsCloudConsent ? "开启" : "重试", action: onRetry).font(.footnote)
                 }
             }
             .padding(.horizontal, AppSpacing.md)

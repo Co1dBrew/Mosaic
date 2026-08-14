@@ -400,7 +400,7 @@ struct CardEditorView: View {
         try? modelContext.save()
         // 保存之后才通知索引 —— 索引读的是 SwiftData 里的权威内容，先通知会扫到旧值。
         // 服务自己会合并 + 防抖：自动保存在一次输入里会触发很多次。
-        retrieval?.indexing.noteDidChange(card.id.uuidString)
+        retrieval?.noteDidChange(card.id.uuidString)
     }
 
     /// On leaving the editor: flush autosave and auto-generate an update summary
