@@ -30,6 +30,7 @@ struct Checks {
         EmbeddingRouterChecks.run(r)
         await RetrievalProviderBenchmark.run(r)
         await CloudEmbeddingResilienceChecks.run(r)
+        await AbstentionChecks.run(r)
         await EvalChecks.run(r)
         await HumanLikeGoldenChecks.run(r)
         await SearchPresentationChecks.run(r)
