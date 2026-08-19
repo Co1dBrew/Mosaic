@@ -33,9 +33,14 @@ struct EvalDatasetView: View {
             ForEach(cases) { c in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(c.query).font(.subheadline)
-                    Text(c.expectedNoteIDs.map { corpus.title(noteID: $0) }.joined(separator: " · "))
+                    Text(c.expectation == .noRelevantResult
+                         ? "应无结果"
+                         : c.expectedNoteIDs.map { corpus.title(noteID: $0) }.joined(separator: " · "))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                     HStack(spacing: 8) {
+                        if c.scope == .crossLanguage {
+                            Text("Cross-language").font(.caption2).foregroundStyle(.orange)
+                        }
                         if let type = c.sourceFailureType {
                             Text(type.label).font(.caption2).foregroundStyle(.tint)
                         }
@@ -79,33 +84,55 @@ struct GoldenCaseEditor: View {
     @State private var query = ""
     @State private var note = ""
     @State private var selected: Set<String> = []
+    @State private var expectsNoResult = false
+    @State private var queryLanguage: EvalLanguage = .zh
+    @State private var expectedLanguage: EvalLanguage = .zh
     @State private var duplicate = false
 
     var body: some View {
         Form {
             Section("QUERY") {
                 TextField("这条 query 应该找到什么？", text: $query, axis: .vertical).lineLimit(1...3)
+                Picker("Query Language", selection: $queryLanguage) {
+                    Text("中文").tag(EvalLanguage.zh)
+                    Text("English").tag(EvalLanguage.en)
+                    Text("Mixed").tag(EvalLanguage.mixed)
+                }
                 TextField("备注（为什么值得测）", text: $note)
             }
 
             Section("EXPECTED NOTES") {
+                Toggle("这条 query 不该有结果", isOn: $expectsNoResult)
+                    .onChange(of: expectsNoResult) { _, enabled in
+                        if enabled { selected.removeAll() }
+                    }
                 let notes = corpus.notes()
-                if notes.isEmpty {
+                if notes.isEmpty && !expectsNoResult {
                     Text("这台设备上还没有笔记。").font(.footnote).foregroundStyle(.secondary)
                 }
-                ForEach(notes) { n in
-                    Button {
-                        if selected.contains(n.id) { selected.remove(n.id) } else { selected.insert(n.id) }
-                    } label: {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(n.title).lineLimit(1).foregroundStyle(.primary)
-                                // 没有标题的笔记全叫「未命名笔记」，只有正文能区分它们。
-                                Text(n.preview).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                            }
-                            Spacer()
-                            if selected.contains(n.id) {
-                                Image(systemName: "checkmark").foregroundStyle(.tint)
+                if expectsNoResult {
+                    Text("只有检索返回空列表才算通过。当前没有相关性下限，负例会暴露误召回，而不会影响 Recall / MRR。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    Picker("Expected Language", selection: $expectedLanguage) {
+                        Text("中文").tag(EvalLanguage.zh)
+                        Text("English").tag(EvalLanguage.en)
+                        Text("Mixed").tag(EvalLanguage.mixed)
+                    }
+                    ForEach(notes) { n in
+                        Button {
+                            if selected.contains(n.id) { selected.remove(n.id) } else { selected.insert(n.id) }
+                        } label: {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(n.title).lineLimit(1).foregroundStyle(.primary)
+                                    // 没有标题的笔记全叫「未命名笔记」，只有正文能区分它们。
+                                    Text(n.preview).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                                Spacer()
+                                if selected.contains(n.id) {
+                                    Image(systemName: "checkmark").foregroundStyle(.tint)
+                                }
                             }
                         }
                     }
@@ -127,12 +154,22 @@ struct GoldenCaseEditor: View {
             ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
+                    let expectation: EvalExpectation = expectsNoResult
+                        ? .noRelevantResult
+                        : .relevant(noteIDs: Array(selected).sorted())
+                    let scope: EvalScope = expectsNoResult || queryLanguage == expectedLanguage
+                        ? .inScope
+                        : .crossLanguage
                     let added = store.addGolden(query: query,
-                                                expectedNoteIDs: Array(selected).sorted(),
+                                                expectation: expectation,
+                                                queryLanguage: queryLanguage,
+                                                expectedLanguage: expectsNoResult ? nil : expectedLanguage,
+                                                scope: scope,
                                                 note: note.isEmpty ? nil : note)
                     if added { dismiss() } else { duplicate = true }
                 }
-                .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selected.isEmpty)
+                .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                          || (!expectsNoResult && selected.isEmpty))
             }
         }
     }

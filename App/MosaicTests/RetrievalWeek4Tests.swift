@@ -130,6 +130,30 @@ final class RetrievalWeek4Tests: XCTestCase {
         XCTAssertNil(vm.baselineRun)
     }
 
+    func testNoResultCaseUsesEmptyResultsAndDoesNotChangeRecallDenominator() async throws {
+        let stack = makeStack()
+        let ctx = stack.notes.mainContext
+        try seed(ctx, title: "搬家记录", texts: ["钥匙交接在九月三日上午十点。"])
+
+        let store = makeDatasetStore()
+        XCTAssertTrue(store.addGolden(query: "护照换发材料", expectation: .noRelevantResult))
+
+        let vm = makeViewModel(store: store, provider: nil, ctx: ctx, derived: stack.store)
+        vm.selection = .golden
+        vm.mode = .keyword
+        vm.run()
+        try await waitUntilFinished(vm)
+
+        let metrics = try XCTUnwrap(vm.run?.metrics)
+        XCTAssertEqual(metrics.caseCount, 1)
+        XCTAssertEqual(metrics.relevantCaseCount, 0, "负例不能进入 Recall / MRR 分母")
+        XCTAssertEqual(metrics.noResultCaseCount, 1)
+        XCTAssertEqual(metrics.noResultAccuracy, 1)
+        XCTAssertEqual(metrics.falsePositiveRate, 0)
+        XCTAssertEqual(metrics.recallAt5, 0, "没有正例时 Recall 为不适用的 0，不伪造 100%")
+        XCTAssertTrue(vm.failures.isEmpty)
+    }
+
     // MARK: 3 · D9 —— 失败收集、归因、加入回归集
 
     func testFailureTriageAndRegressionAdd() async throws {
@@ -267,12 +291,15 @@ final class RetrievalWeek4Tests: XCTestCase {
         XCTAssertFalse(store.addGolden(query: " 延期毕业 ", expectedNoteIDs: [card.id.uuidString]),
                        "同 query + 同期望重复加入被拒绝")
         XCTAssertTrue(store.addGolden(query: "已删笔记的用例", expectedNoteIDs: ["gone"]))
+        XCTAssertTrue(store.addGolden(query: "不存在的护照信息", expectation: .noRelevantResult))
         XCTAssertNil(store.lastError, "写盘不能静默失败")
 
         // 换一个实例读同一个目录 —— 标注是人工判断，重启后必须还在。
         let reopened = EvalDatasetStore(directory: dir)
-        XCTAssertEqual(reopened.count(.golden), 2, "数据集落盘并可重新读出")
-        XCTAssertEqual(Set(reopened.dataset.golden.map(\.query)), ["延期毕业", "已删笔记的用例"])
+        XCTAssertEqual(reopened.count(.golden), 3, "正例与负例都落盘并可重新读出")
+        XCTAssertEqual(Set(reopened.dataset.golden.map(\.query)),
+                       ["延期毕业", "已删笔记的用例", "不存在的护照信息"])
+        XCTAssertEqual(reopened.dataset.golden.last?.expectation, .noRelevantResult)
 
         let vm = makeViewModel(store: reopened, provider: MockEmbeddingProvider(dimension: 32),
                                ctx: ctx, derived: stack.store)
@@ -282,7 +309,7 @@ final class RetrievalWeek4Tests: XCTestCase {
         XCTAssertEqual(dangling.first?.query, "已删笔记的用例")
 
         reopened.removeGolden(id: dangling[0].id)
-        XCTAssertEqual(EvalDatasetStore(directory: dir).count(.golden), 1, "删除同样落盘")
+        XCTAssertEqual(EvalDatasetStore(directory: dir).count(.golden), 2, "删除同样落盘")
     }
 
     // MARK: 6 · 空数据集不给一个看起来正常的 0.000

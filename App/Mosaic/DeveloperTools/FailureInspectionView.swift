@@ -102,18 +102,24 @@ struct FailureInspectionView: View {
     @ViewBuilder
     private func expectedSection(_ failure: EvalFailure) -> some View {
         Section("EXPECTED") {
-            ForEach(failure.evalCase.expectedNoteIDs, id: \.self) { noteID in
-                let returned = failure.returnedNoteIDs.contains(noteID)
-                LabeledContent {
-                    Text(returned ? "returned" : "not returned")
-                        .font(.caption)
-                        .foregroundStyle(returned ? Color.secondary : Color.red)
-                } label: {
-                    Text(viewModel.noteTitle(for: noteID)).lineLimit(1)
+            if failure.evalCase.expectation == .noRelevantResult {
+                LabeledContent("应无结果", value: failure.returnedNoteIDs.isEmpty ? "passed" : "returned results")
+                Text("负例只在结果列表为空时通过；当前不按分数推测相关性。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            } else {
+                ForEach(failure.evalCase.expectedNoteIDs, id: \.self) { noteID in
+                    let returned = failure.returnedNoteIDs.contains(noteID)
+                    LabeledContent {
+                        Text(returned ? "returned" : "not returned")
+                            .font(.caption)
+                            .foregroundStyle(returned ? Color.secondary : Color.red)
+                    } label: {
+                        Text(viewModel.noteTitle(for: noteID)).lineLimit(1)
+                    }
                 }
+                Text("多个期望笔记时，全部落在 Top 5 才算通过 —— 与 Recall@5 同口径。")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
-            Text("多个期望笔记时，全部落在 Top 5 才算通过 —— 与 Recall@5 同口径。")
-                .font(.footnote).foregroundStyle(.secondary)
         }
     }
 
@@ -148,7 +154,9 @@ struct FailureInspectionView: View {
                 .monospacedDigit()
             LabeledContent("Hybrid", value: failure.hybridRank.map { "#\($0)" } ?? "not found")
                 .monospacedDigit()
-            Text("名次是第一条期望笔记在各路的位置。单路很靠前而 Hybrid 掉出 Top K，指向 fusion；两路都 not found，指向语料或索引。")
+            Text(failure.evalCase.expectation == .noRelevantResult
+                 ? "负例没有期望笔记名次；Returned 列表非空就是误召回。"
+                 : "名次是第一条期望笔记在各路的位置。单路很靠前而 Hybrid 掉出 Top K，指向 fusion；两路都 not found，指向语料或索引。")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }

@@ -134,18 +134,32 @@ struct RetrievalEvalView: View {
     @ViewBuilder
     private func qualitySection(_ run: EvalRun) -> some View {
         Section("QUALITY") {
-            metric("Recall@1", run.metrics.recallAt1)
-            metric("Recall@3", run.metrics.recallAt3)
-            metric("Recall@5", run.metrics.recallAt5)
-            metric("MRR", run.metrics.mrr)
+            LabeledContent("Gate Scope", value: "In-scope · \(run.inScopeMetrics.caseCount) cases")
+                .font(.footnote)
+            metric("Recall@1", run.inScopeMetrics.recallAt1)
+            metric("Recall@3", run.inScopeMetrics.recallAt3)
+            metric("Recall@5", run.inScopeMetrics.recallAt5)
+            metric("MRR", run.inScopeMetrics.mrr)
+            if run.crossLanguageMetrics.caseCount > 0 {
+                metric("Cross-language · Recall@5", run.crossLanguageMetrics.recallAt5)
+                metric("Cross-language · MRR", run.crossLanguageMetrics.mrr)
+                Text("Cross-language 是当前架构边界，只作诊断，不进入 Gate。")
+                    .font(.footnote).foregroundStyle(.orange)
+            }
+            if run.metrics.noResultCaseCount > 0 {
+                metric("No-result Accuracy", run.metrics.noResultAccuracy)
+                metric("False-positive Rate", run.metrics.falsePositiveRate)
+                Text("负例只有返回空列表才算通过；这两项暂不进入 Release Gate。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
         }
     }
 
     @ViewBuilder
     private func performanceSection(_ run: EvalRun) -> some View {
         Section("PERFORMANCE") {
-            LabeledContent("P50", value: String(format: "%.0f ms", run.metrics.p50Ms)).monospacedDigit()
-            LabeledContent("P95", value: String(format: "%.0f ms", run.metrics.p95Ms)).monospacedDigit()
+            LabeledContent("P50", value: String(format: "%.0f ms", run.inScopeMetrics.p50Ms)).monospacedDigit()
+            LabeledContent("P95", value: String(format: "%.0f ms", run.inScopeMetrics.p95Ms)).monospacedDigit()
             Text("只统计检索本身，不含建索引、不含 UI。与 PRD 的 SLO 同一口径。")
                 .font(.footnote).foregroundStyle(.secondary)
         }
@@ -157,6 +171,14 @@ struct RetrievalEvalView: View {
             LabeledContent("Config", value: run.configVersion)
                 .font(.footnote)
             LabeledContent("Cases", value: "\(run.metrics.caseCount)").monospacedDigit()
+            LabeledContent("In-scope / Cross-language",
+                           value: "\(run.inScopeMetrics.caseCount) / \(run.crossLanguageMetrics.caseCount)")
+                .monospacedDigit()
+            if run.metrics.noResultCaseCount > 0 {
+                LabeledContent("Relevant / No-result",
+                               value: "\(run.metrics.relevantCaseCount) / \(run.metrics.noResultCaseCount)")
+                    .monospacedDigit()
+            }
             if run.goldenMetrics.caseCount > 0 {
                 metric("Golden · Recall@5", run.goldenMetrics.recallAt5)
             }

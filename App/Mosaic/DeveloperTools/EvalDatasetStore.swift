@@ -60,6 +60,20 @@ final class EvalDatasetStore {
         return added
     }
 
+    @discardableResult
+    func addGolden(query: String, expectation: EvalExpectation,
+                   queryLanguage: EvalLanguage? = nil,
+                   expectedLanguage: EvalLanguage? = nil,
+                   scope: EvalScope = .inScope,
+                   note: String? = nil) -> Bool {
+        let added = dataset.addGolden(query: query, expectation: expectation,
+                                      queryLanguage: queryLanguage,
+                                      expectedLanguage: expectedLanguage,
+                                      scope: scope, note: note)
+        if added { save() }
+        return added
+    }
+
     /// D9 唯一的写操作。幂等由 `EvalDataset` 保证 —— 重复加入会让 Pass Rate 分母虚高。
     @discardableResult
     func addRegression(_ failure: EvalFailure) -> Bool {

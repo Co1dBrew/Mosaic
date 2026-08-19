@@ -136,12 +136,12 @@ final class RetrievalEvalViewModel {
     /// 两次跑批是否跑在同一批用例上。不同则 delta 无意义，宁可不显示。
     var isComparable: Bool {
         guard let run, let baselineRun else { return false }
-        return run.metrics.caseCount == baselineRun.metrics.caseCount
+        return run.inScopeMetrics.caseCount == baselineRun.inScopeMetrics.caseCount
     }
 
     var deltas: [MetricDelta] {
         guard let run, let baselineRun, isComparable else { return [] }
-        return EvalComparison.compare(current: run.metrics, baseline: baselineRun.metrics)
+        return EvalComparison.compare(current: run.inScopeMetrics, baseline: baselineRun.inScopeMetrics)
     }
 
     var tradeoffSummary: String? {
