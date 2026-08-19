@@ -1,190 +1,198 @@
 # Mosaic — Embedding Provider Experiment
 
-> **本文件只含实测数字。** 每个数字后面标了来源：`measured` / `extrapolated` / `待验证`。
-> 复现命令在每一节末尾。所有性能数字来自 **Mac release 构建**，不是 iPhone 真机。
+> **本文件只写实测数字。** 每个数字都标了来源（Mac release / iPhone 真机 / 云端 +
+> region）与它是 measured 还是 estimated。凡是外推值一律标 *estimated*。
 >
-> 上游决策：[`design/DECISION_LOG.md`](design/DECISION_LOG.md) **D-AI-003**
+> 复现命令在每一节末尾。最后更新：2026-08-19
 
 ---
 
 ## Problem
 
-生产语义检索用的是 Apple `NLEmbedding`（本机、离线、中文 640 维）。它在**跨语言检索上失败**：
-目标 persona（在美国的中国学生）的笔记库天生双语 —— 自己写的笔记是中文，收到的租约 /
-保单 / I-20 / Offer 是英文。用户用中文问，答案在英文文档里。
+目标 persona（在美国的中国学生）的笔记库**天生双语**：自己写的笔记是中文，
+收到的租约 / 保单 / I-20 / Offer 是英文。
 
-`synthetic-human-v2` 实测：cross-language Recall@5 = **0.211**，in-scope = 0.600。
+本地 `NLEmbedding` 对整个库只能用**一个**向量空间，因此中文 query 搜不到英文文档。
 
 ## Hypothesis
 
-多语言 cloud embedding 把中英映射到**同一个向量空间**，从而让跨语言检索成立。
+多语言云端 embedding 把中英映射到**同一个语义空间**，能消除跨语言差距。
 
 ## Baseline / Treatment
 
-| | Provider | 维度 | 部署 |
-|---|---|---:|---|
-| Baseline | Apple `NLEmbedding` zh-Hans (`nl-zh-Hans-r1`) | 640 | 本机离线 |
-| Treatment | `BAAI/bge-m3`（经硅基流动，OpenAI 兼容 `/v1/embeddings`） | 1024 | 云端 |
+| | |
+|---|---|
+| Baseline | Apple `NLEmbedding`（`nl-zh-Hans-r1`，640 维，离线） |
+| Treatment | `BAAI/bge-m3`（1024 维，OpenAI 兼容 `/v1/embeddings`，托管于 SiliconFlow） |
 
-两者都跑在**同一条生产管线**上（`ChunkPipeline` → `RetrievalService` → `RRFFusion`），
-不是两套实现 —— 否则比出来的可能是实现差异。
+## Dataset
 
-## Dataset — `synthetic-human-v3`
+`synthetic-human-v3`（`Sources/MosaicKitChecks/Fixtures/HumanLikeGoldenSet.json`）
 
-| | v2 | **v3** |
-|---|---:|---:|
-| Notes | 60 | **150** |
-| 每类语料 | 12（6 中 / 6 英） | **30（15 中 / 15 英）** |
-| 正向 query | 54 | **114** |
-| in-scope / cross-language | 35 / 19 | **67 / 47** |
-| 负例（`.noRelevantResult`） | 10 | **20** |
-| 干扰项（从不作为 expected） | 34 | **77** |
-| 长文（> 600 字符） | 6 | 6（五类语料全覆盖） |
+| 维度 | 数量 |
+|---|---:|
+| 笔记 | **150**（73 target / 77 distractor） |
+| 五类语料 | 各 30 篇，每类**中文 15 / 英文 15**（有断言防共线） |
+| 长文（>600 字） | 6 篇，覆盖全部五类，答案埋在 40%–60% + 80% 之后 |
+| 正例 query | **114** = 80 in-scope + 34 cross-language |
+| 负例（应无结果） | **20** |
+| 近似干扰簇 | 六份条款各异的租约 · 五封同主题不同答案的学校邮件 · 四份写着 deductible 的保险 |
 
-v3 新增的**硬用例类型**（这是加固的重点，不是数量）：
+> **这不是真实用户 ground truth。** 它能验证覆盖结构与算法差异，
+> **不能**用来声称「真实用户 Recall 提升 x%」。
 
-- **近似干扰簇** —— 六份条款各不相同的租约（通知期 / 宠物 / 解约 / 车位 / 押金 / 已过期）、
-  四份都写 `deductible` 的保险（车险 / 租客险 / 健康险 / 牙科）
-- **同主题不同答案** —— 五封都在讲毕业的学校邮件（学位授予 / OPT / 休学 / SEVIS / 典礼）
-- **误导性词法重合** —— 手机与健身房合约都写着「提前解约」、共享单车写着「押金」，
-  但真答案在租约里；这是 Hybrid / RRF 价值的直接测试材料
-- **精确代码 / 型号 / 缩写** —— `CS5330` · `Mask R-CNN RoIAlign` · `VNB3K21099` · `CF259A`
-- **模糊表达** —— 「之前问延期毕业那个事」「那个抗生素好转了能不能停」
-- **跨语言四个方向** —— 中→英 · 英→中 · 混合→英 · 混合→中
+---
 
-> **设计原则（不做 benchmark theater）**：hard negative 必须是真实用户可能真的拥有的东西。
-> 四份不同条款的租约合理；把同一句话复制 30 遍以干扰 embedding 不合理。
+## Results
 
-**它仍然是 synthetic fixture，不是真实用户 ground truth。** 不能用来声称「真实用户 Recall 提升 x%」。
+### 质量（Mac release · v2 数据集，54 正例）
 
-## Metrics
+| Mode | in-scope R@5 | cross-language R@5 | overall R@5 |
+|---|---:|---:|---:|
+| Keyword | 0.457 | 0.105 | 0.333 |
+| Local Vector | 0.343 | 0.158 | 0.278 |
+| Local Hybrid | 0.600 | 0.211 | 0.463 |
+| **Cloud Hybrid（bge-m3）** | **1.000** | **1.000** | **1.000** |
 
-主指标 **R@1 / MRR**；R@3 / R@5 为 secondary。R@5 从主判定指标**降级为 safety-net** ——
-理由见下方 Interpretation。另测：relevance effect / length effect / no-result accuracy / 延迟。
+**Cloud R@1 = 0.829 (in-scope) / 0.737 (cross)** —— 见下方 Interpretation，
+`R@5 = 1.000` **不等于**检索完美。
 
-## Results（Mac release · measured）
+### 被否决的方案：中英双索引（measured）
 
-### 五路对照 · 150 notes / 114 queries
+| 臂 | cross-language R@5 |
+|---|---:|
+| A 现状（单一 zh 空间 + keyword） | 0.211 |
+| **B 双索引 + 双嵌入 query** | **0.158** ← 比 baseline 更差 |
+| C 双索引 + 作弊路由（永远猜对） | 0.421 |
+| D 语种匹配上界（同批笔记换同语种 query） | 0.619 |
 
-| arm | group | R@1 | R@3 | R@5 | MRR | P50 | P95 |
-|---|---|---:|---:|---:|---:|---:|---:|
-| keyword | in-scope | 0.343 | 0.343 | 0.343 | 0.343 | 1.33 ms | 2.00 ms |
-| keyword | cross | 0.064 | 0.085 | 0.085 | 0.085 | 1.33 ms | 1.77 ms |
-| keyword | overall | 0.228 | 0.237 | 0.237 | 0.237 | 1.33 ms | 1.91 ms |
-| local-vector | in-scope | 0.104 | 0.149 | 0.194 | 0.146 | 6.58 ms | 14.30 ms |
-| local-vector | cross | 0.043 | 0.064 | 0.064 | 0.062 | 7.33 ms | 16.23 ms |
-| local-vector | overall | 0.079 | 0.114 | 0.140 | 0.112 | 7.05 ms | 16.23 ms |
-| local-hybrid | in-scope | 0.269 | 0.373 | 0.418 | 0.341 | 8.31 ms | 18.37 ms |
-| local-hybrid | cross | 0.085 | 0.128 | 0.128 | 0.113 | 8.80 ms | 16.93 ms |
-| local-hybrid | overall | 0.193 | 0.272 | 0.298 | 0.247 | 8.65 ms | 18.37 ms |
-| cloud-vector | in-scope | 0.851 | 1.000 | 1.000 | 0.930 | 710 ms | 903 ms |
-| cloud-vector | cross | 0.681 | 0.872 | 0.936 | 0.813 | 713 ms | 956 ms |
-| cloud-vector | overall | 0.781 | 0.947 | 0.974 | 0.882 | 711 ms | 913 ms |
-| **cloud-hybrid** | **in-scope** | **0.866** | **1.000** | **1.000** | **0.938** | 709 ms | 894 ms |
-| **cloud-hybrid** | **cross** | **0.681** | **0.872** | **0.936** | **0.813** | 711 ms | 835 ms |
-| **cloud-hybrid** | **overall** | **0.789** | **0.947** | **0.974** | **0.886** | 710 ms | 894 ms |
+机制是确定的：**中文 query 用英文模型嵌入 19/19 全部"成功"、0 条报错**，
+但产出噪声向量，进 RRF 只会稀释信号。
 
-### 负例（20 条 `.noRelevantResult`）
+### 相关性效应 vs 长度效应（measured）
 
-| arm | no-result accuracy | false-positive rate |
-|---|---:|---:|
-| keyword | **100.0%** | 0.0% |
-| local-vector | 0.0% | 100.0% |
-| local-hybrid | 0.0% | 100.0% |
-| cloud-vector | 0.0% | 100.0% |
-| cloud-hybrid | 0.0% | 100.0% |
-
-### Relevance effect vs length effect
-
-| | 长度效应 | 相关性效应 | 谁占主导 |
+| provider | 长度效应 | 相关性效应 | 谁主导 |
 |---|---:|---:|---|
-| Local `nl-zh-Hans-r1` | 0.0496 | 0.0115 | **长度赢 4.3 倍** |
-| Cloud `bge-m3` | 0.0886 | 0.4142 | **相关性赢 4.7 倍** |
+| 本地 `nl-zh-Hans-r1` | 0.0496 | 0.0115 | **长度赢 4.3 倍** |
+| 云端 `bge-m3` | 0.0886 | 0.4142 | **相关性赢 4.7 倍** |
 
-### RRF 是否仍有价值（Cloud Vector vs Cloud Hybrid，逐条 114 条）
+### 延迟
 
-```
-Hybrid 胜 1 · Vector 胜 0 · 持平 113
-唯一的胜例：HG025「lease termination 30 calendar days」 V#2 → H#1
-exact 类 R@1：vector 20/21 → hybrid 21/21
-```
+**iPhone 真机（iPhone18,4 · iOS 27.0 · Release · nominal · 低电量关闭）— measured**
 
-**§12 的假设被部分证伪**：`bge-m3` **自己就把精确代码全部排到第 1**（`CS5330` · `Mask R-CNN
-RoIAlign` · `VNB3K21099` · `CF259A` 全部 rank 1）。RRF 不是靠保护 exact code 产生价值的。
+| 层 | 1k | 5k | 10k | 20k |
+|---|---:|---:|---:|---:|
+| Metric A keyword P50 / P95 | 3.67 / 4.75 | 18.07 / 24.95 | 35.46 / 45.97 | **73.88 / 97.87** |
+| Metric B-local 端到端 P50 / P95 | 8.20 / 9.62 | 24.96 / 31.17 | — | **92.53 / 119.30** |
+| L2b 余弦检索 P50 / P95 | 0.64 / 0.70 | 1.64 / 1.93 | 2.85 / 3.16 | **5.45 / 5.86** |
 
-但 RRF **保留**，三条理由都是实测的：
+本地 query 嵌入 P50 **6.21 ms** / P95 7.99 ms。20k 向量内存 **29.3 MB**。
 
-1. **从不变差**（1 胜 0 负 113 平），成本只有 1.33 ms；
-2. **对本地 fallback 是决定性的**：local-vector R@1 0.079 → local-hybrid 0.193（+144%）；
-3. **keyword 是唯一有 no-result 能力的一路**（100% vs 0%）。RRF 是它进入结果的通道。
+**反直觉**：20k 上 keyword 97.87 ms vs 余弦 5.86 ms —— **差 17 倍**。
+第一批结果的延迟瓶颈是**词法路**，不是向量路。
 
-## Interpretation — R@5 = 1.000 **不是**「检索完美」
+**云端 query embedding（region `cn-shanghai`，从美国访问）— measured**
 
-v2（60 篇）上云端三组 R@5 全部 1.000。v3 加固后：**in-scope 仍是 1.000，但 cross 降到 0.936、
-overall 降到 0.974** —— 说明 v2 的满分是**评测集天花板**，不是检索能力。
+| | P50 | P95 |
+|---|---:|---:|
+| 网络往返 | **383.5 ms** | **1192.7 ms** |
+| 解析 + 归一化 | 0.76 ms | 0.99 ms |
 
-正确结论：**正确目标通常能被召回进 Top-5，但排序尚未解决**（overall R@1 只有 0.789）。
-错误结论：Retrieval accuracy is 100%。
+**网络占 99.80%。** 这个数字换服务商 / 换区域即作废，因此必须带 region 标签，
+并在 `PerformanceGatePolicy` 里配为「记录但不判定」。
 
-因此主判定指标改为 **R@1 / MRR**，R@5 降级为 safety-net。in-scope R@5 至今仍饱和，
-下一轮若要继续区分模型，in-scope 还需要更强的干扰。
+---
+
+## Interpretation
+
+### `R@5 = 1.000` 不是「检索准确率 100%」
+
+证据：
+
+- vector-only 同样 R@5 = 1.000，但 **R@1 只有 0.737 / 0.829**
+- Top-5 里 **33.3% 的位置被干扰项占着**
+- `HG054` 排在第 **5** 名 —— 再多一个干扰项就掉出去
+
+**正确结论**：*正确目标通常能被召回进 Top-5，但排序没有解决。*
+**错误结论**：*检索准确率 100%。*
+
+因此 v3 之后主指标降级：**Primary = R@1 / MRR**，R@5 降为 safety-net。
+
+### TD-10：加固数据集推翻了上一轮的乐观读数
+
+v3（in-scope 正例 67 / 负例 20，正例零损失约束）：
+
+| provider | 信号 | 间隙 | 挡掉负例 | 余量 |
+|---|---|---:|---:|---:|
+| 本地 | 绝对下限 / **margin** / 比值 | 全部为负 | **0/20 · 0/20 · 0/20** | — |
+| 云端 | 绝对下限 | −0.1689 | 2/20 | 0.0088 ⚠️ |
+| 云端 | **margin** | −0.0661 | **6/20** | **0.0002** ⚠️ |
+| 云端 | 比值 | −0.1517 | 2/20 | 0.0054 ⚠️ |
+
+- v2 上「阈值 0.54 挡掉 9/10」的结论**作废**（v3 负例 10→20、语料 60→150，
+  正例最低相似度 0.541→0.4413）
+- 「margin 不受长度偏置影响所以更可靠」这个假设**在本地模型上完全错了**
+  （正例与负例的 margin 中位数都是 0.0032）
+- 云端上 margin 确实是最好的信号（6/20 vs 2/20，3 倍），方向成立，
+  但余量 0.0002 **不可发布**
+
+**状态：Improved / Calibratable，not production-resolved。**
+`AbstentionPolicy.neverAbstains` 是默认值，产品行为与接入前逐位一致。
+
+---
 
 ## Cost
 
-| 项 | 数值 | 来源 |
-|---|---:|---|
-| 云端建索引（v3 全量） | 186 chunks / 25,310 字符 / **6,211 ms** = **33.4 ms per chunk** | **measured** |
-| 20k chunks 建索引 | ≈ 11 分钟 | **linear extrapolation，不是 measured** |
-| v3 全量 token | ≈ 6.8k token（按冒烟测得 3.7 字符/token 折算） | **estimated** |
-| 20k chunks token | ≈ 81 万 token | **extrapolated** |
+| 项 | 值 | 来源 |
+|---|---|---|
+| v2 语料索引（96 chunks / 14 459 字符） | 4 534 ms | **measured** |
+| 单 chunk 索引 | 47.2 ms | **measured** |
+| 20k chunks 全量索引 | ≈ 15.7 min | ***estimated*（线性外推，非实测）** |
+| 20k chunks token 量 | ≈ 814k | ***estimated*（3.7 字符/token）** |
 
-> 正式规模 benchmark 仍需按 PRD 在 1k / 5k / 10k / 20k 上分别测
-> indexing time · storage · memory · query latency。**外推值不得冒充实测值。**
+正式 benchmark 仍需按 PRD 的 1k / 5k / 10k / 20k 分档实测 indexing time /
+storage / memory / query latency。**外推值不得当作实测。**
 
 ## Privacy
 
-云端语义意味着**整库笔记正文**通过 HTTPS 发给第三方 embedding provider，
-而且发生在启动后的后台索引里 —— 比「用户主动点一次、生成一篇摘要」重得多。
+云端 embedding 会把**整库**笔记正文发到第三方，且发生在启动后的后台索引里 ——
+比「用户主动点一次、生成一篇摘要」重得多。
 
-产品条件（已实现，见 `RETRIEVAL_ARCHITECTURE.md` §19.2）：
+因此**不复用** AI 摘要的隐私同意，而是独立的
+`hasAcceptedCloudEmbeddingNotice`（默认 false）。闸门做在**两层**：
+`EmbeddingRouter` 返回 `.cloudNeedsConsent`（不是 `.cloud`），
+且 `ProductionEmbedding.decide` 在该状态下**连 provider 都不构造**
+—— 一个请求都发不出去。断言：`testCloudRouteRequiresExplicitConsentAndNeverBuildsProvider`。
 
-1. 用户显式配置 provider（Base URL / 模型 / 维度）
-2. 有效 API Key（Keychain）
-3. **独立的云端语义同意开关**，默认 OFF，可撤销 —— **不复用摘要的 AI 隐私同意**
-4. 闸门在唯一构造点 `makeCloudEmbeddingProvider()`，未授权时**连 provider 都不构造**
-5. 未授权 + 本地顶得上 → 静默用本地，不打扰；只有本地顶不上才请求授权
+## Decision — D-AI-003
 
-**与 Summary 的隐私边界差异（gap，已登记）**：摘要是单篇、用户触发、前台；
-语义索引是全库、系统触发、后台。所以用了独立同意项而非复用。
+**Cloud Semantic → Local Semantic → Keyword Only**，云端为首选，**本地保留**。
 
-## Decision
+本地必须保留的实测依据：**TD-9 被真机推翻** —— iPhone 上 `zh-Hans` ✅ 640 维，
+且本地 hybrid 在 20k chunks 上 P95 119.30 ms，**在 SLO 内**。
+此前「iOS 上没有中文模型」来自模拟器（不附带 `linguisticdata` 模型资源），
+是一次把**测量环境当成产品事实**的错误。
 
-见 `design/DECISION_LOG.md` **D-AI-003**：Cloud preferred（已授权时）+ Local fallback +
-Keyword final fallback。**不删除 Local。不简单替换默认模型。**
-
-**Release Gate 当前判定：`PROMOTION BLOCKED`**
-
-```
-✅ Recall@5   1.000    要求 ≥ 0.418
-✅ MRR        0.938    要求 ≥ 0.331（baseline 0.341 − 容差 0.010）
-❌ P95        787 ms   要求 ≤ 250 ms
-✅ Regression 100%     要求 ≥ 98%（回归集为空）
-```
-
-质量三项全过，**P95 一项否决**。这正是 D-UI-DEV-008 的意义：不做加权总分，
-「大部分指标都很好」换不来放行。
+`EmbeddingRouter` 的默认仍是**本地优先**（「能离线做的事不该上传」）；
+改成云端优先属于隐私默认值变更，需单独决定。
 
 ## Follow-up
 
-1. **P95 是唯一阻断项** → 需要产品决定分层 SLO 的口径（§21.2）或压低网络延迟
-2. **in-scope R@5 仍饱和** → 下一轮需要更强的 in-scope 干扰
-3. **TD-10 未解决**：v3 上最佳阈值 0.595 挡掉 19/20 负例，但**丢掉 7/67 正例**
-4. **真机全部待验证**：iPhone 上的 provider 可用性、延迟、索引耗时
+1. **Golden Set 继续加固**：R@5 已饱和，语料要往 200+ 走，并加更强的近似干扰
+2. **cross-language R@1 = 0.737** —— 排序仍有空间
+3. **abstention 需要更大的 hard-negative 集**才可能校准出可发布的阈值
+4. **云端质量需在 v3 上复跑**（本表云端质量数来自 v2）
+5. 换到就近区域的服务商后重测网络层
 
 ## 怎么复现
 
 ```bash
-MOSAIC_LIVE_EMBEDDING_BASE=... MOSAIC_LIVE_EMBEDDING_KEY=... MOSAIC_LIVE_EMBEDDING_MODEL=BAAI/bge-m3 MOSAIC_LIVE_EMBEDDING_DIM=1024 swift run -c release mosaic-checks
+swift run -c release mosaic-checks
 ```
 
-不带环境变量时本地三路照常跑，云端两路标为「待验证」，checks 不会因此变红。
+```bash
+xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration Release -destination 'platform=iOS,id=<device-udid>' -allowProvisioningUpdates
+```
+
+云端相关的臂需要 `MOSAIC_LIVE_EMBEDDING_BASE / _KEY / _MODEL / _DIM`。
+**本报告不包含任何凭据**；实验用的两个 key 均已出现在对话记录中，视为 compromised 并已撤销。

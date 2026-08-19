@@ -374,9 +374,9 @@ Release Gate 只读 in-scope 正例，cross-language 与负例单独报告。它
 | **TD-1** | `SummaryService` 无 stale 保护（**既有缺陷**）。捕获 `blocks` → `await` → 写回，无 job identity / dedup / 校验。今天不算数据损坏但并发生成是 last-write-wins | 开放。现在有三个可抄的用例 |
 | **TD-4** | `AIJobCoordinator.acquireSlot()` 用 `withCheckedContinuation`，排队中被取消会漏一个 waiter | 开放，当前深度下无害 |
 | **TD-6** | 向量索引仅在内存，启动时从 derived store 重建（20k chunks ≈ 30MB @ dim 384） | 开放 |
-| **TD-10** | **向量检索没有相关性下限**：按余弦取 Top K，再离谱的 query 也会拿回整个语料 → 语义可用时 `.noResults` 几乎不可达。v2 的 10 条负例已正式接入 Runner：Keyword 10/10 空结果，Vector / Hybrid 10/10 误召回。**不能随手拍阈值** —— TD-11 证明余弦被长度混淆 | 开放；负例指标已可观测，阈值待真实 Golden Set + 模型路线 |
-| **TD-11** *(new)* | **`NLEmbedding` 余弦受文本长度支配**：拉长 16 倍余弦掉 0.0496，而相关/无关只差 0.0115（4.3 倍）。长笔记天然吃亏；TD-10 的阈值因此不能只看余弦 | 开放。`RetrievalWeek6Checks.checkCosineLengthBias` 钉住现象；换模型时重测 |
-| **TD-12** | ~~双语 persona 与整库单向量空间冲突~~ → **Resolved for cloud multilingual provider（D-AI-003）**。v3 实测 cross-language R@5：本地 0.128 → 云端 **0.936**。**但记录 R@1 只有 0.681**，排序仍有空间。中英双索引已被实验否决（真实路由 0.158 < baseline 0.211，作弊上界 0.421 < 同语种上界 0.619） | 云端路线已选定；**本地跨语言仍然不支持**，这是明确的产品边界 |
+| **TD-10** | **向量检索没有相关性下限** → **Improved / Calibratable，未解决**。v3（正例 67 / 负例 20）上三个信号全部重叠：云端 `bge-m3` 上 margin 最好（正例零损失时挡掉 6/20，绝对值只有 2/20），但**余量 0.0002，不可发布**；本地模型上三个信号全部 0/20。`AbstentionPolicy` 三态框架已就位，默认 `neverAbstains`（行为与接入前一致） | 开放。**v3 推翻了 v2 上「0.54 挡掉 9/10」的乐观读数**，见 §22.3 |
+| **TD-11** | `NLEmbedding` 余弦受文本长度支配 → **provider-specific，不是系统性质**。本地：长度效应 0.0496 / 相关性 0.0115（**长度赢 4.3 倍**）；云端 `bge-m3`：长度 0.0886 / 相关性 0.4142（**相关性赢 4.7 倍，完全反转**） | 开放但**换 provider 即缓解**。绝不写成「系统永久解决 length bias」—— 这是 provider 层的性质 |
+| ~~TD-12~~ | 双语 persona 与整库单向量空间冲突 → **Resolved for cloud multilingual provider**。cross-language R@5 0.211 → **1.000**（v2）。但记录 R@1 = 0.737，**排序仍有空间** | **已关闭（限云端）**。本地路仍不支持跨语言，那是已知边界，见 D-AI-003 |
 | **TD-13** *(new)* | **云端语义 P95 远超 Local Retrieval SLO**：实测 P50 710ms / P95 894ms vs 预算 250ms。Release Gate 因此判定 **BLOCKED**（质量三项全过，P95 一项否决） | 开放。SLO 已拆三层（§21.2）；Gate 用哪一层的 P95 需要产品显式决定，不能悄悄换数字 |
 | ~~TD-9~~ | ~~iOS 上没有中文句向量模型~~ → **真机推翻（2026-08-19）**。iPhone Air（iPhone18,4 · iOS 27.0 · release）实测：**`zh-Hans` ✅ 640 维 · `en` ✅ 512 维**。此前的 ❌ 是**模拟器不带模型资源**，不是 iOS 的限制。`MosaicBench.DeviceLatencyBenchmarkTests.test1` 每次真机跑批都会重新记录这个矩阵 | **已关闭。** 但注意：模拟器上仍然不可用，所以模拟器上的 `semanticUnavailable` 状态是真的，开发时看到的降级不是 bug |
 | — | ~~`NLEmbedding` 对**长文本**的稳定性未验证~~ | **已测（§18.2/18.3）**：长文用例在三种 chunk 策略下全败，根因是 TD-11 |
