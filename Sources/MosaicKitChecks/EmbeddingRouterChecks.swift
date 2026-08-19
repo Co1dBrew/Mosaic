@@ -122,19 +122,54 @@ enum EmbeddingRouterChecks {
                                         cloudConfigured: true) == .cloudNeedsConsent,
                  "cloudConsentGranted 的默认值是 false —— 默认放行的闸门等于没有闸门")
 
-        // 本机能做的事不上传：有本机中文模型时，同意与否都不走云端。
+        // ── D-AI-003：层级翻转为 Cloud → Local → Keyword ──
+        //
+        // v2 时是「本地优先，能离线做的事不该上传」。v3 的实测把它推翻了：
+        // 同一批 114 条 query 上，本地 Hybrid 的 in-scope R@1 是 0.269、
+        // cross-language R@5 是 0.128；云端分别是 0.866 和 0.936。
+        // 差距大到「省一次上传」换不回来 —— 所以云端在**已授权**时优先。
         r.expect(EmbeddingRouter.choose(corpusContainsHan: true,
                                         localChineseAvailable: true,
                                         localEnglishAvailable: true,
                                         cloudConfigured: true,
-                                        cloudConsentGranted: true) == .localChinese,
-                 "本机中文模型优先于云端 —— 能离线做的事不该上传")
+                                        cloudConsentGranted: true) == .cloud,
+                 "已授权的云端优先于本机中文模型（D-AI-003，实测驱动）")
         r.expect(EmbeddingRouter.choose(corpusContainsHan: false,
                                         localChineseAvailable: false,
                                         localEnglishAvailable: true,
                                         cloudConfigured: true,
-                                        cloudConsentGranted: true) == .localEnglish,
-                 "纯英文库优先本机英文 —— 同样不上传")
+                                        cloudConsentGranted: true) == .cloud,
+                 "纯英文库同样走已授权的云端")
+
+        // 但**没授权时不弹窗打扰**：本地顶得上就用本地。
+        r.expect(EmbeddingRouter.choose(corpusContainsHan: true,
+                                        localChineseAvailable: true,
+                                        localEnglishAvailable: true,
+                                        cloudConfigured: true,
+                                        cloudConsentGranted: false) == .localChinese,
+                 "云端未授权 + 本地顶得上 → 静默降级到本地，不去骚扰用户")
+        r.expect(EmbeddingRouter.choose(corpusContainsHan: false,
+                                        localChineseAvailable: false,
+                                        localEnglishAvailable: true,
+                                        cloudConfigured: true,
+                                        cloudConsentGranted: false) == .localEnglish,
+                 "纯英文库未授权时用本机英文")
+
+        // 只有本地顶不上时，才值得为授权打断用户。
+        r.expect(EmbeddingRouter.choose(corpusContainsHan: true,
+                                        localChineseAvailable: false,
+                                        localEnglishAvailable: true,
+                                        cloudConfigured: true,
+                                        cloudConsentGranted: false) == .cloudNeedsConsent,
+                 "本地顶不上（中文语料 + 无中文模型）才请求授权 —— 这正是 iPhone 上的现状")
+
+        // 云端授权了但本地也在：仍走云端；云端配置被撤掉则回落本地。
+        r.expect(EmbeddingRouter.choose(corpusContainsHan: true,
+                                        localChineseAvailable: true,
+                                        localEnglishAvailable: true,
+                                        cloudConfigured: false,
+                                        cloudConsentGranted: true) == .localChinese,
+                 "云端未配置 → 降级本地，而不是直接掉到 keyword")
 
         // 「没配」与「配了没同意」必须能区分开：下一步动作完全不同。
         let notConfigured = EmbeddingRouter.choose(corpusContainsHan: true,

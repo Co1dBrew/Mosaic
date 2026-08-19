@@ -6,12 +6,7 @@ import Foundation
 /// 混进同一个 store 做余弦是没有意义的，而且看起来会像「检索质量突然变差」。
 /// 所以这里输出的是**整库一条路线**，不是按块切换。
 ///
-/// 优先级（iOS 上没有中文模型，这是给那种设备写的）：
-///
-/// 1. 本机有中文模型 → 用它（Mac 上的 zh-Hans，离线、已测过）
-/// 2. 笔记里有汉字、本机没有中文模型 → 云端（大模型 /embeddings）
-/// 3. 纯英文（没有任何汉字）→ 本机英文
-/// 4. 以上都没有 → 不可用，关键词照常
+/// 优先级见 `choose` 的文档：**Cloud → Local → Keyword**（D-AI-003）。
 ///
 /// **云端那一路要用户先同意。** 它把笔记正文发到第三方，而且是**整库**发 ——
 /// 这比「生成一篇摘要」重得多，不能靠已经配了 API Key 就推定授权
@@ -55,31 +50,48 @@ public enum EmbeddingRoute: Equatable, Sendable {
 
 public enum EmbeddingRouter {
 
+    /// # 能力层级（D-AI-003）
+    ///
+    /// ```
+    /// Cloud Semantic   ← 已配置 + 用户已同意
+    ///   ↓ fallback
+    /// Local Semantic   ← 本机有能覆盖当前语料语种的模型
+    ///   ↓ fallback
+    /// Keyword Only     ← 永远可用，最终保障
+    /// ```
+    ///
+    /// **云端优先是实测结论，不是偏好**：在 150 篇 / 114 条 query 的 v3 集上，
+    /// cross-language R@5 本地 0.128 → 云端 0.936，in-scope R@1 0.269 → 0.866。
+    /// 差距不是调参能补的（`EMBEDDING_EXPERIMENT.md`）。
+    ///
+    /// **但云端不是默认开**：`cloudConsentGranted` 默认 false，因为它把整库笔记
+    /// 发给第三方。没同意时**优先降级到本地**而不是弹窗打扰 —— 只有本地也顶不上
+    /// （语料语种与本机模型对不上）时才返回 `.cloudNeedsConsent` 去问用户。
+    ///
     /// - Parameter cloudConsentGranted: 用户是否已明确同意把笔记文字发到云端。
-    ///   **默认 false**：没有明确同意时，云端那一路一律降级为 `.cloudNeedsConsent`，
-    ///   `ProductionEmbedding` 据此不构造 provider，于是一个请求都发不出去。
     public static func choose(corpusContainsHan: Bool,
                               localChineseAvailable: Bool,
                               localEnglishAvailable: Bool,
                               cloudConfigured: Bool,
                               cloudConsentGranted: Bool = false) -> EmbeddingRoute {
-        // 本机模型优先于云端，与同意与否无关 —— 能离线做的事不该上传。
-        if localChineseAvailable { return .localChinese }
+        // 1 · 云端：已配置且已授权 —— 质量最好，且是唯一能做跨语言的一路。
+        if cloudConfigured && cloudConsentGranted { return .cloud }
 
-        func cloudRoute() -> EmbeddingRoute {
-            cloudConsentGranted ? .cloud : .cloudNeedsConsent
-        }
-
+        // 2 · 本地：本机模型能不能覆盖当前语料的语种。
+        //    覆盖不了时用它等于把中文笔记配英文模型，排出来的顺序没有意义。
         if corpusContainsHan {
-            if cloudConfigured { return cloudRoute() }
-            return .unavailable("笔记含中文，但本机没有中文句向量，且未配置云端 embedding。关键词搜索不受影响。")
+            if localChineseAvailable { return .localChinese }
+        } else if localEnglishAvailable {
+            return .localEnglish
         }
 
-        // 纯英文库优先走本机英文：离线、不上传、零成本。
-        if localEnglishAvailable { return .localEnglish }
+        // 3 · 本地顶不上，而云端只差一次授权 —— 这时候才值得问用户。
+        if cloudConfigured { return .cloudNeedsConsent }
 
-        if cloudConfigured { return cloudRoute() }
-        return .unavailable("本机没有可用的句向量模型，语义检索不可用；关键词搜索不受影响。")
+        // 4 · 都没有：语义整条缺席，keyword 照常。
+        return .unavailable(corpusContainsHan
+            ? "笔记含中文，但本机没有中文句向量，且未配置云端 embedding。关键词搜索不受影响。"
+            : "本机没有可用的句向量模型，语义检索不可用；关键词搜索不受影响。")
     }
 
     /// 当前 provider 是本机英文时，中文 query 不能拿去嵌 —— 换语言就是换空间。
