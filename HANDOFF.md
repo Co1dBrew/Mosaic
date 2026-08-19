@@ -378,7 +378,7 @@ Release Gate 只读 in-scope 正例，cross-language 与负例单独报告。它
 | **TD-11** *(new)* | **`NLEmbedding` 余弦受文本长度支配**：拉长 16 倍余弦掉 0.0496，而相关/无关只差 0.0115（4.3 倍）。长笔记天然吃亏；TD-10 的阈值因此不能只看余弦 | 开放。`RetrievalWeek6Checks.checkCosineLengthBias` 钉住现象；换模型时重测 |
 | **TD-12** | ~~双语 persona 与整库单向量空间冲突~~ → **Resolved for cloud multilingual provider（D-AI-003）**。v3 实测 cross-language R@5：本地 0.128 → 云端 **0.936**。**但记录 R@1 只有 0.681**，排序仍有空间。中英双索引已被实验否决（真实路由 0.158 < baseline 0.211，作弊上界 0.421 < 同语种上界 0.619） | 云端路线已选定；**本地跨语言仍然不支持**，这是明确的产品边界 |
 | **TD-13** *(new)* | **云端语义 P95 远超 Local Retrieval SLO**：实测 P50 710ms / P95 894ms vs 预算 250ms。Release Gate 因此判定 **BLOCKED**（质量三项全过，P95 一项否决） | 开放。SLO 已拆三层（§21.2）；Gate 用哪一层的 P95 需要产品显式决定，不能悄悄换数字 |
-| **TD-9** | **iOS 上没有中文句向量模型**。模拟器矩阵：`zh-Hans ❌ · en ✅ 512 维`；macOS zh-Hans ✅。**2026-08-13 本机确认**。现已按语言分流：本机中文 → 离线；有中文无本机中文 → 云端 embedding；纯英文 → 本机英文。**不拿英文模型嵌中文笔记。** 云端未配置时含中文库 Gate 仍为 STALE | **已确认；云端退路已接线。** 用户需在设置填写支持 `/v1/embeddings` 的模型 |
+| ~~TD-9~~ | ~~iOS 上没有中文句向量模型~~ → **真机推翻（2026-08-19）**。iPhone Air（iPhone18,4 · iOS 27.0 · release）实测：**`zh-Hans` ✅ 640 维 · `en` ✅ 512 维**。此前的 ❌ 是**模拟器不带模型资源**，不是 iOS 的限制。`MosaicBench.DeviceLatencyBenchmarkTests.test1` 每次真机跑批都会重新记录这个矩阵 | **已关闭。** 但注意：模拟器上仍然不可用，所以模拟器上的 `semanticUnavailable` 状态是真的，开发时看到的降级不是 bug |
 | — | ~~`NLEmbedding` 对**长文本**的稳定性未验证~~ | **已测（§18.2/18.3）**：长文用例在三种 chunk 策略下全败，根因是 TD-11 |
 | — | benchmark 是在 Mac 上用确定性向量测的，**iPhone 数字一定不同** | Week 6 真机复测 |
 

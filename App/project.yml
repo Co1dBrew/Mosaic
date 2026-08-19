@@ -21,7 +21,7 @@ settings:
     # 下一次 `xcodegen generate` 就把选择冲掉了。填在这里才持久。
     # Team ID 怎么找：Xcode ▸ Settings ▸ Accounts ▸ 选中 Apple ID ▸
     # 下方 Team 一栏括号里的 10 位字符串。
-    # DEVELOPMENT_TEAM: XXXXXXXXXX
+    DEVELOPMENT_TEAM: 6TC3N788WT
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
 
@@ -52,6 +52,26 @@ targets:
     scheme:
       testTargets:
         - MosaicTests
+        - MosaicBench
+
+  # 真机性能基准。**独立 target**：它只依赖内核，不用 `@testable`，
+  # 所以 Release 构建不需要打开 ENABLE_TESTABILITY —— 那会改变符号可见性与优化，
+  # 污染性能数字。MosaicTests 里的用例需要 @testable，因此两者不能共处一个 target。
+  MosaicBench:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: MosaicBench
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: com.qingdonggong.mosaic.bench
+        SWIFT_VERSION: "5.0"
+    dependencies:
+      - target: Mosaic
+      - package: MosaicKit
+        product: MosaicKit
 
   MosaicTests:
     type: bundle.unit-test
@@ -68,3 +88,19 @@ targets:
       - target: Mosaic
       - package: MosaicKit
         product: MosaicKit
+
+schemes:
+  # 只包含 MosaicBench 的 scheme。`build-for-testing` 会编译 scheme 里**所有**
+  # 测试 target，而 MosaicTests 需要 @testable（Release 下不可用），
+  # 所以真机性能基准必须走自己的 scheme。
+  MosaicBench:
+    build:
+      targets:
+        Mosaic: [run, test]
+        MosaicBench: [test]
+    test:
+      config: Release
+      targets:
+        - MosaicBench
+    run:
+      config: Release

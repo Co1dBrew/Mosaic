@@ -1260,3 +1260,94 @@ Note v12 → 云端请求发出 → 用户编辑 → Note v13 → 1.3 s 后 v12 
 
 保留 RRF 的三条理由都是实测的：从不变差（成本 1.33 ms）· 对本地 fallback 决定性
 （R@1 0.079 → 0.193）· keyword 是唯一有 no-result 能力的一路（100% vs 0%）。
+
+---
+
+# 21. 真机基准（Metric A / Metric B-local）与 TD-9 的推翻
+
+`App/MosaicBench/DeviceLatencyBenchmarkTests.swift` · `Sources/MosaicKit/Eval/RunEnvironment.swift`
+
+## 21.1 TD-9 是模拟器的现象，不是 iOS 的现象
+
+**实测环境**：iPhone Air（`iPhone18,4`）· iOS 27.0 · **release 构建** · thermalState `nominal` ·
+低电量模式关闭。
+
+| 语言 | 模拟器（iOS 26.5） | **真机（iOS 27.0）** | macOS |
+|---|---|---|---|
+| `zh-Hans` | ❌ | **✅ 640 维** | ✅ 640 维 |
+| `en` | ✅ 512 维 | **✅ 512 维** | ✅ |
+
+**TD-9 关闭。** 此前「iOS 上没有中文句向量模型」的结论来自模拟器 —— 模拟器不附带
+`linguisticdata` 的模型资源。这是一次**测量环境被当成产品事实**的错误，代价是它连续
+几轮参与了「必须上云端」的论证。
+
+> ⚠️ 一处未排除的混淆：真机是 iOS 27.0，模拟器是 26.5。所以无法区分
+> 「模拟器从来不带模型」与「iOS 27 才加上」。**产品上不重要**（真机可用就是可用），
+> 但如果要支持 iOS 26 真机，需要单独在那个版本上复测。
+>
+> 反过来这也说明：**模拟器上看到的 `semanticUnavailable` 降级是真的**，
+> 开发时遇到不是 bug。
+
+## 21.2 为什么基准是独立 target 而不是 XCTest 里的一条用例
+
+`MosaicTests` 里的用例需要 `@testable import Mosaic`，而 `@testable` 要求
+`ENABLE_TESTABILITY`，**Release 下默认关闭**。为了让它编译而打开 testability 会改变
+符号可见性与优化行为 —— 那就污染了性能数字本身。
+
+所以拆出 `MosaicBench` target + 独立 scheme，它**只依赖内核**，不用 `@testable`。
+`RunEnvironment` 也因此从 App 层移进内核（`ReleaseGate` 本来就要读它）。
+
+模拟器上自动 `XCTSkip`，不靠调用方记得加环境变量 —— 模拟器跑在 Mac 的 CPU 上，
+它的数字既不是 Mac 也不是 iPhone。
+
+## 21.3 Metric A —— keyword 快通道（真机 release）
+
+| chunks | P50 | P95 |
+|---|---:|---:|
+| 1 000 | 3.67 ms | 4.75 ms |
+| 5 000 | 18.07 ms | 24.95 ms |
+| 10 000 | 35.46 ms | 45.97 ms |
+| **20 000** | **73.88 ms** | **97.87 ms** |
+
+**全部在 SLO（P50<100 / P95<250）内**，有断言守着。
+
+## 21.4 Metric B-local —— 本地 hybrid 端到端（真机 release）
+
+本地 query 嵌入（`nl-zh-Hans-r1`，640 维）：**P50 6.21 ms / P95 7.99 ms** —— 很便宜。
+
+余弦检索规模曲线（dim 384，纯数学）：
+
+| chunks | P50 | P95 | 内存 |
+|---|---:|---:|---:|
+| 1 000 | 0.64 ms | 0.70 ms | 1.5 MB |
+| 5 000 | 1.64 ms | 1.93 ms | 7.3 MB |
+| 10 000 | 2.85 ms | 3.16 ms | 14.6 MB |
+| 20 000 | **5.45 ms** | **5.86 ms** | 29.3 MB |
+
+端到端 hybrid（keyword + 本地嵌入 + 余弦 + RRF）：
+
+| chunks | P50 | P95 |
+|---|---:|---:|
+| 1 000 | 8.20 ms | 9.62 ms |
+| 5 000 | 24.96 ms | 31.17 ms |
+| **20 000** | **92.53 ms** | **119.30 ms** |
+
+**20k chunks 的真机 P95 = 119 ms，在 250 ms 预算内。** Mac release 是 79.5 ms，
+真机约慢 1.5 倍 —— 与预期一致，D-RT-012（不上 ANN）在真机上仍然成立。
+
+## 21.5 反直觉发现：瓶颈是 keyword 路，不是向量路
+
+20k chunks 上：**keyword 97.87 ms vs 余弦检索 5.86 ms —— 差 17 倍。**
+
+余弦是 384 次乘加，编译器能向量化；而子串匹配走的是 Swift `String`
+（Unicode 正确、按 grapheme cluster），在 20k × 约 100 字符上逐 token 定位要贵得多。
+
+**产品含义**：想改善「用户多久看到第一批结果」，要优化的是**词法路**（例如倒排索引），
+不是向量路。这条也进一步支持 D-RT-012 —— ANN 优化的正是那个已经只占 6% 的部分。
+
+## 21.6 这次基准**没有**测什么
+
+- **云端语义（L3 网络 / L4 总计）**：不在真机基准里。云端 query embedding 的耗时
+  主要由地理位置决定（实测 US→China P95 1317 ms），混进「检索延迟」会得到一个
+  换服务商就作废的数字。它要带 `providerRegion` 标签单独测。
+- **质量**：本基准的向量是确定性填充值，只测延迟，不测 Recall。
