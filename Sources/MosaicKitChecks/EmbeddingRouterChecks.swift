@@ -36,12 +36,14 @@ enum EmbeddingRouterChecks {
     }
 
     private static func checkRouting(_ r: CheckRunner) {
-        // 本机中文模型在时永远优先 —— 不因为库里有中文就改走云端（Mac）。
+        // **云端未授权时**落回本机中文。注意这不是「本地永远优先」——
+        // D-AI-003 之后云端在已授权时优先（见下方 checkPreference）；
+        // 这一条守的是 fallback：没授权不该把用户从可用的本地语义降级到零。
         r.expect(EmbeddingRouter.choose(corpusContainsHan: true,
                                         localChineseAvailable: true,
                                         localEnglishAvailable: true,
                                         cloudConfigured: true) == .localChinese,
-                 "本机中文可用 → 离线中文，不走云端")
+                 "云端未授权 → 落回本机中文，而不是降级为不可用")
 
         // iOS 现状：无中文模型，笔记有中文。**同意之后**才是云端 ——
         // 没同意的那一支由下面「隐私闸门」一节单独守。
