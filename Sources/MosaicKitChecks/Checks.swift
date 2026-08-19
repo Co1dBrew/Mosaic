@@ -29,6 +29,7 @@ struct Checks {
         EmbeddingProviderChecks.runCloud(r)
         EmbeddingRouterChecks.run(r)
         await EvalChecks.run(r)
+        await HumanLikeGoldenChecks.run(r)
         await SearchPresentationChecks.run(r)
         await runLiveChecks(r)
 

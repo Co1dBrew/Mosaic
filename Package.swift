@@ -30,7 +30,10 @@ let package = Package(
         .executableTarget(
             name: "MosaicKitChecks",
             dependencies: ["MosaicKit"],
-            path: "Sources/MosaicKitChecks"
+            path: "Sources/MosaicKitChecks",
+            resources: [
+                .copy("Fixtures")
+            ]
         )
     ]
 )
