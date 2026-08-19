@@ -1,138 +1,2947 @@
 {
-  "version": "synthetic-human-v2",
+  "version": "synthetic-human-v3",
   "disclaimer": "Synthetic, human-like candidate data. It is not real-user ground truth and must not be reported as such.",
   "notes": [
-    {"id":"T01","title":"和导师聊延期毕业","source":"text","language":"zh","role":"target","content":"今天和 advisor 聊了延期毕业。他说如果要晚一个学期，需要先发邮件给项目主任，并在秋季学期开始前四周提交书面申请。导师愿意在确认后帮我签字。"},
-    {"id":"T02","title":"搜索功能上线安排","source":"text","language":"zh","role":"target","content":"产品会结论：智能搜索 beta 暂定周五交付 TestFlight，支付页改版延到下周二。周四下午由设计、客户端和 QA 一起做 checkout 验收。"},
-    {"id":"T03","title":"Two-week moving checklist","source":"text","language":"en","role":"target","content":"Two-week moving checklist: confirm electricity and internet activation, book the movers, and send notice to the old apartment. The key handoff is September 3 at 10:00 AM."},
-    {"id":"T04","title":"感冒看诊记录","source":"text","language":"zh","role":"target","content":"医生说阿莫西林每天三次，每次一粒，饭后服用，连续七天。症状好转也不要自行停药；如果出现皮疹或呼吸困难，立刻停药并联系诊所。"},
-    {"id":"T05","title":"第一次看搬家公司报价","source":"text","language":"zh","role":"distractor","content":"比较了三家搬家公司，按小时计费，周末价格更高。要确认纸箱、楼梯附加费和大件家具保护，但今天没有约日期。"},
-    {"id":"T06","title":"新家采购清单","source":"text","language":"zh","role":"distractor","content":"搬家后要买浴帘、垃圾桶、厨房置物架和落地灯。先量客厅墙面再决定书桌尺寸，家具送货时间还没确认。"},
-    {"id":"T07","title":"Moving day meal plan","source":"text","language":"en","role":"distractor","content":"Pack water, fruit, paper towels, and sandwiches for moving day. Keep the cooler in the car and order dinner after the furniture arrives."},
-    {"id":"T08","title":"Quarterly planning notes","source":"text","language":"en","role":"distractor","content":"The team reviewed onboarding completion, notification reliability, and the fall marketing calendar. Owners will estimate work before planning."},
-    {"id":"T09","title":"Grocery list for camping","source":"text","language":"en","role":"distractor","content":"Camping groceries: oatmeal, coffee, tortillas, canned beans, apples, trail mix, and enough water for two nights. Remember stove fuel."},
-    {"id":"T10","title":"Apartment maintenance log","source":"text","language":"en","role":"distractor","content":"The kitchen faucet drips after closing and the bedroom window latch feels loose. Submit a maintenance ticket with photos."},
-    {"id":"T11","title":"秋季求职与课程安排复盘","source":"text","language":"zh","role":"target","middleMarker":"职业中心模拟面试改到十月十八日下午三点","endMarker":"作品集最终截止日是十一月六日晚上八点","content":"开学后事情一下子变多，我把课程、求职和生活安排合在这篇周记里，免得每次都去翻日历。周一上午是机器学习讨论课，老师要求每周提前读两篇论文；周二晚上的助教值班先保留，如果和面试冲突再请同学代班。简历已经根据数据产品和 AI 产品两个方向拆成两个版本，接下来要分别补上指标定义、实验设计和跨团队协作的例子。上周投出的三家公司里，一家发了在线测评，两家还没有回复。在线测评最好在安静的图书馆完成，耳机和充电器都要提前装进包里。学校的招聘会在十月初，参加前要准备三十秒英文自我介绍，也要把签证问题的回答练熟。导师建议不要为了投递数量牺牲课程项目，所以每周三晚上只做申请，不再临时加任务。职业中心模拟面试改到十月十八日下午三点，地点在学生中心二楼 214 室，需要提前一天把职位描述和最新版简历发给顾问。模拟面试重点练产品判断、检索质量指标和失败案例复盘，不准备纯算法题。课程项目这边，数据清洗由我负责，队友负责前端展示，第一次内部演示定在十月二十五日。月底之前还要和国际学生办公室确认 CPT 时间线，但在拿到正式 offer 前不提交申请。生活方面，房租已经设置自动付款，周五买菜，周日晚上统一整理下一周安排。十一月初把所有项目截图和实验结果整理进个人网站，旧版案例只保留最终结论，不再堆过程图。还要请同学检查英文表述和移动端排版，避免最后一天集中修改。作品集最终截止日是十一月六日晚上八点，提交后请两位同学分别从招聘经理和普通用户角度检查一遍。"},
-    {"id":"T12","title":"Capstone research journal","source":"text","language":"en","role":"target","middleMarker":"The supervised pilot review is booked for November 12 at 2 PM","endMarker":"The final ethics memo is due November 29 before noon","content":"This journal collects decisions for the capstone so they do not disappear across chat threads. The project studies how bilingual students search personal archives when they remember meaning but not exact wording. During the first week I will recruit classmates from two departments and ask them to bring examples of searches that genuinely failed. The interview guide should avoid leading participants toward semantic search language. Consent forms need plain explanations of what stays local and what may be sent to a cloud model. Every query will be logged with an anonymous code, retrieval mode, latency, and the note selected by the participant. Raw note text will not be copied into the research spreadsheet. A dry run with two friends is scheduled before formal collection so confusing prompts can be removed. The supervised pilot review is booked for November 12 at 2 PM in Lab 3B; Professor Allen wants the recruitment script, consent screen, and deletion procedure available during the review. After that meeting I will freeze the evaluation protocol and stop changing relevance labels in response to model output. Analysis will separate exact, natural-language, and mixed queries, while cross-language searches will be reported as an architecture boundary rather than blended into the release gate. The presentation should include one failed search trace from every source type and explain whether extraction, chunking, embedding, or fusion caused it. A second reviewer will audit ten labels without seeing the ranking. All participant exports must be deleted after aggregate numbers are checked. The final ethics memo is due November 29 before noon and must include the retention table, reviewer sign-off, and a statement that synthetic fixtures are not real-user evidence."},
-
-    {"id":"I01","title":"国内超市退款小票","source":"ocr","language":"zh","role":"target","content":"青禾超市 08月02日 蓝莓 4.99 燕麦奶 3.49 退款 蓝莓 -4.99 合计 3.49 银行卡尾号 1842"},
-    {"id":"I02","title":"公寓门口停车牌","source":"ocr","language":"en","role":"target","content":"NO PARKING STREET CLEANING TUESDAY 8AM-11AM 2ND AND 4TH WEEK OF EACH MONTH TOW AWAY ZONE"},
-    {"id":"I03","title":"新路由器背面标签","source":"ocr","language":"en","role":"target","content":"Home Wi-Fi Network: Pine-Guest Password: coffee-4821 Admin: 192.168.1.1 Model AX3000 Serial 7K2M19"},
-    {"id":"I04","title":"周末爵士音乐节海报","source":"ocr","language":"en","role":"target","content":"CITY PARK JAZZ FESTIVAL AUGUST 24 GATES 4:30 PM MUSIC 6:00 PM FREE ADMISSION RAIN OR SHINE"},
-    {"id":"I05","title":"另一条街的停车牌","source":"ocr","language":"zh","role":"distractor","content":"橡树街 临时禁止停车 周五 下午一时至四时 道路施工 违者拖车 与街道清扫无关"},
-    {"id":"I06","title":"快递柜取件截图","source":"ocr","language":"zh","role":"distractor","content":"丰巢智能柜 取件码 638921 请于今日 22:00 前领取 柜门 17 号 客服 95333"},
-    {"id":"I07","title":"校园咖啡店收据","source":"ocr","language":"zh","role":"distractor","content":"校园咖啡 拿铁 4.50 蓝莓松饼 3.25 税 0.62 合计 8.37 信用卡尾号 5108 不含退款"},
-    {"id":"I08","title":"社区游泳池告示","source":"ocr","language":"zh","role":"distractor","content":"社区泳池 周一维护暂停开放 儿童须由成人陪同 禁止玻璃容器 开放时间 上午六点至晚上九点"},
-    {"id":"I09","title":"Library printing receipt","source":"ocr","language":"en","role":"distractor","content":"CAMPUS LIBRARY PRINT CENTER 26 BLACK AND WHITE PAGES $2.60 CARD ENDING 7721 AUG 11 6:14 PM"},
-    {"id":"I10","title":"Bus detour notice","source":"ocr","language":"en","role":"distractor","content":"ROUTE 15 DETOUR SATURDAY 7 AM TO 5 PM USE TEMPORARY STOP AT PINE AND 8TH EXPECT TEN MINUTE DELAYS"},
-    {"id":"I11","title":"租房入住检查表扫描件","source":"ocr","language":"zh","role":"target","middleMarker":"厨房水槽下方已有一处旧水渍","endMarker":"签字后的表格须在九月五日下午五点前交回","content":"松岭公寓入住状况检查表，房号 4B。租客应在领取钥匙后逐项检查并记录已有损坏，未标注的问题可能在退租时被视为租客责任。客厅：北侧墙面有两处小钉孔，地毯靠阳台位置轻微褪色，推拉门可以正常上锁，纱窗右下角有约两厘米裂口。卧室：顶灯正常，衣柜门轨道顺畅，东侧插座需要用力才能插入，窗帘左侧缺少一个挂钩。卫生间：镜柜边缘有磨损，淋浴水压正常，浴缸排水较慢但没有完全堵塞，瓷砖缝没有明显霉斑。租客不得自行涂漆或更换固定装置，如需维修应通过住户系统提交工单并保留照片。玄关鞋柜内侧有一道划痕，门铃声音偏小但可以使用；走廊暖气出风口清洁，恒温器显示正常。管理员提醒所有已有问题都要同时拍远景和近景，口头说明不能替代书面记录。厨房水槽下方已有一处旧水渍，现场管理员确认目前没有继续漏水；冰箱冷藏室第二层搁板有一道裂纹，烤箱和四个炉头均可启动，洗碗机运行时会有轻微震动。请在照片中放入当天报纸或手机日期作为时间证明。阳台：栏杆稳固，地面有两块无法清除的深色污点，不得放置烧烤炉。烟雾报警器和一氧化碳报警器测试正常，租客应每月按测试键一次，不得拆除电池。门锁：前门两把钥匙和一个邮箱钥匙均已收到，遗失钥匙会收取更换费。表格仅用于记录入住前状况，不代替维修申请；需要处理的项目仍要单独提交。租客和管理员都应保留扫描副本，照片按房间命名后上传，本页共四张照片作为附件。签字后的表格须在九月五日下午五点前交回，逾期系统会自动关闭本次入住检查。"},
-    {"id":"I12","title":"Museum event poster","source":"ocr","language":"en","role":"distractor","content":"NIGHT AT THE MUSEUM SEPTEMBER 14 DOORS 7 PM STUDENT TICKETS $8 PLANETARIUM SHOW SOLD SEPARATELY"},
-
-    {"id":"A01","title":"周一产品例会录音","source":"transcript","language":"zh","role":"target","content":"大家确认一下，搜索 beta 这周不上正式环境，周五只发内部 TestFlight。主要阻塞是中文模型在 iPhone 上不可用，Mina 负责把云端方案和隐私弹窗补齐。"},
-    {"id":"A02","title":"牙医诊所语音留言","source":"transcript","language":"zh","role":"target","content":"您好，这里是 Aspen Dental。提醒您下次洗牙预约在 8月27日 星期四 下午两点半，请提前十分钟到达。如需改期请至少提前二十四小时来电。"},
-    {"id":"A03","title":"和妈妈确认接机","source":"transcript","language":"zh","role":"target","content":"我坐 United 183，周日晚上七点四十五到丹佛机场，应该在 B 航站楼。落地拿到行李我再给你发消息，你不用太早到。"},
-    {"id":"A04","title":"Data structures lecture","source":"transcript","language":"en","role":"target","content":"The final exam covers chapters four through seven, including hash tables, trees, and graphs. Chapter three linked lists require basic concepts. Chapter eight dynamic programming is excluded. One double-sided handwritten note sheet is allowed."},
-    {"id":"A05","title":"增长实验例会录音","source":"transcript","language":"zh","role":"distractor","content":"这周只讨论新手引导完成率和推送打开率。分析同学周三补齐分群数据，下次会议再决定是否扩大实验。没有讨论搜索功能。"},
-    {"id":"A06","title":"支付体验复盘录音","source":"transcript","language":"zh","role":"distractor","content":"结账页的主要问题是优惠码错误提示不清楚，设计周四给新稿，客户端下周开始开发。本次会议没有确定搜索版本日期。"},
-    {"id":"A07","title":"内容运营周会录音","source":"transcript","language":"zh","role":"distractor","content":"九月专题先做开学季，编辑负责收集校园生活模板，市场负责社交媒体排期。下周只看内容数据，不做功能验收。"},
-    {"id":"A08","title":"Voicemail from the pharmacy","source":"transcript","language":"en","role":"distractor","content":"This is Green Pharmacy calling to say your allergy prescription is ready. The counter closes at seven on weekdays and five on Saturday."},
-    {"id":"A09","title":"Design critique recording","source":"transcript","language":"en","role":"distractor","content":"The critique focused on spacing, empty states, and contrast of secondary labels. Revised screens are due Monday before usability testing."},
-    {"id":"A10","title":"Apartment tour recording","source":"transcript","language":"en","role":"distractor","content":"The leasing agent said utilities are billed separately and packages go to the south lobby. The available unit has no balcony."},
-    {"id":"A11","title":"Guest lecture on trustworthy AI","source":"transcript","language":"en","role":"target","middleMarker":"The red-team workshop moved to October 22 at 11 AM","endMarker":"Submit the reflection recording by November 3 at 6 PM","content":"Welcome back. Today we are connecting evaluation design with product decisions. A model score is useful only when the dataset represents the users and failure modes the team claims to serve. Start by writing down the unit of judgment: a response, a retrieved document, or a completed user task. Then separate offline metrics from evidence collected in a live workflow. If annotators can see model rankings, their labels may drift toward the system, so relevance should be recorded before comparing configurations. For multilingual products, do not average supported and unsupported language pairs into a single release number. Report the boundary directly and decide whether the product will add a multilingual model, maintain separate indexes, or narrow its promise. The red-team workshop moved to October 22 at 11 AM in Engineering 204; bring one prompt-injection example and one retrieval false positive from your project. During the workshop, teams will exchange datasets and attempt to find hidden shortcuts such as duplicated questions, source-language confounds, or answers always appearing at the start of a document. Afterward, freeze the reviewed cases and keep failures even when they make the score look worse. Latency measurements must name the hardware and build type because simulator results do not establish phone performance. Your final presentation should show one decision that changed because of evidence, not just a dashboard of metrics. Include consent and deletion behavior whenever cloud processing is involved. Submit the reflection recording by November 3 at 6 PM through the course portal; late uploads need written approval from the instructor."},
-    {"id":"A12","title":"Career fair orientation","source":"transcript","language":"en","role":"distractor","content":"Employers are grouped by industry across two halls. Students should bring identification and follow up within two days."},
-
-    {"id":"D01","title":"公寓租约","source":"extracted","language":"en","role":"target","content":"LEASE TERMINATION. Tenant must provide written notice no fewer than 30 calendar days before the intended move-out date. The security deposit may be applied to unpaid rent or documented damage, but not normal wear."},
-    {"id":"D02","title":"中文汽车保险保单","source":"extracted","language":"zh","role":"target","content":"车辆损失险每次事故免赔额 ¥10,000；综合险免赔额 ¥3,500。租车补偿每天最高 ¥300，最长三十天。保险期间截至十二月三十一日。"},
-    {"id":"D03","title":"国际学生实习手册","source":"extracted","language":"en","role":"target","content":"CPT applications should be submitted at least 15 business days before the internship start date. Students must not begin employment until the updated I-20 with CPT authorization has been issued."},
-    {"id":"D04","title":"新工作 Offer Letter","source":"extracted","language":"en","role":"target","content":"Annual paid time off is 15 business days, accrued each pay period. Employees may work remotely up to three days per week after the first 60 days, subject to manager approval. Start date: September 16."},
-    {"id":"D05","title":"另一份公寓租约","source":"extracted","language":"zh","role":"distractor","content":"本租约要求租客在搬离日前至少六十个自然日提交书面通知。提前终止还需支付一个月租金，不适用三十天通知条款。"},
-    {"id":"D06","title":"校园停车证规则","source":"extracted","language":"zh","role":"distractor","content":"学生停车证仅适用于北区和东区停车场，工作日上午七点至下午五点需要悬挂。街边清扫和临时施工标志优先。"},
-    {"id":"D07","title":"研究助理合同","source":"extracted","language":"zh","role":"distractor","content":"研究助理每周工作十小时，工资按月发放。续约取决于项目经费和学期末评估，与课程学分无关。"},
-    {"id":"D08","title":"家电延保条款","source":"extracted","language":"zh","role":"distractor","content":"延长保修覆盖正常使用中的机械故障，不覆盖意外跌落、进水和耗材。每次维修收取固定服务费二百元。"},
-    {"id":"D09","title":"Health plan summary","source":"extracted","language":"en","role":"distractor","content":"The student health plan has a $500 annual deductible and a $25 primary care copay. Dental cleanings are not included."},
-    {"id":"D10","title":"Internship offer from another company","source":"extracted","language":"en","role":"distractor","content":"The internship begins June 10, requires twenty hours per week, and provides five unpaid personal days. Remote work is Fridays."},
-    {"id":"D11","title":"研究参与者数据管理规范","source":"extracted","language":"zh","role":"target","middleMarker":"每位参与者的撤回截止时间为十月二十日下午五点","endMarker":"项目关闭证明须在十二月二日前上传","content":"第一条适用范围。本规范用于双语信息检索研究中产生的访谈录音、匿名查询、相关性标注和汇总指标。研究团队不得把参与者的原始笔记正文复制到共享表格，也不得使用真实姓名作为文件名。第二条编号规则。参与者在签署同意书后获得随机编号，编号表由负责人单独加密保存，分析人员只接触匿名编号。第三条本地与云端。默认在研究设备本地完成文本处理；如果实验需要调用云端模型，必须再次展示用途、发送内容和删除方式，并取得单独同意。拒绝云端处理不影响参与者继续完成本地实验。第四条访问控制。只有负责人和指定复核员可以查看原始录音，学生助理只能查看去标识后的查询及判断。每位参与者的撤回截止时间为十月二十日下午五点，在此之前提出撤回时，团队必须删除该参与者的录音、查询、标签和编号映射，并在三个工作日内书面确认。截止时间之后，已经合并成无法反向识别的统计结果可以保留。第五条质量复核。至少抽取百分之二十的用例由第二名标注者独立判断，复核时不得显示任何检索排名。意见不一致时保留双方记录，由负责人根据事先冻结的准则裁定，禁止为了提高模型分数修改答案。第六条保存期限。原始录音在转写核对完成后七日内删除，去标识查询保存到课程评分结束，汇总指标可用于最终报告。第七条事件响应。如果发生误传、权限错误或设备丢失，应在二十四小时内通知导师并暂停新的采集。所有删除操作要写入审计日志，日志只记录编号和时间，不记录笔记内容。项目结束时由负责人逐项核对本地目录、云端临时存储和备份。项目关闭证明须在十二月二日前上传，并附负责人和复核员签名。"},
-    {"id":"D12","title":"Travel insurance certificate","source":"extracted","language":"en","role":"distractor","content":"Trip cancellation coverage applies only to listed reasons. Claims require receipts within ninety days of the event."},
-
-    {"id":"L01","title":"I-20 旅行签字说明","source":"link","language":"zh","role":"target","content":"国际学生再次入境美国前应检查 I-20 第二页的旅行签字。F-1 学生的签字通常有效 12个月；OPT 期间需要六个月内有效的签字。"},
-    {"id":"L02","title":"收藏的四川辣椒油做法","source":"link","language":"zh","role":"target","content":"做辣椒油时先用低温把八角、桂皮和葱段炸香后捞出，等油温降到约 170 度再分三次泼到辣椒面上。一次倒完容易把辣椒炸糊，最后加芝麻和少量香醋。"},
-    {"id":"L03","title":"United Basic Economy 行李规则","source":"link","language":"en","role":"target","content":"On most domestic Basic Economy tickets, one carry-on bag and one personal item are permitted. Checked baggage is not included. Size limits and exceptions vary by route."},
-    {"id":"L04","title":"CloudKit 容器配置教程","source":"link","language":"en","role":"target","content":"Enable the iCloud capability in Signing & Capabilities, select CloudKit, create an iCloud container, then ensure the identifier is present in app entitlements."},
-    {"id":"L05","title":"搬家纸箱打包技巧","source":"link","language":"zh","role":"distractor","content":"每箱不要超过十五公斤，书本分散装，易碎品用毛巾隔开。箱外标房间和优先级，但没有钥匙交接时间。"},
-    {"id":"L06","title":"校园招聘会准备指南","source":"link","language":"zh","role":"distractor","content":"提前查看参展公司，准备简短自我介绍，带学生证并在会后两天内发感谢邮件。穿着整洁即可。"},
-    {"id":"L07","title":"感冒期间饮食建议","source":"link","language":"zh","role":"distractor","content":"多喝水并保证休息，避免酒精。本文是一般生活建议，不包含处方药剂量，也不能替代医生诊断。"},
-    {"id":"L08","title":"Airline checked bag comparison","source":"link","language":"en","role":"distractor","content":"This comparison covers checked-bag fees for several airlines. It does not describe Basic Economy carry-on eligibility."},
-    {"id":"L09","title":"SwiftData migration guide","source":"link","language":"en","role":"distractor","content":"Add optional properties before making them required, test with a copied store, and keep derived indexes outside user data."},
-    {"id":"L10","title":"Homemade chili crisp recipe","source":"link","language":"en","role":"distractor","content":"Toast peanuts, fry shallots slowly, and combine with chili flakes after the oil cools. This version has no three-pour method."},
-    {"id":"L11","title":"Practical guide to retrieval evaluation","source":"link","language":"en","role":"target","middleMarker":"Freeze relevance labels before running configuration comparisons","endMarker":"Archive the signed evaluation report on December 8","content":"A useful retrieval evaluation starts with a concrete user task, not a model leaderboard. Collect queries in the language people naturally use and ask annotators which notes would genuinely help complete the task. Include exact wording, paraphrases, mixed-language phrases, and queries with no relevant result. Record source type and language separately so an apparent OCR problem cannot secretly be an English-model problem. Keep distractors that share topics, dates, or entities with targets. Long documents should place evidence away from the opening paragraph and should be tested at more than one position. Before measuring, document retrieval mode, embedding version, chunk strategy, top K, corpus hash, hardware, and build type. Freeze relevance labels before running configuration comparisons; reviewers must not rewrite expected answers after seeing which system wins. Report in-scope and cross-language cases separately whenever production does not support both in one vector space. Recall at five shows whether all required notes appear near the top, while reciprocal rank reveals how early the first useful note appears. Negative cases need their own no-result accuracy because adding them to Recall would make the denominator meaningless. Treat an empty result as correct only when the expectation explicitly says no relevant result. Latency percentiles must come from release builds, and phone claims require phone measurements. Preserve failures as regression cases after a reviewer assigns a cause. Do not add a negative threshold to the release gate until behavior is stable across multiple runs. End the report with limitations, consent status, and unresolved architecture choices. Archive the signed evaluation report on December 8 together with the frozen dataset version and reviewer notes."},
-    {"id":"L12","title":"向量数据库选型文章","source":"link","language":"zh","role":"distractor","content":"文章按价格、过滤能力、复制方式和运维成本比较托管向量数据库，但没有讨论这个 App 的本地双语路由。"}
+    {
+      "id": "T01",
+      "title": "和导师聊延期毕业",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "今天和 advisor 聊了延期毕业。他说如果要晚一个学期，需要先发邮件给项目主任，并在秋季学期开始前四周提交书面申请。导师愿意在确认后帮我签字。"
+    },
+    {
+      "id": "T02",
+      "title": "搜索功能上线安排",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "产品会结论：智能搜索 beta 暂定周五交付 TestFlight，支付页改版延到下周二。周四下午由设计、客户端和 QA 一起做 checkout 验收。"
+    },
+    {
+      "id": "T03",
+      "title": "Two-week moving checklist",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "Two-week moving checklist: confirm electricity and internet activation, book the movers, and send notice to the old apartment. The key handoff is September 3 at 10:00 AM."
+    },
+    {
+      "id": "T04",
+      "title": "感冒看诊记录",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "医生说阿莫西林每天三次，每次一粒，饭后服用，连续七天。症状好转也不要自行停药；如果出现皮疹或呼吸困难，立刻停药并联系诊所。"
+    },
+    {
+      "id": "T05",
+      "title": "第一次看搬家公司报价",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "比较了三家搬家公司，按小时计费，周末价格更高。要确认纸箱、楼梯附加费和大件家具保护，但今天没有约日期。"
+    },
+    {
+      "id": "T06",
+      "title": "新家采购清单",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "搬家后要买浴帘、垃圾桶、厨房置物架和落地灯。先量客厅墙面再决定书桌尺寸，家具送货时间还没确认。"
+    },
+    {
+      "id": "T07",
+      "title": "Moving day meal plan",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "Pack water, fruit, paper towels, and sandwiches for moving day. Keep the cooler in the car and order dinner after the furniture arrives."
+    },
+    {
+      "id": "T08",
+      "title": "Quarterly planning notes",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "The team reviewed onboarding completion, notification reliability, and the fall marketing calendar. Owners will estimate work before planning."
+    },
+    {
+      "id": "T09",
+      "title": "Grocery list for camping",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "Camping groceries: oatmeal, coffee, tortillas, canned beans, apples, trail mix, and enough water for two nights. Remember stove fuel."
+    },
+    {
+      "id": "T10",
+      "title": "Apartment maintenance log",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "The kitchen faucet drips after closing and the bedroom window latch feels loose. Submit a maintenance ticket with photos."
+    },
+    {
+      "id": "T11",
+      "title": "秋季求职与课程安排复盘",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "middleMarker": "职业中心模拟面试改到十月十八日下午三点",
+      "endMarker": "作品集最终截止日是十一月六日晚上八点",
+      "content": "开学后事情一下子变多，我把课程、求职和生活安排合在这篇周记里，免得每次都去翻日历。周一上午是机器学习讨论课，老师要求每周提前读两篇论文；周二晚上的助教值班先保留，如果和面试冲突再请同学代班。简历已经根据数据产品和 AI 产品两个方向拆成两个版本，接下来要分别补上指标定义、实验设计和跨团队协作的例子。上周投出的三家公司里，一家发了在线测评，两家还没有回复。在线测评最好在安静的图书馆完成，耳机和充电器都要提前装进包里。学校的招聘会在十月初，参加前要准备三十秒英文自我介绍，也要把签证问题的回答练熟。导师建议不要为了投递数量牺牲课程项目，所以每周三晚上只做申请，不再临时加任务。职业中心模拟面试改到十月十八日下午三点，地点在学生中心二楼 214 室，需要提前一天把职位描述和最新版简历发给顾问。模拟面试重点练产品判断、检索质量指标和失败案例复盘，不准备纯算法题。课程项目这边，数据清洗由我负责，队友负责前端展示，第一次内部演示定在十月二十五日。月底之前还要和国际学生办公室确认 CPT 时间线，但在拿到正式 offer 前不提交申请。生活方面，房租已经设置自动付款，周五买菜，周日晚上统一整理下一周安排。十一月初把所有项目截图和实验结果整理进个人网站，旧版案例只保留最终结论，不再堆过程图。还要请同学检查英文表述和移动端排版，避免最后一天集中修改。作品集最终截止日是十一月六日晚上八点，提交后请两位同学分别从招聘经理和普通用户角度检查一遍。"
+    },
+    {
+      "id": "T12",
+      "title": "Capstone research journal",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "middleMarker": "The supervised pilot review is booked for November 12 at 2 PM",
+      "endMarker": "The final ethics memo is due November 29 before noon",
+      "content": "This journal collects decisions for the capstone so they do not disappear across chat threads. The project studies how bilingual students search personal archives when they remember meaning but not exact wording. During the first week I will recruit classmates from two departments and ask them to bring examples of searches that genuinely failed. The interview guide should avoid leading participants toward semantic search language. Consent forms need plain explanations of what stays local and what may be sent to a cloud model. Every query will be logged with an anonymous code, retrieval mode, latency, and the note selected by the participant. Raw note text will not be copied into the research spreadsheet. A dry run with two friends is scheduled before formal collection so confusing prompts can be removed. The supervised pilot review is booked for November 12 at 2 PM in Lab 3B; Professor Allen wants the recruitment script, consent screen, and deletion procedure available during the review. After that meeting I will freeze the evaluation protocol and stop changing relevance labels in response to model output. Analysis will separate exact, natural-language, and mixed queries, while cross-language searches will be reported as an architecture boundary rather than blended into the release gate. The presentation should include one failed search trace from every source type and explain whether extraction, chunking, embedding, or fusion caused it. A second reviewer will audit ten labels without seeing the ranking. All participant exports must be deleted after aggregate numbers are checked. The final ethics memo is due November 29 before noon and must include the retention table, reviewer sign-off, and a statement that synthetic fixtures are not real-user evidence."
+    },
+    {
+      "id": "I01",
+      "title": "国内超市退款小票",
+      "source": "ocr",
+      "language": "zh",
+      "role": "target",
+      "content": "青禾超市 08月02日 蓝莓 4.99 燕麦奶 3.49 退款 蓝莓 -4.99 合计 3.49 银行卡尾号 1842"
+    },
+    {
+      "id": "I02",
+      "title": "公寓门口停车牌",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "NO PARKING STREET CLEANING TUESDAY 8AM-11AM 2ND AND 4TH WEEK OF EACH MONTH TOW AWAY ZONE"
+    },
+    {
+      "id": "I03",
+      "title": "新路由器背面标签",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "Home Wi-Fi Network: Pine-Guest Password: coffee-4821 Admin: 192.168.1.1 Model AX3000 Serial 7K2M19"
+    },
+    {
+      "id": "I04",
+      "title": "周末爵士音乐节海报",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "CITY PARK JAZZ FESTIVAL AUGUST 24 GATES 4:30 PM MUSIC 6:00 PM FREE ADMISSION RAIN OR SHINE"
+    },
+    {
+      "id": "I05",
+      "title": "另一条街的停车牌",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "橡树街 临时禁止停车 周五 下午一时至四时 道路施工 违者拖车 与街道清扫无关"
+    },
+    {
+      "id": "I06",
+      "title": "快递柜取件截图",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "丰巢智能柜 取件码 638921 请于今日 22:00 前领取 柜门 17 号 客服 95333"
+    },
+    {
+      "id": "I07",
+      "title": "校园咖啡店收据",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "校园咖啡 拿铁 4.50 蓝莓松饼 3.25 税 0.62 合计 8.37 信用卡尾号 5108 不含退款"
+    },
+    {
+      "id": "I08",
+      "title": "社区游泳池告示",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "社区泳池 周一维护暂停开放 儿童须由成人陪同 禁止玻璃容器 开放时间 上午六点至晚上九点"
+    },
+    {
+      "id": "I09",
+      "title": "Library printing receipt",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "CAMPUS LIBRARY PRINT CENTER 26 BLACK AND WHITE PAGES $2.60 CARD ENDING 7721 AUG 11 6:14 PM"
+    },
+    {
+      "id": "I10",
+      "title": "Bus detour notice",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "ROUTE 15 DETOUR SATURDAY 7 AM TO 5 PM USE TEMPORARY STOP AT PINE AND 8TH EXPECT TEN MINUTE DELAYS"
+    },
+    {
+      "id": "I11",
+      "title": "租房入住检查表扫描件",
+      "source": "ocr",
+      "language": "zh",
+      "role": "target",
+      "middleMarker": "厨房水槽下方已有一处旧水渍",
+      "endMarker": "签字后的表格须在九月五日下午五点前交回",
+      "content": "松岭公寓入住状况检查表，房号 4B。租客应在领取钥匙后逐项检查并记录已有损坏，未标注的问题可能在退租时被视为租客责任。客厅：北侧墙面有两处小钉孔，地毯靠阳台位置轻微褪色，推拉门可以正常上锁，纱窗右下角有约两厘米裂口。卧室：顶灯正常，衣柜门轨道顺畅，东侧插座需要用力才能插入，窗帘左侧缺少一个挂钩。卫生间：镜柜边缘有磨损，淋浴水压正常，浴缸排水较慢但没有完全堵塞，瓷砖缝没有明显霉斑。租客不得自行涂漆或更换固定装置，如需维修应通过住户系统提交工单并保留照片。玄关鞋柜内侧有一道划痕，门铃声音偏小但可以使用；走廊暖气出风口清洁，恒温器显示正常。管理员提醒所有已有问题都要同时拍远景和近景，口头说明不能替代书面记录。厨房水槽下方已有一处旧水渍，现场管理员确认目前没有继续漏水；冰箱冷藏室第二层搁板有一道裂纹，烤箱和四个炉头均可启动，洗碗机运行时会有轻微震动。请在照片中放入当天报纸或手机日期作为时间证明。阳台：栏杆稳固，地面有两块无法清除的深色污点，不得放置烧烤炉。烟雾报警器和一氧化碳报警器测试正常，租客应每月按测试键一次，不得拆除电池。门锁：前门两把钥匙和一个邮箱钥匙均已收到，遗失钥匙会收取更换费。表格仅用于记录入住前状况，不代替维修申请；需要处理的项目仍要单独提交。租客和管理员都应保留扫描副本，照片按房间命名后上传，本页共四张照片作为附件。签字后的表格须在九月五日下午五点前交回，逾期系统会自动关闭本次入住检查。"
+    },
+    {
+      "id": "I12",
+      "title": "Museum event poster",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "NIGHT AT THE MUSEUM SEPTEMBER 14 DOORS 7 PM STUDENT TICKETS $8 PLANETARIUM SHOW SOLD SEPARATELY"
+    },
+    {
+      "id": "A01",
+      "title": "周一产品例会录音",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "大家确认一下，搜索 beta 这周不上正式环境，周五只发内部 TestFlight。主要阻塞是中文模型在 iPhone 上不可用，Mina 负责把云端方案和隐私弹窗补齐。"
+    },
+    {
+      "id": "A02",
+      "title": "牙医诊所语音留言",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "您好，这里是 Aspen Dental。提醒您下次洗牙预约在 8月27日 星期四 下午两点半，请提前十分钟到达。如需改期请至少提前二十四小时来电。"
+    },
+    {
+      "id": "A03",
+      "title": "和妈妈确认接机",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "我坐 United 183，周日晚上七点四十五到丹佛机场，应该在 B 航站楼。落地拿到行李我再给你发消息，你不用太早到。"
+    },
+    {
+      "id": "A04",
+      "title": "Data structures lecture",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "content": "The final exam covers chapters four through seven, including hash tables, trees, and graphs. Chapter three linked lists require basic concepts. Chapter eight dynamic programming is excluded. One double-sided handwritten note sheet is allowed."
+    },
+    {
+      "id": "A05",
+      "title": "增长实验例会录音",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "这周只讨论新手引导完成率和推送打开率。分析同学周三补齐分群数据，下次会议再决定是否扩大实验。没有讨论搜索功能。"
+    },
+    {
+      "id": "A06",
+      "title": "支付体验复盘录音",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "结账页的主要问题是优惠码错误提示不清楚，设计周四给新稿，客户端下周开始开发。本次会议没有确定搜索版本日期。"
+    },
+    {
+      "id": "A07",
+      "title": "内容运营周会录音",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "九月专题先做开学季，编辑负责收集校园生活模板，市场负责社交媒体排期。下周只看内容数据，不做功能验收。"
+    },
+    {
+      "id": "A08",
+      "title": "Voicemail from the pharmacy",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "This is Green Pharmacy calling to say your allergy prescription is ready. The counter closes at seven on weekdays and five on Saturday."
+    },
+    {
+      "id": "A09",
+      "title": "Design critique recording",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "The critique focused on spacing, empty states, and contrast of secondary labels. Revised screens are due Monday before usability testing."
+    },
+    {
+      "id": "A10",
+      "title": "Apartment tour recording",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "The leasing agent said utilities are billed separately and packages go to the south lobby. The available unit has no balcony."
+    },
+    {
+      "id": "A11",
+      "title": "Guest lecture on trustworthy AI",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "middleMarker": "The red-team workshop moved to October 22 at 11 AM",
+      "endMarker": "Submit the reflection recording by November 3 at 6 PM",
+      "content": "Welcome back. Today we are connecting evaluation design with product decisions. A model score is useful only when the dataset represents the users and failure modes the team claims to serve. Start by writing down the unit of judgment: a response, a retrieved document, or a completed user task. Then separate offline metrics from evidence collected in a live workflow. If annotators can see model rankings, their labels may drift toward the system, so relevance should be recorded before comparing configurations. For multilingual products, do not average supported and unsupported language pairs into a single release number. Report the boundary directly and decide whether the product will add a multilingual model, maintain separate indexes, or narrow its promise. The red-team workshop moved to October 22 at 11 AM in Engineering 204; bring one prompt-injection example and one retrieval false positive from your project. During the workshop, teams will exchange datasets and attempt to find hidden shortcuts such as duplicated questions, source-language confounds, or answers always appearing at the start of a document. Afterward, freeze the reviewed cases and keep failures even when they make the score look worse. Latency measurements must name the hardware and build type because simulator results do not establish phone performance. Your final presentation should show one decision that changed because of evidence, not just a dashboard of metrics. Include consent and deletion behavior whenever cloud processing is involved. Submit the reflection recording by November 3 at 6 PM through the course portal; late uploads need written approval from the instructor."
+    },
+    {
+      "id": "A12",
+      "title": "Career fair orientation",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "Employers are grouped by industry across two halls. Students should bring identification and follow up within two days."
+    },
+    {
+      "id": "D01",
+      "title": "公寓租约",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "LEASE TERMINATION. Tenant must provide written notice no fewer than 30 calendar days before the intended move-out date. The security deposit may be applied to unpaid rent or documented damage, but not normal wear."
+    },
+    {
+      "id": "D02",
+      "title": "中文汽车保险保单",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "车辆损失险每次事故免赔额 ¥10,000；综合险免赔额 ¥3,500。租车补偿每天最高 ¥300，最长三十天。保险期间截至十二月三十一日。"
+    },
+    {
+      "id": "D03",
+      "title": "国际学生实习手册",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "CPT applications should be submitted at least 15 business days before the internship start date. Students must not begin employment until the updated I-20 with CPT authorization has been issued."
+    },
+    {
+      "id": "D04",
+      "title": "新工作 Offer Letter",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "Annual paid time off is 15 business days, accrued each pay period. Employees may work remotely up to three days per week after the first 60 days, subject to manager approval. Start date: September 16."
+    },
+    {
+      "id": "D05",
+      "title": "另一份公寓租约",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "本租约要求租客在搬离日前至少六十个自然日提交书面通知。提前终止还需支付一个月租金，不适用三十天通知条款。"
+    },
+    {
+      "id": "D06",
+      "title": "校园停车证规则",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "学生停车证仅适用于北区和东区停车场，工作日上午七点至下午五点需要悬挂。街边清扫和临时施工标志优先。"
+    },
+    {
+      "id": "D07",
+      "title": "研究助理合同",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "研究助理每周工作十小时，工资按月发放。续约取决于项目经费和学期末评估，与课程学分无关。"
+    },
+    {
+      "id": "D08",
+      "title": "家电延保条款",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "延长保修覆盖正常使用中的机械故障，不覆盖意外跌落、进水和耗材。每次维修收取固定服务费二百元。"
+    },
+    {
+      "id": "D09",
+      "title": "Health plan summary",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "The student health plan has a $500 annual deductible and a $25 primary care copay. Dental cleanings are not included."
+    },
+    {
+      "id": "D10",
+      "title": "Internship offer from another company",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "The internship begins June 10, requires twenty hours per week, and provides five unpaid personal days. Remote work is Fridays."
+    },
+    {
+      "id": "D11",
+      "title": "研究参与者数据管理规范",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "middleMarker": "每位参与者的撤回截止时间为十月二十日下午五点",
+      "endMarker": "项目关闭证明须在十二月二日前上传",
+      "content": "第一条适用范围。本规范用于双语信息检索研究中产生的访谈录音、匿名查询、相关性标注和汇总指标。研究团队不得把参与者的原始笔记正文复制到共享表格，也不得使用真实姓名作为文件名。第二条编号规则。参与者在签署同意书后获得随机编号，编号表由负责人单独加密保存，分析人员只接触匿名编号。第三条本地与云端。默认在研究设备本地完成文本处理；如果实验需要调用云端模型，必须再次展示用途、发送内容和删除方式，并取得单独同意。拒绝云端处理不影响参与者继续完成本地实验。第四条访问控制。只有负责人和指定复核员可以查看原始录音，学生助理只能查看去标识后的查询及判断。每位参与者的撤回截止时间为十月二十日下午五点，在此之前提出撤回时，团队必须删除该参与者的录音、查询、标签和编号映射，并在三个工作日内书面确认。截止时间之后，已经合并成无法反向识别的统计结果可以保留。第五条质量复核。至少抽取百分之二十的用例由第二名标注者独立判断，复核时不得显示任何检索排名。意见不一致时保留双方记录，由负责人根据事先冻结的准则裁定，禁止为了提高模型分数修改答案。第六条保存期限。原始录音在转写核对完成后七日内删除，去标识查询保存到课程评分结束，汇总指标可用于最终报告。第七条事件响应。如果发生误传、权限错误或设备丢失，应在二十四小时内通知导师并暂停新的采集。所有删除操作要写入审计日志，日志只记录编号和时间，不记录笔记内容。项目结束时由负责人逐项核对本地目录、云端临时存储和备份。项目关闭证明须在十二月二日前上传，并附负责人和复核员签名。"
+    },
+    {
+      "id": "D12",
+      "title": "Travel insurance certificate",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "Trip cancellation coverage applies only to listed reasons. Claims require receipts within ninety days of the event."
+    },
+    {
+      "id": "L01",
+      "title": "I-20 旅行签字说明",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "国际学生再次入境美国前应检查 I-20 第二页的旅行签字。F-1 学生的签字通常有效 12个月；OPT 期间需要六个月内有效的签字。"
+    },
+    {
+      "id": "L02",
+      "title": "收藏的四川辣椒油做法",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "做辣椒油时先用低温把八角、桂皮和葱段炸香后捞出，等油温降到约 170 度再分三次泼到辣椒面上。一次倒完容易把辣椒炸糊，最后加芝麻和少量香醋。"
+    },
+    {
+      "id": "L03",
+      "title": "United Basic Economy 行李规则",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "On most domestic Basic Economy tickets, one carry-on bag and one personal item are permitted. Checked baggage is not included. Size limits and exceptions vary by route."
+    },
+    {
+      "id": "L04",
+      "title": "CloudKit 容器配置教程",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "Enable the iCloud capability in Signing & Capabilities, select CloudKit, create an iCloud container, then ensure the identifier is present in app entitlements."
+    },
+    {
+      "id": "L05",
+      "title": "搬家纸箱打包技巧",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "每箱不要超过十五公斤，书本分散装，易碎品用毛巾隔开。箱外标房间和优先级，但没有钥匙交接时间。"
+    },
+    {
+      "id": "L06",
+      "title": "校园招聘会准备指南",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "提前查看参展公司，准备简短自我介绍，带学生证并在会后两天内发感谢邮件。穿着整洁即可。"
+    },
+    {
+      "id": "L07",
+      "title": "感冒期间饮食建议",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "多喝水并保证休息，避免酒精。本文是一般生活建议，不包含处方药剂量，也不能替代医生诊断。"
+    },
+    {
+      "id": "L08",
+      "title": "Airline checked bag comparison",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "This comparison covers checked-bag fees for several airlines. It does not describe Basic Economy carry-on eligibility."
+    },
+    {
+      "id": "L09",
+      "title": "SwiftData migration guide",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Add optional properties before making them required, test with a copied store, and keep derived indexes outside user data."
+    },
+    {
+      "id": "L10",
+      "title": "Homemade chili crisp recipe",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Toast peanuts, fry shallots slowly, and combine with chili flakes after the oil cools. This version has no three-pour method."
+    },
+    {
+      "id": "L11",
+      "title": "Practical guide to retrieval evaluation",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "middleMarker": "Freeze relevance labels before running configuration comparisons",
+      "endMarker": "Archive the signed evaluation report on December 8",
+      "content": "A useful retrieval evaluation starts with a concrete user task, not a model leaderboard. Collect queries in the language people naturally use and ask annotators which notes would genuinely help complete the task. Include exact wording, paraphrases, mixed-language phrases, and queries with no relevant result. Record source type and language separately so an apparent OCR problem cannot secretly be an English-model problem. Keep distractors that share topics, dates, or entities with targets. Long documents should place evidence away from the opening paragraph and should be tested at more than one position. Before measuring, document retrieval mode, embedding version, chunk strategy, top K, corpus hash, hardware, and build type. Freeze relevance labels before running configuration comparisons; reviewers must not rewrite expected answers after seeing which system wins. Report in-scope and cross-language cases separately whenever production does not support both in one vector space. Recall at five shows whether all required notes appear near the top, while reciprocal rank reveals how early the first useful note appears. Negative cases need their own no-result accuracy because adding them to Recall would make the denominator meaningless. Treat an empty result as correct only when the expectation explicitly says no relevant result. Latency percentiles must come from release builds, and phone claims require phone measurements. Preserve failures as regression cases after a reviewer assigns a cause. Do not add a negative threshold to the release gate until behavior is stable across multiple runs. End the report with limitations, consent status, and unresolved architecture choices. Archive the signed evaluation report on December 8 together with the frozen dataset version and reviewer notes."
+    },
+    {
+      "id": "L12",
+      "title": "向量数据库选型文章",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "文章按价格、过滤能力、复制方式和运维成本比较托管向量数据库，但没有讨论这个 App 的本地双语路由。"
+    },
+    {
+      "id": "D20",
+      "title": "公寓租约 · 宠物条款",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "PETS. Tenant may keep one cat or one dog under 25 pounds with a non-refundable pet fee of $300 and monthly pet rent of $35. Aggressive breeds are prohibited. Unauthorized pets result in a $250 fine per occurrence.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D21",
+      "title": "公寓租约 · 提前解约",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "EARLY TERMINATION. Tenant may terminate before the end of the term by paying a fee equal to two months of rent plus forfeiting the security deposit. Written notice of at least 60 calendar days is still required.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D22",
+      "title": "公寓租约 · 车位分配",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "车位条款。承租人分配到地下车库 B2 层第 47 号车位，每月停车费 120 美元随房租一并缴纳。访客车位需提前在物业系统登记，每月不超过四次。占用他人车位将被拖走。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D23",
+      "title": "公寓租约 · 押金退还",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "押金退还。退租后房东应在三十日内退还押金，并附逐项扣款说明。正常磨损不得扣款。若逾期未退还，承租人可要求两倍押金作为赔偿。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D24",
+      "title": "旧公寓租约（已到期）",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "LEASE TERMINATION. Tenant must provide written notice no fewer than 45 calendar days before move-out. This agreement expired in June and has been superseded by the current lease.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T20",
+      "title": "学校邮件 · 学位授予",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "Degree conferral for the fall term takes place on December 20. Your application to graduate must be submitted through the student portal by October 1. Conferral is separate from the commencement ceremony.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T21",
+      "title": "学校邮件 · OPT 申请窗口",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "You may file your OPT application as early as 90 days before your program end date and no later than 60 days after it. USCIS processing currently takes about three months, so file early.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T22",
+      "title": "学校邮件 · 休学申请",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "关于休学：需要在学期开始前向学院提交休学申请表，并与国际学生办公室确认签证影响。休学期间 F-1 身份会终止，返校前需要新的 I-20。最长可休两个学期。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T23",
+      "title": "学校邮件 · SEVIS 转学",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "To transfer your SEVIS record you must complete the transfer-out request and provide an admission letter from the new school. The release date determines when the new school can issue your I-20.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T24",
+      "title": "学校邮件 · 毕业典礼安排",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "毕业典礼定于五月十七日上午九点在体育馆举行，参加者需在四月三十日前登记并领取学位服。典礼不代表学位授予，学位以成绩单上的授予日期为准。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T25",
+      "title": "学校群发 · 图书馆闭馆通知",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "图书馆将在期末考试周延长开放至凌晨两点，考试结束后恢复正常作息。三楼小组讨论室需提前预约。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D25",
+      "title": "租客保险保单",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "Renters insurance covers personal property up to $20,000 with a $500 deductible. Water damage from plumbing failure is covered; flood damage is excluded and requires a separate policy.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D26",
+      "title": "健康保险 · 自付额",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "Your in-network annual deductible is $1,250 per individual. After the deductible is met, the plan pays 80% of covered services. Preventive care is covered at 100% with no deductible.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D27",
+      "title": "旅行保险条款",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "行程取消保障上限为每人两千美元，需在出发前七十二小时以上申报。行李延误超过六小时可申请每日一百美元的应急采购补偿，需保留购物凭证。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D28",
+      "title": "汽车保险 · 道路救援附加条款",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "道路救援附加险每年八十美元，包含拖车不超过五十英里、搭电、换胎与开锁，每年最多使用四次。不含燃油费用。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T26",
+      "title": "CS5330 作业要求",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "CS5330 Pattern Recognition and Computer Vision. Project 4 requires implementing calibration and augmented reality. Late submissions lose 10% per day. Office hours moved to Thursday.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T27",
+      "title": "CS5800 期末范围",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "CS5800 算法期末考试范围是动态规划、网络流和 NP 完全性。允许带一张双面 A4 手写纸。线性规划那一章不考。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T28",
+      "title": "Mask R-CNN 论文笔记",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "Mask R-CNN extends Faster R-CNN with a parallel mask branch and replaces RoIPool with RoIAlign, which removes the harsh quantization that hurt pixel-level alignment.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T29",
+      "title": "API Key 轮换手册",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "API Key 轮换流程：先在控制台生成新 key，更新 Keychain 中的条目，确认服务正常后再吊销旧 key。切勿把 key 写进代码仓库或日志。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T30",
+      "title": "CS5520 课程介绍",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "CS5520 Mobile Application Development covers Android and iOS fundamentals. Weekly labs are graded on completion. No final exam; a team project replaces it.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A20",
+      "title": "产品例会 · 支付改版",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "支付页改版这一版先只做 Apple Pay，信用卡表单留到下个迭代。周四下午和风控一起过一遍失败重试的文案，不要再让用户看到英文报错。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A21",
+      "title": "Infra sync on index migration",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "content": "We are moving the index rebuild off the main thread next sprint. The blocker is that the current store is memory only, so a cold start still costs a full rescan. Target is to ship behind a flag.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A22",
+      "title": "设计评审 · 搜索结果行",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "结果行确定三个槽位：标题、命中片段、文件夹和时间。命中片段固定两行，不随字号增加行数。来源图标放常驻位置，不要让左边缘跳动。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A23",
+      "title": "Hiring sync",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "Two candidates cleared the system design round. We agreed to move the take-home to a ninety minute pairing session because take-homes have a fifty percent drop-off.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A24",
+      "title": "周会 · 杂项同步",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "本周杂项：办公室周五下午做消防演练，饮水机换供应商，团建投票截止周三。没有工程议题。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A25",
+      "title": "Standup on flaky tests",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "The retry test is flaky again on CI but passes locally. We think it is a timing assumption in the fixture, not a product bug. Someone will look at it after the release.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A26",
+      "title": "牙医复诊提醒",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "提醒您补牙复诊改到九月三日下午四点，原定的八月二十七日那次已取消。如需再次改期请提前一个工作日致电。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A27",
+      "title": "Voicemail from the clinic",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "content": "This is a reminder that your annual physical is scheduled for October 9 at 8:30 in the morning. Please fast for eight hours beforehand and bring your insurance card.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A28",
+      "title": "课程录音 · 图算法",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "content": "For shortest paths, remember Dijkstra fails with negative edges. Bellman-Ford handles them and detects negative cycles. Floyd-Warshall gives all pairs but is cubic.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A29",
+      "title": "课程录音 · 数据库范式",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "第三范式要求消除传递依赖。考试会给一张表让你判断它满足到第几范式，并写出分解过程。BCNF 是加强版，只考概念不考分解。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I20",
+      "title": "Whole Foods 小票",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "WHOLE FOODS MARKET 09/14 AVOCADO 2.99 SOURDOUGH 4.49 GREEK YOGURT 5.99 SUBTOTAL 13.47 TAX 0.94 TOTAL 14.41 MASTERCARD 7731",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I21",
+      "title": "药房小票",
+      "source": "ocr",
+      "language": "zh",
+      "role": "target",
+      "content": "叮当药房 09/16 阿莫西林胶囊 一盒 38.00 布洛芬 一盒 22.50 医保支付 30.00 自付 30.50 合计 60.50 收银台 03",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I22",
+      "title": "停车牌 · 学校南门",
+      "source": "ocr",
+      "language": "zh",
+      "role": "target",
+      "content": "南门访客停车 每小时 3 元 上限 20 元 夜间 22 点后免费 请扫码缴费后离场 违停将被锁车",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I23",
+      "title": "Street sign near the office",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "2 HOUR PARKING 9AM TO 6PM MONDAY THROUGH FRIDAY EXCEPT PERMIT ZONE C RESIDENTS SUNDAY NO RESTRICTION",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I24",
+      "title": "打印机标签",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "HP LaserJet M428 Serial VNB3K21099 Wi-Fi Direct password 46215520 IP 192.168.1.24 Toner CF259A",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I25",
+      "title": "NAS 背面标签",
+      "source": "ocr",
+      "language": "zh",
+      "role": "target",
+      "content": "群晖 DS220 序列号 2140PDN098 默认管理地址 find.synology.com 初始账号 admin 硬盘仓位 两个 请勿带电插拔",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I26",
+      "title": "健身房会员卡",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "PLANET FITNESS MEMBER ID 88213904 BLACK CARD PLAN VALID THRU 03/27 CLUB 4412 BRING PHOTO ID",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I27",
+      "title": "快递面单",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "顺丰速运 运单号 SF1234567890 寄件 上海市浦东新区 收件 波士顿 重量 2.4 公斤 签收请当面验货",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I28",
+      "title": "超市退款小票（另一次）",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "TRADER JOE'S 09/02 BANANAS 1.99 REFUND BANANAS -1.99 TOTAL 0.00 VISA 1842 RETURN PROCESSED AT REGISTER 6",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I29",
+      "title": "会议室门牌",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "会议室 4B 容纳十二人 投屏请用 HDMI 或 AirPlay 预约请在飞书日历上操作 使用后请关灯",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L20",
+      "title": "红烧肉做法",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "先焯水去腥，再用冰糖炒糖色，糖色炒到枣红立刻下肉翻炒上色。加热水没过肉，小火炖四十分钟后开盖收汁，最后十分钟才放盐。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L21",
+      "title": "Sourdough starter guide",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "Feed the starter with equal weights of flour and water once a day at room temperature. It is ready to bake when it reliably doubles within four to six hours and floats in water.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L22",
+      "title": "Delta 行李规则",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "Main Cabin fares include one carry-on and one personal item. The first checked bag is fifty dollars each way on most domestic routes. Overweight applies above fifty pounds.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L23",
+      "title": "日本入境规则",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "短期观光免签停留最长九十天，入境需提前在网上填写 Visit Japan Web 并保存二维码。药品携带超过一个月用量需要申报。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L24",
+      "title": "SwiftData 迁移教程",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "Use a VersionedSchema for each model version and a SchemaMigrationPlan to declare lightweight or custom stages. Custom stages let you transform data between versions.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L25",
+      "title": "Core ML 量化说明",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "调色板量化把权重聚类到有限的取值上，可以在精度损失很小的情况下把模型体积压到四分之一。转换后必须在目标设备上重新测延迟。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L26",
+      "title": "咖啡豆烘焙度科普",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "浅烘保留更多花果酸香，中烘平衡，深烘偏焦糖与苦。手冲一般选浅到中烘，意式偏中深烘。烘焙日期比烘焙度更影响风味。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L27",
+      "title": "Markdown cheatsheet",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Use one hash for a top level heading, asterisks for emphasis, and three backticks for fenced code blocks. Tables use pipes and require a separator row.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L28",
+      "title": "United 里程规则",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "MileagePlus miles do not expire. Award availability varies by cabin and route. Upgrades on Basic Economy fares are not permitted under any status level.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L29",
+      "title": "家庭网络布线建议",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "尽量把路由器放在房屋中心并远离金属与微波炉。有条件走网线的房间不要依赖无线回程。Mesh 节点之间保持一到两个房间的距离。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T31",
+      "title": "手机合约 · 提前解约",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "手机合约提前解约需支付剩余月份的设备补贴余额，目前还剩十四个月。号码可以携号转网，但补贴要一次结清。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T32",
+      "title": "健身房合约 · 提前解约",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "健身房会籍提前解约要交两个月会费作为违约金，且需提前三十天书面通知。搬家超过二十五英里可凭证明免违约金。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T33",
+      "title": "共享单车押金",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "共享单车押金两百元，退还需在 App 内申请，通常三到七个工作日到账。有未支付订单时无法退押金。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T34",
+      "title": "Dental plan summary",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "Preventive cleanings are covered twice per year with no deductible. Major work such as crowns is subject to a five hundred dollar annual deductible and a fifty percent coinsurance.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T35",
+      "title": "团队报销政策",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "单笔超过五十美元的报销需要发票原件，出差住宿每晚上限一百八十美元。提交截止是次月五号，逾期计入下个月。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T36",
+      "title": "Weekly plan",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "Ship the consent gate on Tuesday, run the harder eval set on Wednesday, and keep Thursday clear for the release review. Do not start the ANN work.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "T37",
+      "title": "Reading notes on Thinking Fast and Slow",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "System one is fast and intuitive, system two is slow and effortful. Anchoring means the first number you hear contaminates every later judgment, which makes it dangerous during estimation.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D29",
+      "title": "雇佣合同 · 竞业条款",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "NON-COMPETE. For twelve months following separation, Employee shall not join a company whose primary product directly competes in the same market segment. This clause does not apply if separation is initiated by the Company.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D30",
+      "title": "雇佣合同 · 股权归属",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "Equity vests over four years with a one year cliff. Twenty five percent vests on the first anniversary and the remainder vests monthly thereafter. Unvested shares are forfeited on separation.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D31",
+      "title": "Offer Letter · 另一家公司",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "Annual paid time off is 20 business days. Employees may work remotely two days per week. The signing bonus is repayable in full if you leave within twelve months.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D32",
+      "title": "W-2 说明页",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "Box 1 shows wages subject to federal income tax. Box 12 codes report deferrals and benefits. Keep this form for at least three years after filing.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D33",
+      "title": "实习协议",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "实习期为十二周，每周不超过四十小时。实习期间产生的代码与文档著作权归公司所有。提前终止需提前一周书面通知双方。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D34",
+      "title": "装修报价单",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "厨房翻新报价共计三万八千元，其中橱柜一万六，台面九千，水电改造六千，人工七千。工期约二十五个工作日，付款分三期。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D35",
+      "title": "体检报告摘要",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "空腹血糖 5.4，总胆固醇偏高为 5.9，建议三个月后复查并控制饮食。其余项目均在参考范围内。血压 118/76。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D36",
+      "title": "物业管理规约",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "装修须在工作日九点至十七点进行，周末与节假日禁止产生噪音的作业。装修前需向物业备案并缴纳两千元保证金。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "D37",
+      "title": "银行开户资料清单",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "开立账户需提供护照、I-20、学校在读证明与本地住址证明。留学生账户前六个月免月费，之后需保持最低余额或每月有直接存款。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A30",
+      "title": "和房东通话",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "房东说厨房水龙头下周三上午安排师傅来修，需要有人在家开门。如果那天不方便可以留钥匙在物业前台。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A31",
+      "title": "Call with the insurance agent",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "content": "If you add the second driver the premium goes up about eighteen dollars a month. The accident from two years ago drops off your record next March, which should bring it back down.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A32",
+      "title": "家人语音 · 药别忘了",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "记得抗生素要吃满七天，别因为好转就停。另外那个止痛的一天最多四次，两次之间至少隔六小时。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A33",
+      "title": "Advisor meeting recording",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "For the thesis timeline you should have the proposal defended by March, otherwise the summer conferral will not work. The committee needs three weeks to read the draft.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A34",
+      "title": "播客片段 · 生产力",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "他讲到把任务拆到十五分钟以内可以显著降低启动阻力，还提到不要在早上处理邮件，把最清醒的两小时留给最难的事。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A35",
+      "title": "Podcast clip on habits",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "The guest argues that environment design beats willpower. If the thing you want to do takes fewer than twenty seconds to start, you will do it far more often.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A36",
+      "title": "超市广播录音",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "顾客您好，生鲜区正在进行八折促销，活动持续到今晚九点。停车请勿占用装卸区，谢谢配合。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "A37",
+      "title": "Airport announcement",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "Passengers on flight to Denver, boarding has been delayed by forty minutes due to a late inbound aircraft. Please stay near the gate for updates.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I30",
+      "title": "体温计说明",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "额温枪 使用前静置十分钟 测量距离 3 至 5 厘米 正常范围 36.1 至 37.2 摄氏度 长按开关三秒切换摄氏华氏",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I31",
+      "title": "洗衣标签",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "面料 100% 羊毛 手洗 水温不超过 30 度 不可漂白 不可烘干 平铺阴干 低温熨烫 干洗可用 P",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I32",
+      "title": "Prescription label",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "AMOXICILLIN 500MG CAPSULE TAKE ONE CAPSULE BY MOUTH THREE TIMES DAILY WITH FOOD FOR 7 DAYS QTY 21 RF 0 DR CHEN",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I33",
+      "title": "Conference badge",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "WWDC ATTENDEE BADGE HALL 2 SESSION PASS VALID JUNE 9 TO 13 LUNCH INCLUDED KEEP BADGE VISIBLE AT ALL TIMES",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I34",
+      "title": "电梯检验合格证",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "特种设备检验合格 编号 TJ-2024-08871 下次检验日期 2027 年 3 月 额定载重 1000 公斤 限乘 13 人",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I35",
+      "title": "消防疏散图",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "紧急出口在东侧楼梯 请勿使用电梯 集合点在停车场西北角 灭火器位于每层茶水间旁",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I36",
+      "title": "Wine label",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "NAPA VALLEY CABERNET SAUVIGNON 2019 ALC 14.5% BY VOL 750ML PRODUCED AND BOTTLED BY ESTATE WINERY",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "I37",
+      "title": "Gym locker sign",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "LOCKERS MUST BE EMPTIED DAILY ITEMS LEFT OVERNIGHT WILL BE REMOVED COMBINATION LOCKS ONLY NO PADLOCKS",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L30",
+      "title": "F-1 学生报税指南",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "F-1 前五年通常按非居民外国人报税，需要提交 8843 表，即使没有收入也要交。有奖学金或工资收入的还需要 1040-NR。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L31",
+      "title": "Boston 公共交通攻略",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "地铁按次收费，CharlieCard 比 CharlieTicket 便宜。月票适合每天通勤，周末班次间隔会拉长到十五分钟以上。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L32",
+      "title": "How to read a lease",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "Always check three clauses first: termination notice period, what counts as normal wear, and whether the deposit accrues interest. Verbal promises from a landlord are not enforceable.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L33",
+      "title": "Interview prep checklist",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Prepare two stories per behavioral theme, rehearse the system design opening questions, and always confirm constraints before proposing an architecture.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L34",
+      "title": "相机构图入门",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "三分法把画面分成九宫格，主体放在交点上更耐看。前景遮挡可以增加层次，逆光时对焦在主体边缘更容易锁定。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L35",
+      "title": "跑步入门计划",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "从走跑交替开始，每周增加不超过百分之十的里程。心率控制在最大心率的七成以下，能正常说话的配速就是合适的。",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L36",
+      "title": "Git rebase explained",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Rebase rewrites commit history onto a new base. Never rebase a branch that others have pulled. Interactive rebase lets you squash and reorder before opening a pull request.",
+      "middleMarker": null,
+      "endMarker": null
+    },
+    {
+      "id": "L37",
+      "title": "Sleep hygiene basics",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Keep a consistent wake time, avoid caffeine after early afternoon, and get bright light within an hour of waking. Screens matter less than timing and consistency.",
+      "middleMarker": null,
+      "endMarker": null
+    }
   ],
   "cases": [
-    {"id":"HG001","query":"延期毕业 书面申请","expectedNoteIDs":["T01"],"style":"exact","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"记得两个原词"},
-    {"id":"HG002","query":"我之前问导师能不能晚一点毕业，需要提前多久办手续","expectedNoteIDs":["T01"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"自然语言回忆"},
-    {"id":"HG003","query":"支付页 checkout 验收时间","expectedNoteIDs":["T02"],"style":"mixed","queryLanguage":"mixed","expectedLanguage":"zh","scope":"cross-language","note":"混合 query 查中文纪要"},
-    {"id":"HG004","query":"设计和 QA 哪天一起看付款页面","expectedNoteIDs":["T02"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"改写验收措辞"},
-    {"id":"HG005","query":"moving checklist key handoff","expectedNoteIDs":["T03"],"style":"exact","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"英文清单原词"},
-    {"id":"HG006","query":"What should I set up before moving into the new place?","expectedNoteIDs":["T03"],"style":"natural","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"英文待办意图"},
-    {"id":"HG007","query":"阿莫西林 饭后 每天三次","expectedNoteIDs":["T04"],"style":"exact","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"剂量原词"},
-    {"id":"HG008","query":"医生开的那个抗生素一天吃几次","expectedNoteIDs":["T04"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"忘记药名"},
-    {"id":"HG009","query":"退款 蓝莓 合计 3.49","expectedNoteIDs":["I01"],"style":"exact","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"中文小票原词"},
-    {"id":"HG010","query":"How much was left after the spoiled fruit refund?","expectedNoteIDs":["I01"],"style":"natural","queryLanguage":"en","expectedLanguage":"zh","scope":"cross-language","note":"英文查中文小票"},
-    {"id":"HG011","query":"Tuesday street cleaning 8AM","expectedNoteIDs":["I02"],"style":"exact","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"停车牌原词"},
-    {"id":"HG012","query":"我家门口星期几上午不能停车","expectedNoteIDs":["I02"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查英文牌子"},
-    {"id":"HG013","query":"Pine-Guest coffee-4821","expectedNoteIDs":["I03"],"style":"exact","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"路由器原词"},
-    {"id":"HG014","query":"新路由器访客 Wi-Fi 的密码是什么","expectedNoteIDs":["I03"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查英文标签"},
-    {"id":"HG015","query":"Jazz Festival August 24","expectedNoteIDs":["I04"],"style":"mixed","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"海报原词"},
-    {"id":"HG016","query":"周末公园那个免费音乐活动几点开始","expectedNoteIDs":["I04"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查英文海报"},
-    {"id":"HG017","query":"搜索 beta 周五 TestFlight","expectedNoteIDs":["A01","T02"],"style":"mixed","queryLanguage":"mixed","expectedLanguage":"zh","scope":"cross-language","note":"两个来源都相关"},
-    {"id":"HG018","query":"录音里谁说智能搜索这周不能正式上线","expectedNoteIDs":["A01"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"限定录音"},
-    {"id":"HG019","query":"8月27日 下午两点半","expectedNoteIDs":["A02"],"style":"exact","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"预约原词"},
-    {"id":"HG020","query":"我下次洗牙是哪天，改期要提前多久","expectedNoteIDs":["A02"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"两个任务"},
-    {"id":"HG021","query":"United 183 丹佛 B 航站楼","expectedNoteIDs":["A03"],"style":"exact","queryLanguage":"mixed","expectedLanguage":"zh","scope":"cross-language","note":"混合航班信息"},
-    {"id":"HG022","query":"妈妈周日那班飞机几点到，我去哪里接","expectedNoteIDs":["A03"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"行动意图"},
-    {"id":"HG023","query":"final exam chapters four seven","expectedNoteIDs":["A04"],"style":"exact","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"课程原词"},
-    {"id":"HG024","query":"Do I need to study dynamic programming and can I bring notes?","expectedNoteIDs":["A04"],"style":"natural","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"学生问题"},
-    {"id":"HG025","query":"lease termination 30 calendar days","expectedNoteIDs":["D01"],"style":"exact","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"租约原词"},
-    {"id":"HG026","query":"不续租要提前多久书面告诉房东","expectedNoteIDs":["D01"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查英文租约"},
-    {"id":"HG027","query":"车辆损失险 免赔额 ¥10,000","expectedNoteIDs":["D02"],"style":"exact","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"中文保单原词"},
-    {"id":"HG028","query":"How much do I pay myself after a collision?","expectedNoteIDs":["D02"],"style":"natural","queryLanguage":"en","expectedLanguage":"zh","scope":"cross-language","note":"英文查中文保单"},
-    {"id":"HG029","query":"CPT 15 business days","expectedNoteIDs":["D03"],"style":"mixed","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"学生术语"},
-    {"id":"HG030","query":"实习开始前多久交国际学生材料，能不能先上班","expectedNoteIDs":["D03"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查英文手册"},
-    {"id":"HG031","query":"PTO 15 days remote three days","expectedNoteIDs":["D04"],"style":"natural","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"PTO 是同义缩写"},
-    {"id":"HG032","query":"新工作一年有几天假，入职多久后能在家办公","expectedNoteIDs":["D04"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查英文 Offer"},
-    {"id":"HG033","query":"I-20 旅行签字 12个月","expectedNoteIDs":["L01"],"style":"exact","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"旅行规则原词"},
-    {"id":"HG034","query":"Which signature must still be valid when I re-enter the US?","expectedNoteIDs":["L01"],"style":"natural","queryLanguage":"en","expectedLanguage":"zh","scope":"cross-language","note":"英文查中文说明"},
-    {"id":"HG035","query":"辣椒油 170 度 分三次泼到","expectedNoteIDs":["L02"],"style":"exact","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"做法原词"},
-    {"id":"HG036","query":"收藏的红油怎么做才不会把辣椒炸糊","expectedNoteIDs":["L02"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"烹饪风险"},
-    {"id":"HG037","query":"Basic Economy carry-on bag","expectedNoteIDs":["L03"],"style":"exact","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"航空原词"},
-    {"id":"HG038","query":"最便宜的 United 机票能不能免费带登机箱","expectedNoteIDs":["L03"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查英文规则"},
-    {"id":"HG039","query":"CloudKit container entitlements","expectedNoteIDs":["L04"],"style":"exact","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"开发文档原词"},
-    {"id":"HG040","query":"How do I configure the iCloud container and app permissions?","expectedNoteIDs":["L04"],"style":"natural","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","note":"开发问题"},
-    {"id":"HG041","query":"搜索功能到底什么时候能给内部测试，为什么没上线","expectedNoteIDs":["T02","A01"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","note":"跨纪要与录音"},
-    {"id":"HG042","query":"搬家退租要提前准备哪些事情","expectedNoteIDs":["T03","D01"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","note":"中文查两个英文来源"},
-    {"id":"HG043","query":"职业中心模拟面试改到哪天几点","expectedNoteIDs":["T11"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","longRegion":"middle","note":"长文字中段"},
-    {"id":"HG044","query":"When is the final portfolio deadline?","expectedNoteIDs":["T11"],"style":"natural","queryLanguage":"en","expectedLanguage":"zh","scope":"cross-language","longRegion":"end","note":"英文查中文长文末段"},
-    {"id":"HG045","query":"When is the supervised capstone pilot review?","expectedNoteIDs":["T12"],"style":"natural","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","longRegion":"middle","note":"英文长文字中段"},
-    {"id":"HG046","query":"研究伦理备忘录什么时候交","expectedNoteIDs":["T12"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","longRegion":"end","note":"中文查英文长文末段"},
-    {"id":"HG047","query":"入住表里厨房水槽下面原来有什么问题","expectedNoteIDs":["I11"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","longRegion":"middle","note":"长 OCR 中段"},
-    {"id":"HG048","query":"When must the signed move-in inspection form be returned?","expectedNoteIDs":["I11"],"style":"natural","queryLanguage":"en","expectedLanguage":"zh","scope":"cross-language","longRegion":"end","note":"英文查中文 OCR 末段"},
-    {"id":"HG049","query":"When is the trustworthy AI red-team workshop?","expectedNoteIDs":["A11"],"style":"natural","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","longRegion":"middle","note":"英文长转写中段"},
-    {"id":"HG050","query":"课程反思录音最晚什么时候提交","expectedNoteIDs":["A11"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","longRegion":"end","note":"中文查英文转写末段"},
-    {"id":"HG051","query":"参与者最晚什么时候还能撤回数据","expectedNoteIDs":["D11"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","longRegion":"middle","note":"中文长文档中段"},
-    {"id":"HG052","query":"项目关闭证明几号前上传","expectedNoteIDs":["D11"],"style":"natural","queryLanguage":"zh","expectedLanguage":"zh","scope":"in-scope","longRegion":"end","note":"中文长文档末段"},
-    {"id":"HG053","query":"When should relevance labels be frozen?","expectedNoteIDs":["L11"],"style":"natural","queryLanguage":"en","expectedLanguage":"en","scope":"in-scope","longRegion":"middle","note":"英文长链接中段"},
-    {"id":"HG054","query":"签字后的评测报告哪天归档","expectedNoteIDs":["L11"],"style":"natural","queryLanguage":"zh","expectedLanguage":"en","scope":"cross-language","longRegion":"end","note":"中文查英文链接末段"}
+    {
+      "id": "HG001",
+      "query": "延期毕业 书面申请",
+      "expectedNoteIDs": [
+        "T01"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "记得两个原词"
+    },
+    {
+      "id": "HG002",
+      "query": "我之前问导师能不能晚一点毕业，需要提前多久办手续",
+      "expectedNoteIDs": [
+        "T01"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "自然语言回忆"
+    },
+    {
+      "id": "HG003",
+      "query": "支付页 checkout 验收时间",
+      "expectedNoteIDs": [
+        "T02"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "混合 query 查中文纪要"
+    },
+    {
+      "id": "HG004",
+      "query": "设计和 QA 哪天一起看付款页面",
+      "expectedNoteIDs": [
+        "T02"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "改写验收措辞"
+    },
+    {
+      "id": "HG005",
+      "query": "moving checklist key handoff",
+      "expectedNoteIDs": [
+        "T03"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "英文清单原词"
+    },
+    {
+      "id": "HG006",
+      "query": "What should I set up before moving into the new place?",
+      "expectedNoteIDs": [
+        "T03"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "英文待办意图"
+    },
+    {
+      "id": "HG007",
+      "query": "阿莫西林 饭后 每天三次",
+      "expectedNoteIDs": [
+        "T04"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "剂量原词"
+    },
+    {
+      "id": "HG008",
+      "query": "医生开的那个抗生素一天吃几次",
+      "expectedNoteIDs": [
+        "T04"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "忘记药名"
+    },
+    {
+      "id": "HG009",
+      "query": "退款 蓝莓 合计 3.49",
+      "expectedNoteIDs": [
+        "I01"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "中文小票原词"
+    },
+    {
+      "id": "HG010",
+      "query": "How much was left after the spoiled fruit refund?",
+      "expectedNoteIDs": [
+        "I01"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英文查中文小票"
+    },
+    {
+      "id": "HG011",
+      "query": "Tuesday street cleaning 8AM",
+      "expectedNoteIDs": [
+        "I02"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "停车牌原词"
+    },
+    {
+      "id": "HG012",
+      "query": "我家门口星期几上午不能停车",
+      "expectedNoteIDs": [
+        "I02"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查英文牌子"
+    },
+    {
+      "id": "HG013",
+      "query": "Pine-Guest coffee-4821",
+      "expectedNoteIDs": [
+        "I03"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "路由器原词"
+    },
+    {
+      "id": "HG014",
+      "query": "新路由器访客 Wi-Fi 的密码是什么",
+      "expectedNoteIDs": [
+        "I03"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查英文标签"
+    },
+    {
+      "id": "HG015",
+      "query": "Jazz Festival August 24",
+      "expectedNoteIDs": [
+        "I04"
+      ],
+      "style": "mixed",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "海报原词"
+    },
+    {
+      "id": "HG016",
+      "query": "周末公园那个免费音乐活动几点开始",
+      "expectedNoteIDs": [
+        "I04"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查英文海报"
+    },
+    {
+      "id": "HG017",
+      "query": "搜索 beta 周五 TestFlight",
+      "expectedNoteIDs": [
+        "A01",
+        "T02"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "两个来源都相关"
+    },
+    {
+      "id": "HG018",
+      "query": "录音里谁说智能搜索这周不能正式上线",
+      "expectedNoteIDs": [
+        "A01"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "限定录音"
+    },
+    {
+      "id": "HG019",
+      "query": "8月27日 下午两点半",
+      "expectedNoteIDs": [
+        "A02"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "预约原词"
+    },
+    {
+      "id": "HG020",
+      "query": "我下次洗牙是哪天，改期要提前多久",
+      "expectedNoteIDs": [
+        "A02"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "两个任务"
+    },
+    {
+      "id": "HG021",
+      "query": "United 183 丹佛 B 航站楼",
+      "expectedNoteIDs": [
+        "A03"
+      ],
+      "style": "exact",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "混合航班信息"
+    },
+    {
+      "id": "HG022",
+      "query": "妈妈周日那班飞机几点到，我去哪里接",
+      "expectedNoteIDs": [
+        "A03"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "行动意图"
+    },
+    {
+      "id": "HG023",
+      "query": "final exam chapters four seven",
+      "expectedNoteIDs": [
+        "A04"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "课程原词"
+    },
+    {
+      "id": "HG024",
+      "query": "Do I need to study dynamic programming and can I bring notes?",
+      "expectedNoteIDs": [
+        "A04"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "学生问题"
+    },
+    {
+      "id": "HG025",
+      "query": "lease termination 30 calendar days",
+      "expectedNoteIDs": [
+        "D01"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "租约原词"
+    },
+    {
+      "id": "HG026",
+      "query": "不续租要提前多久书面告诉房东",
+      "expectedNoteIDs": [
+        "D01"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查英文租约"
+    },
+    {
+      "id": "HG027",
+      "query": "车辆损失险 免赔额 ¥10,000",
+      "expectedNoteIDs": [
+        "D02"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "中文保单原词"
+    },
+    {
+      "id": "HG028",
+      "query": "How much do I pay myself after a collision?",
+      "expectedNoteIDs": [
+        "D02"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英文查中文保单"
+    },
+    {
+      "id": "HG029",
+      "query": "CPT 15 business days",
+      "expectedNoteIDs": [
+        "D03"
+      ],
+      "style": "mixed",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "学生术语"
+    },
+    {
+      "id": "HG030",
+      "query": "实习开始前多久交国际学生材料，能不能先上班",
+      "expectedNoteIDs": [
+        "D03"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查英文手册"
+    },
+    {
+      "id": "HG031",
+      "query": "PTO 15 days remote three days",
+      "expectedNoteIDs": [
+        "D04"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "PTO 是同义缩写"
+    },
+    {
+      "id": "HG032",
+      "query": "新工作一年有几天假，入职多久后能在家办公",
+      "expectedNoteIDs": [
+        "D04"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查英文 Offer"
+    },
+    {
+      "id": "HG033",
+      "query": "I-20 旅行签字 12个月",
+      "expectedNoteIDs": [
+        "L01"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "旅行规则原词"
+    },
+    {
+      "id": "HG034",
+      "query": "Which signature must still be valid when I re-enter the US?",
+      "expectedNoteIDs": [
+        "L01"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英文查中文说明"
+    },
+    {
+      "id": "HG035",
+      "query": "辣椒油 170 度 分三次泼到",
+      "expectedNoteIDs": [
+        "L02"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "做法原词"
+    },
+    {
+      "id": "HG036",
+      "query": "收藏的红油怎么做才不会把辣椒炸糊",
+      "expectedNoteIDs": [
+        "L02"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "烹饪风险"
+    },
+    {
+      "id": "HG037",
+      "query": "Basic Economy carry-on bag",
+      "expectedNoteIDs": [
+        "L03"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "航空原词"
+    },
+    {
+      "id": "HG038",
+      "query": "最便宜的 United 机票能不能免费带登机箱",
+      "expectedNoteIDs": [
+        "L03"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查英文规则"
+    },
+    {
+      "id": "HG039",
+      "query": "CloudKit container entitlements",
+      "expectedNoteIDs": [
+        "L04"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "开发文档原词"
+    },
+    {
+      "id": "HG040",
+      "query": "How do I configure the iCloud container and app permissions?",
+      "expectedNoteIDs": [
+        "L04"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "开发问题"
+    },
+    {
+      "id": "HG041",
+      "query": "搜索功能到底什么时候能给内部测试，为什么没上线",
+      "expectedNoteIDs": [
+        "T02",
+        "A01"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "跨纪要与录音"
+    },
+    {
+      "id": "HG042",
+      "query": "搬家退租要提前准备哪些事情",
+      "expectedNoteIDs": [
+        "T03",
+        "D01"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文查两个英文来源"
+    },
+    {
+      "id": "HG043",
+      "query": "职业中心模拟面试改到哪天几点",
+      "expectedNoteIDs": [
+        "T11"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": "middle",
+      "note": "长文字中段"
+    },
+    {
+      "id": "HG044",
+      "query": "When is the final portfolio deadline?",
+      "expectedNoteIDs": [
+        "T11"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": "end",
+      "note": "英文查中文长文末段"
+    },
+    {
+      "id": "HG045",
+      "query": "When is the supervised capstone pilot review?",
+      "expectedNoteIDs": [
+        "T12"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": "middle",
+      "note": "英文长文字中段"
+    },
+    {
+      "id": "HG046",
+      "query": "研究伦理备忘录什么时候交",
+      "expectedNoteIDs": [
+        "T12"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": "end",
+      "note": "中文查英文长文末段"
+    },
+    {
+      "id": "HG047",
+      "query": "入住表里厨房水槽下面原来有什么问题",
+      "expectedNoteIDs": [
+        "I11"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": "middle",
+      "note": "长 OCR 中段"
+    },
+    {
+      "id": "HG048",
+      "query": "When must the signed move-in inspection form be returned?",
+      "expectedNoteIDs": [
+        "I11"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": "end",
+      "note": "英文查中文 OCR 末段"
+    },
+    {
+      "id": "HG049",
+      "query": "When is the trustworthy AI red-team workshop?",
+      "expectedNoteIDs": [
+        "A11"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": "middle",
+      "note": "英文长转写中段"
+    },
+    {
+      "id": "HG050",
+      "query": "课程反思录音最晚什么时候提交",
+      "expectedNoteIDs": [
+        "A11"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": "end",
+      "note": "中文查英文转写末段"
+    },
+    {
+      "id": "HG051",
+      "query": "参与者最晚什么时候还能撤回数据",
+      "expectedNoteIDs": [
+        "D11"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": "middle",
+      "note": "中文长文档中段"
+    },
+    {
+      "id": "HG052",
+      "query": "项目关闭证明几号前上传",
+      "expectedNoteIDs": [
+        "D11"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": "end",
+      "note": "中文长文档末段"
+    },
+    {
+      "id": "HG053",
+      "query": "When should relevance labels be frozen?",
+      "expectedNoteIDs": [
+        "L11"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": "middle",
+      "note": "英文长链接中段"
+    },
+    {
+      "id": "HG054",
+      "query": "签字后的评测报告哪天归档",
+      "expectedNoteIDs": [
+        "L11"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": "end",
+      "note": "中文查英文链接末段"
+    },
+    {
+      "id": "HV001",
+      "query": "pet rent per month",
+      "expectedNoteIDs": [
+        "D20"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "四份租约里只有这份写宠物费"
+    },
+    {
+      "id": "HV002",
+      "query": "养宠物要交多少钱",
+      "expectedNoteIDs": [
+        "D20"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文问英文租约的宠物条款"
+    },
+    {
+      "id": "HV003",
+      "query": "lease early termination fee",
+      "expectedNoteIDs": [
+        "D21"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "另一份租约的解约金（原标 exact，但 query 词并非原文用词，改回 natural）"
+    },
+    {
+      "id": "HV004",
+      "query": "租的房子提前搬走要赔多少",
+      "expectedNoteIDs": [
+        "D21"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "误导：手机/健身房合约也写着提前解约"
+    },
+    {
+      "id": "HV005",
+      "query": "我的车位在哪一层第几号",
+      "expectedNoteIDs": [
+        "D22"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "车位条款只在这一份里"
+    },
+    {
+      "id": "HV006",
+      "query": "which parking space is assigned in my lease",
+      "expectedNoteIDs": [
+        "D22"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "英文问中文租约"
+    },
+    {
+      "id": "HV007",
+      "query": "退租之后押金多久能退",
+      "expectedNoteIDs": [
+        "D23"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "误导：共享单车押金也写着退押金"
+    },
+    {
+      "id": "HV008",
+      "query": "security deposit返还 期限",
+      "expectedNoteIDs": [
+        "D23"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "混合 query 问中文条款"
+    },
+    {
+      "id": "HV009",
+      "query": "不续租要提前多久书面通知房东",
+      "expectedNoteIDs": [
+        "D01"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "原始条款，与新增的三份租约竞争"
+    },
+    {
+      "id": "HV010",
+      "query": "degree conferral date",
+      "expectedNoteIDs": [
+        "T20"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "学位授予日期（原标 exact，但 query 词并非原文用词，改回 natural）"
+    },
+    {
+      "id": "HV011",
+      "query": "什么时候才算正式拿到学位",
+      "expectedNoteIDs": [
+        "T20"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文问英文邮件；与毕业典礼那封竞争"
+    },
+    {
+      "id": "HV012",
+      "query": "OPT 最晚什么时候能交",
+      "expectedNoteIDs": [
+        "T21"
+      ],
+      "style": "natural",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "OPT 窗口，不是学位授予"
+    },
+    {
+      "id": "HV013",
+      "query": "how early can I file OPT",
+      "expectedNoteIDs": [
+        "T21"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "同一封的英文问法"
+    },
+    {
+      "id": "HV014",
+      "query": "休学会不会影响我的签证身份",
+      "expectedNoteIDs": [
+        "T22"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "休学那封"
+    },
+    {
+      "id": "HV015",
+      "query": "转学之后 SEVIS 记录怎么处理",
+      "expectedNoteIDs": [
+        "T23"
+      ],
+      "style": "natural",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文问英文邮件"
+    },
+    {
+      "id": "HV016",
+      "query": "毕业典礼需要提前登记吗",
+      "expectedNoteIDs": [
+        "T24"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "典礼那封，与学位授予区分"
+    },
+    {
+      "id": "HV017",
+      "query": "毕业相关的事情要办哪些手续",
+      "expectedNoteIDs": [
+        "T20",
+        "T21",
+        "T24"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "mixed",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "刻意宽泛：需要同时召回三封"
+    },
+    {
+      "id": "HV018",
+      "query": "车撞了以后我自己要先付多少",
+      "expectedNoteIDs": [
+        "D02"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "误导：牙科与健康险也写 deductible"
+    },
+    {
+      "id": "HV019",
+      "query": "看牙的自付额是多少",
+      "expectedNoteIDs": [
+        "T34"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "牙科那份才是答案"
+    },
+    {
+      "id": "HV020",
+      "query": "in-network annual deductible",
+      "expectedNoteIDs": [
+        "D26"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "健康险那份"
+    },
+    {
+      "id": "HV021",
+      "query": "出差住宿一晚最多报多少",
+      "expectedNoteIDs": [
+        "T35"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "报销政策"
+    },
+    {
+      "id": "HV022",
+      "query": "CS5330",
+      "expectedNoteIDs": [
+        "T26"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "纯课程代码"
+    },
+    {
+      "id": "HV023",
+      "query": "CS5800 期末考试范围",
+      "expectedNoteIDs": [
+        "T27"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "代码 + 中文"
+    },
+    {
+      "id": "HV024",
+      "query": "Mask R-CNN RoIAlign",
+      "expectedNoteIDs": [
+        "T28"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "模型名 + 术语"
+    },
+    {
+      "id": "HV025",
+      "query": "VNB3K21099",
+      "expectedNoteIDs": [
+        "I24"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "序列号，语义上毫无意义"
+    },
+    {
+      "id": "HV026",
+      "query": "DS220 默认管理地址",
+      "expectedNoteIDs": [
+        "I25"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "型号 + 中文"
+    },
+    {
+      "id": "HV027",
+      "query": "API Key 轮换步骤",
+      "expectedNoteIDs": [
+        "T29"
+      ],
+      "style": "natural",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "流程"
+    },
+    {
+      "id": "HV028",
+      "query": "CF259A",
+      "expectedNoteIDs": [
+        "I24"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "耗材型号"
+    },
+    {
+      "id": "HV029",
+      "query": "阿莫西林 一盒多少钱",
+      "expectedNoteIDs": [
+        "I21"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "药房小票，与处方标签区分"
+    },
+    {
+      "id": "HV030",
+      "query": "amoxicillin how many times a day",
+      "expectedNoteIDs": [
+        "I32"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "处方标签，与药房小票区分"
+    },
+    {
+      "id": "HV031",
+      "query": "办公室门口能停多久",
+      "expectedNoteIDs": [
+        "I23"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文问英文停车牌"
+    },
+    {
+      "id": "HV032",
+      "query": "学校南门停车怎么收费",
+      "expectedNoteIDs": [
+        "I22"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "中文停车牌"
+    },
+    {
+      "id": "HV033",
+      "query": "whole foods 那次买了什么",
+      "expectedNoteIDs": [
+        "I20"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "小票，与另外两张竞争"
+    },
+    {
+      "id": "HV034",
+      "query": "租客保险 水管漏水赔不赔",
+      "expectedNoteIDs": [
+        "D25"
+      ],
+      "style": "mixed",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "租客险，与车险旅行险区分"
+    },
+    {
+      "id": "HV035",
+      "query": "行李延误多久可以索赔",
+      "expectedNoteIDs": [
+        "D27"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "旅行险"
+    },
+    {
+      "id": "HV036",
+      "query": "支付页这一版先做什么",
+      "expectedNoteIDs": [
+        "A20"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "支付会，与搜索会区分"
+    },
+    {
+      "id": "HV037",
+      "query": "index rebuild 为什么还要全量重扫",
+      "expectedNoteIDs": [
+        "A21"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "英文会议，中文提问"
+    },
+    {
+      "id": "HV038",
+      "query": "结果行定了哪三个槽位",
+      "expectedNoteIDs": [
+        "A22"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "设计评审"
+    },
+    {
+      "id": "HV039",
+      "query": "之前问延期毕业那个事，要提前多久办",
+      "expectedNoteIDs": [
+        "T01"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "模糊指代"
+    },
+    {
+      "id": "HV040",
+      "query": "那个抗生素好转了能不能停",
+      "expectedNoteIDs": [
+        "T04"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "模糊指代 + 语义"
+    },
+    {
+      "id": "HV041",
+      "query": "老师说迟交作业会怎么样",
+      "expectedNoteIDs": [
+        "T26"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "模糊 + 英文答案"
+    },
+    {
+      "id": "HV042",
+      "query": "股票是怎么归属的，第一年给多少",
+      "expectedNoteIDs": [
+        "D30"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "股权归属"
+    },
+    {
+      "id": "HV043",
+      "query": "离职以后多久不能去竞争对手那里",
+      "expectedNoteIDs": [
+        "D29"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "竞业条款"
+    },
+    {
+      "id": "HV044",
+      "query": "实习期间写的代码归谁",
+      "expectedNoteIDs": [
+        "D33"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "实习协议"
+    },
+    {
+      "id": "HV045",
+      "query": "厨房翻新一共报了多少钱",
+      "expectedNoteIDs": [
+        "D34"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "装修报价"
+    },
+    {
+      "id": "HV046",
+      "query": "我的胆固醇是不是偏高",
+      "expectedNoteIDs": [
+        "D35"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "体检报告"
+    },
+    {
+      "id": "HV047",
+      "query": "负权边用哪个最短路算法",
+      "expectedNoteIDs": [
+        "A28"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文问英文课程录音"
+    },
+    {
+      "id": "HV048",
+      "query": "third normal form 考什么",
+      "expectedNoteIDs": [
+        "A29"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "混合问中文录音"
+    },
+    {
+      "id": "HV049",
+      "query": "红烧肉什么时候放盐",
+      "expectedNoteIDs": [
+        "L20"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "中文食谱"
+    },
+    {
+      "id": "HV050",
+      "query": "when is the sourdough starter ready to bake",
+      "expectedNoteIDs": [
+        "L21"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "英文教程"
+    },
+    {
+      "id": "HV051",
+      "query": "Delta 第一件托运行李多少钱",
+      "expectedNoteIDs": [
+        "L22"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "混合问英文规则"
+    },
+    {
+      "id": "HV052",
+      "query": "去日本免签能待多久",
+      "expectedNoteIDs": [
+        "L23"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "中文规则"
+    },
+    {
+      "id": "HV053",
+      "query": "SwiftData 怎么做版本迁移",
+      "expectedNoteIDs": [
+        "L24"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文问英文教程"
+    },
+    {
+      "id": "HV054",
+      "query": "模型量化能压到多小",
+      "expectedNoteIDs": [
+        "L25"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "中文教程"
+    },
+    {
+      "id": "HV055",
+      "query": "F-1 没有收入还要报税吗",
+      "expectedNoteIDs": [
+        "L30"
+      ],
+      "style": "natural",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文报税指南"
+    },
+    {
+      "id": "HV056",
+      "query": "看租约先看哪几条",
+      "expectedNoteIDs": [
+        "L32"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "中文问英文教程"
+    },
+    {
+      "id": "HV057",
+      "query": "补牙复诊改到哪天了",
+      "expectedNoteIDs": [
+        "A26"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "牙医改期，与原提醒竞争"
+    },
+    {
+      "id": "HV058",
+      "query": "annual physical 要空腹几小时",
+      "expectedNoteIDs": [
+        "A27"
+      ],
+      "style": "mixed",
+      "queryLanguage": "mixed",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "体检语音"
+    },
+    {
+      "id": "HV059",
+      "query": "房东说水龙头哪天来修",
+      "expectedNoteIDs": [
+        "A30"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "longRegion": null,
+      "note": "通话录音"
+    },
+    {
+      "id": "HV060",
+      "query": "加第二个司机保费涨多少",
+      "expectedNoteIDs": [
+        "A31"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "longRegion": null,
+      "note": "英文通话，中文提问"
+    }
   ],
   "negativeQueries": [
-    {"id":"HN001","query":"护照换发需要带什么材料","reason":"语料中没有护照办理信息"},
-    {"id":"HN002","query":"猫咪下一针疫苗是什么时候","reason":"语料中没有宠物记录"},
-    {"id":"HN003","query":"去年报税用了哪个会计师","reason":"语料中没有税务信息"},
-    {"id":"HN004","query":"吉他那首歌的和弦进行","reason":"语料中没有音乐练习记录"},
-    {"id":"HN005","query":"周六晚餐订了哪家餐厅","reason":"语料中没有订餐信息"},
-    {"id":"HN006","query":"眼镜处方左眼度数是多少","reason":"有健康内容但没有眼科处方"},
-    {"id":"HN007","query":"AWS 账单为什么突然变高","reason":"有 CloudKit 内容但没有云服务账单"},
-    {"id":"HN008","query":"自行车锁的密码是多少","reason":"有 Wi-Fi 密码但没有自行车记录"},
-    {"id":"HN009","query":"去纽约的酒店取消政策","reason":"有航班和租约但没有酒店记录"},
-    {"id":"HN010","query":"下次体检需要空腹吗","reason":"有牙医和用药记录但没有体检要求"}
+    {
+      "id": "HN001",
+      "query": "护照换发需要带什么材料",
+      "reason": "语料中没有护照办理信息"
+    },
+    {
+      "id": "HN002",
+      "query": "猫咪下一针疫苗是什么时候",
+      "reason": "语料中没有宠物记录"
+    },
+    {
+      "id": "HN003",
+      "query": "去年报税用了哪个会计师",
+      "reason": "语料中没有税务信息"
+    },
+    {
+      "id": "HN004",
+      "query": "吉他那首歌的和弦进行",
+      "reason": "语料中没有音乐练习记录"
+    },
+    {
+      "id": "HN005",
+      "query": "周六晚餐订了哪家餐厅",
+      "reason": "语料中没有订餐信息"
+    },
+    {
+      "id": "HN006",
+      "query": "眼镜处方左眼度数是多少",
+      "reason": "有健康内容但没有眼科处方"
+    },
+    {
+      "id": "HN007",
+      "query": "AWS 账单为什么突然变高",
+      "reason": "有 CloudKit 内容但没有云服务账单"
+    },
+    {
+      "id": "HN008",
+      "query": "自行车锁的密码是多少",
+      "reason": "有 Wi-Fi 密码但没有自行车记录"
+    },
+    {
+      "id": "HN009",
+      "query": "去纽约的酒店取消政策",
+      "reason": "有航班和租约但没有酒店记录"
+    },
+    {
+      "id": "HN010",
+      "query": "下次体检需要空腹吗",
+      "reason": "有牙医和用药记录但没有体检要求"
+    },
+    {
+      "id": "HN011",
+      "query": "去年那笔房产税交了多少",
+      "reason": "语料里有租约与报销，但没有房产税记录"
+    },
+    {
+      "id": "HN012",
+      "query": "孩子的疫苗接种记录在哪",
+      "reason": "没有任何儿童或疫苗记录"
+    },
+    {
+      "id": "HN013",
+      "query": "上个月电费是多少",
+      "reason": "有租约和物业规约，但没有账单"
+    },
+    {
+      "id": "HN014",
+      "query": "driver license renewal appointment",
+      "reason": "有保险与车相关记录，但没有驾照办理"
+    },
+    {
+      "id": "HN015",
+      "query": "我的健身房储物柜密码",
+      "reason": "有健身房标牌与会员卡，但没有储物柜密码"
+    },
+    {
+      "id": "HN016",
+      "query": "那家日料店的订位电话",
+      "reason": "有食谱与超市小票，但没有餐厅信息"
+    },
+    {
+      "id": "HN017",
+      "query": "公司年会在哪个酒店",
+      "reason": "有多份会议记录，但没有年会安排"
+    },
+    {
+      "id": "HN018",
+      "query": "student loan repayment start date",
+      "reason": "有报税与 offer，但没有学生贷款"
+    },
+    {
+      "id": "HN019",
+      "query": "上次剪头发花了多少钱",
+      "reason": "有多张小票，但没有理发消费"
+    },
+    {
+      "id": "HN020",
+      "query": "AirPods 保修到什么时候",
+      "reason": "有多张设备标签，但没有 AirPods 记录"
+    }
   ]
 }

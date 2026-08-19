@@ -18,12 +18,12 @@ enum HumanLikeGoldenChecks {
             return
         }
 
-        r.expect(dataset.version == "synthetic-human-v2", "版本明确是 synthetic-human-v2")
+        r.expect(dataset.version == "synthetic-human-v3", "版本明确是 synthetic-human-v3")
         r.expect(dataset.disclaimer.lowercased().contains("not real-user"),
                  "数据自身携带免责声明，不能冒充真人标注")
-        r.expect(dataset.notes.count == 60, "语料扩到 60 篇，Top-5 不再覆盖四分之一的库")
-        r.expect(dataset.cases.count == 54, "54 条正向 query")
-        r.expect(dataset.negativeQueries.count == 10, "10 条无答案 query 已接入 Runner")
+        r.expect(dataset.notes.count == 150, "语料扩到 150 篇，Top-5 只覆盖 3.3% 的库")
+        r.expect(dataset.cases.count == 114, "114 条正向 query")
+        r.expect(dataset.negativeQueries.count == 20, "20 条无答案 query 已接入 Runner")
 
         let noteIDs = Set(dataset.notes.map(\.id))
         let positiveIDs = dataset.cases.map(\.id)
@@ -69,7 +69,7 @@ enum HumanLikeGoldenChecks {
             let notes = dataset.notes.filter { $0.source == source }
             let zh = notes.filter { $0.language == .zh }.count
             let en = notes.filter { $0.language == .en }.count
-            r.expect(notes.count == 12, "\(source.rawValue) 有 12 篇语料")
+            r.expect(notes.count == 30, "\(source.rawValue) 有 30 篇语料")
             r.expect(abs(zh - en) <= 1,
                      "\(source.rawValue) 中英数量差 ≤ 1（zh \(zh) / en \(en)）")
         }
@@ -93,8 +93,8 @@ enum HumanLikeGoldenChecks {
         }
         let inScope = dataset.cases.filter { $0.scope == .inScope }.count
         let cross = dataset.cases.filter { $0.scope == .crossLanguage }.count
-        r.expect(inScope == 35 && cross == 19,
-                 "分组固定为 35 in-scope / 19 cross-language（实际 \(inScope) / \(cross)）")
+        r.expect(inScope == 67 && cross == 47,
+                 "分组固定为 67 in-scope / 47 cross-language（实际 \(inScope) / \(cross)）")
 
         let originalCross = Set(dataset.cases.prefix(42)
             .filter { $0.scope == .crossLanguage }.map(\.id))
@@ -156,12 +156,30 @@ enum HumanLikeGoldenChecks {
                                          r: CheckRunner) {
         let expected = Set(dataset.cases.flatMap(\.expectedNoteIDs))
         let distractors = dataset.notes.filter { $0.role == .distractor }
-        r.expect(distractors.count >= 30, "至少 30 篇近似或规模干扰项（实际 \(distractors.count)）")
+        r.expect(distractors.count >= 60, "至少 60 篇近似或规模干扰项（实际 \(distractors.count)）")
         r.expect(distractors.allSatisfy { !expected.contains($0.id) },
                  "干扰项从不被标成 expected")
         let requiredDistractors: Set<String> = ["T05", "T06", "T07", "D05", "I05", "A05", "A06", "A07"]
         r.expect(requiredDistractors.isSubset(of: Set(distractors.map(\.id))),
                  "覆盖三篇搬家、第二份租约、第二张停车牌和三篇产品会议干扰项")
+
+        // v3 的核心：**近似干扰簇**。租约 vs 课程笔记不算干扰，
+        // 四份条款各不相同的租约才算 —— 它逼着排序层真的去理解问的是哪一条。
+        let ids = Set(dataset.notes.map(\.id))
+        let leaseCluster: Set<String> = ["D01", "D20", "D21", "D22", "D23", "D24"]
+        let graduationCluster: Set<String> = ["T20", "T21", "T22", "T23", "T24"]
+        let deductibleCluster: Set<String> = ["D02", "D25", "D26", "T34"]
+        r.expect(leaseCluster.isSubset(of: ids),
+                 "租约簇：六份条款各不相同的租约（通知期 / 宠物 / 解约 / 车位 / 押金 / 过期）")
+        r.expect(graduationCluster.isSubset(of: ids),
+                 "毕业簇：五封同主题不同答案的学校邮件（学位授予 / OPT / 休学 / SEVIS / 典礼）")
+        r.expect(deductibleCluster.isSubset(of: ids),
+                 "自付额簇：车险 / 租客险 / 健康险 / 牙科，字面都写 deductible")
+
+        // 误导性词法重合：真答案与高字面重合的干扰项分属不同笔记。
+        let misleading: Set<String> = ["T31", "T32", "T33"]
+        r.expect(misleading.isSubset(of: Set(distractors.map(\.id))),
+                 "误导簇：手机 / 健身房「提前解约」与共享单车「押金」都是干扰项，不是答案")
     }
 
     private static func percent(_ value: Double) -> String {
@@ -215,11 +233,11 @@ enum HumanLikeGoldenChecks {
                          (mode.rawValue, "cross", overallRun.crossLanguageMetrics),
                          (mode.rawValue, "overall", overallRun.metrics)]
                 negativeRows.append((mode.rawValue, negativeRun.metrics))
-                r.expect(overallRun.inScopeMetrics.caseCount == 35
-                         && overallRun.crossLanguageMetrics.caseCount == 19,
+                r.expect(overallRun.inScopeMetrics.caseCount == 67
+                         && overallRun.crossLanguageMetrics.caseCount == 47,
                          "\(mode.rawValue) 核心 Runner 正确拆出两个语言分组")
-                r.expect(negativeRun.metrics.noResultCaseCount == 10,
-                         "\(mode.rawValue) 完整跑完 10 条负例")
+                r.expect(negativeRun.metrics.noResultCaseCount == 20,
+                         "\(mode.rawValue) 完整跑完 20 条负例")
             } catch {
                 r.expect(false, "\(mode.rawValue) 跑批失败：\(error)")
             }
