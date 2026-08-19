@@ -637,8 +637,8 @@ compare and a Lab to explain them.
 | ~~TD-5~~ real embedding model | **Closed.** `NLEmbeddingProvider`（Apple `NaturalLanguage`，zh-Hans 640 维，离线）。拿不到时**不退回 mock** |
 | **TD-6** vector index is memory-only | **Open.** Rebuilt from the derived store at launch; fine at 20k chunks |
 | ~~TD-7~~ 生产搜索仍走旧路径 | **Closed（§16）。** `SearchView` 走 `RetrievalService` 的隐式 Hybrid：Matched Excerpt + 对比式高亮 + 状态条 + 两级触发。~~落点行为（5.10）仍未做~~ → **落点已补齐（§17.3）** |
-| **TD-10** 向量检索没有相关性下限 | `InMemoryVectorStore.search` 按余弦排完取 Top K，**没有下限**，所以再离谱的 query 也会拿回整个语料 —— 语义可用时 `.noResults` 几乎不可达，而契约 §4.5 为它写了三套分叉文案。**不能随手拍一个阈值**：本项目已实测 `NLEmbedding` 余弦绝对值没有解释力（相关 0.944 / 无关 0.917），**而 TD-11 进一步查明了原因 —— 余弦被文本长度混淆**，所以任何 `similarity > x` 都会变成隐蔽的长度过滤器。阈值必须由 Golden Set + 一组「本就不该有答案」的负例 query 校准，那组负例现在还不存在。`ProductionSearchTests.testSemanticChannelCurrentlyHasNoRelevanceFloor` 记录现状 |
-| **TD-11** *(new)* `NLEmbedding` 余弦受文本长度支配 | **实测（§18.3）**：同一段文字拉长 16 倍，余弦下降 0.0496；而相关 / 无关文本在同一长度上只差 0.0115 —— **长度效应是相关性效应的 4.3 倍**，且存在「无关但更短」压过「相关但更长」的情形。直接后果：长笔记天然吃亏（§18.2 的长文用例三种切分全败）· TD-10 的阈值不能只看余弦 · 切到相近长度是**可比性**要求而不只是 recall 特性。**没有实现长度归一化**（无 Golden Set 支撑的模型层改动属范围扩张）；`RetrievalWeek6Checks.checkCosineLengthBias` 钉住现象 |
+| **TD-10** 向量检索没有相关性下限 | **状态：Improved / Calibratable，但未 production-resolved。** `bge-m3` 的余弦有了真实解释力（v3 实测：正例 top1 中位数 0.700 / 负例中位数 0.531），但**没有安全的单一阈值**：完美分离间隙 **−0.169**；最佳阈值 0.595 能挡掉 19/20 负例，代价是**丢掉 7/67 正例**（10.4% 的正确答案被静默丢弃）。⚠️ v2 上曾测得「0.54 挡 9/10 且不误伤」，那是小负例集的假象，**v3 推翻了它**。`similarity >= 0.54` **禁止**写成 production requirement。要继续研究必须先有更大的 hard-negative 集 |
+| **TD-11** 余弦受文本长度支配 —— **provider-specific，非系统性解决** | **状态：Resolved for `bge-m3`，未 resolved for `NLEmbedding`。** 云端实测长度效应 0.0886 / 相关性效应 0.4142（**相关性赢 4.7 倍**），与本地完全反转。**不得写成「系统永久解决 length bias」** —— 换 provider 就要重测。本地实测（§18.3）：同一段文字拉长 16 倍，余弦下降 0.0496；而相关 / 无关文本在同一长度上只差 0.0115 —— **长度效应是相关性效应的 4.3 倍**，且存在「无关但更短」压过「相关但更长」的情形。直接后果：长笔记天然吃亏（§18.2 的长文用例三种切分全败）· TD-10 的阈值不能只看余弦 · 切到相近长度是**可比性**要求而不只是 recall 特性。**没有实现长度归一化**（无 Golden Set 支撑的模型层改动属范围扩张）；`RetrievalWeek6Checks.checkCosineLengthBias` 钉住现象 |
 | ~~既有缺陷~~ 文本块不换行 | **Closed（§17.4）。** `RichMarkdownEditor` 缺 `sizeThatFits`，长文本横向铺出屏幕。它挡着 5.10 的验收（高亮几何无法成立），所以在本轮修掉，模拟器实拍确认 |
 | ~~TD-8~~ App 侧没有索引服务 | **Closed（§15）。** `IndexingService` 接上了扫描 → 嵌入 → 校验落盘 → 内存索引这条线 |
 | **TD-9** iOS 上没有 zh-Hans 句向量模型 | **实测可用性矩阵**（iPhone Air · iOS 26 模拟器，`NLEmbeddingAvailabilityTests`）：`zh-Hans ❌` · `zh-Hant ❌` · `ja ❌` · **`en ✅ 512 维`**。同样的代码在 macOS 上拿得到 zh-Hans（640 维），Golden Set 实测就跑在它之上。**2026-08-13 本机 App 确认**：Developer Mode 显示 Embedding Provider「不可用」，文案「本机没有可用的本地句向量模型，语义检索不可用；关键词搜索不受影响。」—— 与模拟器一致，**不是模拟器特例**。iOS 上只有 keyword 路可用。**不拿英文模型顶替**：换语言就是换向量空间，中文笔记配英文模型排出来的顺序没有意义。中文语义必须另找模型来源（云端 embedding / 自带模型） |
@@ -1189,3 +1189,74 @@ Mac release、真实 Apple `NLEmbedding`、默认切分：
 这证明 `.noResults` 在语义路可用时几乎不可达，但**仍不据此拍一个余弦阈值**：§18.3
 已经证明余弦被长度显著混淆。负例指标先观察，相关性下限与 Gate 阈值等真实 Golden Set、
 模型路线和 PRD 精确要求齐备后再定。
+
+---
+
+# 21. D-AI-003 —— 云端优先的语义路，与分层 SLO
+
+上游决策：`design/DECISION_LOG.md` **D-AI-003**。完整实验：`EMBEDDING_EXPERIMENT.md`。
+
+## 21.1 能力层级，不是「换默认模型」
+
+```
+Query
+ ├── Keyword Retrieval ──────────────────▶ Fast Result（永远可用）
+ └── Semantic Retrieval
+       ├── Cloud multilingual embedding   ← 已配置 + 已授权
+       └── Local embedding fallback       ← 本机模型覆盖当前语料语种
+                 ↓
+            Vector Results ──▶ RRF ──▶ Hybrid Result Upgrade
+```
+
+`EmbeddingRouter.choose` 是唯一的路由入口，顺序是 **Cloud → Local → Keyword**。
+两条容易写错的规矩：
+
+1. **未授权时优先降级到本地，而不是弹窗打扰。** 只有本地也顶不上（语料语种与本机模型
+   对不上，即 iPhone 上的现状）才返回 `.cloudNeedsConsent` 去请求授权。
+2. **云端失败不能变成搜索失败。** 401 / 429 / 5xx / offline / timeout / malformed /
+   dimension mismatch / count mismatch 全部注入过，keyword 路每次都照常返回结果
+   （`CloudEmbeddingResilienceChecks`）。
+
+**为什么翻转了 v2 的「本地优先」**：v2 的理由是「能离线做的事不该上传」。v3 的实测把它
+推翻了 —— 同一批 114 条 query，本地 Hybrid 的 in-scope R@1 是 0.269、cross-language R@5
+是 0.128；云端分别是 0.866 和 0.936。差距大到「省一次上传」换不回来。
+**但授权仍是硬前置**，所以省下的那次上传由用户自己决定，不由默认值决定。
+
+## 21.2 SLO 不再是一个数字
+
+PRD 原来的 **Local Retrieval SLO（P50 < 100 ms · P95 < 250 ms）保留不变**，
+它现在是三层里的一层，而不是全部。
+
+| | 定义 | 负责通道 | 目标 | 当前实测（Mac release） |
+|---|---|---|---|---|
+| **Metric A** Time to First Useful Result | query 稳定 → 第一批可交互结果出现 | keyword / local 快通道 | **P50 < 100 ms · P95 < 250 ms**（沿用 PRD） | keyword P50 **1.33 ms** / P95 **1.91 ms** ✅ |
+| **Metric B** Time to Semantic Refinement | query 稳定 → 语义完成并升级 Hybrid 排序 | cloud（或 local）慢通道 | **单独记录，不套用 A 的预算** | cloud-hybrid P50 **710 ms** / P95 **894 ms** |
+| **Metric C** Search Availability | 语义 provider timeout / offline / failed / rate limited 时，keyword 是否仍工作 | 全链路 | **Semantic failure ≠ Search failure** | 六种失败形态注入，keyword 100% 可用 ✅ |
+
+三条纪律：
+
+- **Metric B 不许被偷偷排除在性能评测之外。** 它是用户真实等到的时间，必须报。
+- **Metric B 也不许污染 Local Retrieval SLO。** 一次网络往返和一次本机余弦不是同一件事，
+  混在一个数里两边都失去意义。
+- **Release Gate 仍然只用一个 P95 门槛（250 ms）**，所以云端候选**当前判定为 BLOCKED**。
+  要放行必须由产品显式决定 Gate 用哪一层的 P95 —— 而不是把数字悄悄换掉。
+
+## 21.3 云端越慢，stale 保护越重要
+
+```
+Note v12 → 云端请求发出 → 用户编辑 → Note v13 → 1.3 s 后 v12 的响应才回来
+        → contentHash 不符 → DISCARD
+```
+
+**不因为云端慢就改用取消来保证正确性。** 取消是协作式的（§4），而云端延迟把竞态窗口
+从毫秒级拉到秒级，反而让写入路径的 `contentHash` / `embeddingVersion` 校验更关键。
+额外一条：从本地切到云端之后，本地那一批迟到结果也进不来 —— `embeddingVersion` 不符。
+
+## 21.4 RRF 保留，但不是因为 PRD 写了它
+
+实测（114 条逐条对比）：Cloud Vector vs Cloud Hybrid **1 胜 0 负 113 平**。
+`bge-m3` 自己就把 `CS5330` / `Mask R-CNN RoIAlign` / `VNB3K21099` / `CF259A` 全部排到第 1 ——
+**「Hybrid 用来保护 exact code」这个假设被证伪了。**
+
+保留 RRF 的三条理由都是实测的：从不变差（成本 1.33 ms）· 对本地 fallback 决定性
+（R@1 0.079 → 0.193）· keyword 是唯一有 no-result 能力的一路（100% vs 0%）。
