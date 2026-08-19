@@ -578,8 +578,17 @@ enum RetrievalWeek6Checks {
                  "Pass Rate 与 Recall@5 同口径")
 
         // ④ Gate 判定。
-        let decision = ReleaseGate.evaluate(configVersion: candidateVersion,
-                                            current: candidateRun, baseline: baselineRun)
+        // 分层 policy 之后判定需要测量环境；这一节测的是 regression 拦截，
+        // 所以给一个与当前构建匹配的合格环境。
+        let benchEnv = RunEnvironment(deviceClass: .mac, deviceModel: "test", osVersion: "test",
+                                      buildConfiguration: buildMode, thermalState: "nominal",
+                                      lowPowerMode: false, measuredLayer: .firstResult)
+        let decision = ReleaseGate.evaluate(
+            configVersion: candidateVersion, current: candidateRun, baseline: baselineRun,
+            thresholds: GateThresholds(performance: PerformanceGatePolicy(
+                version: "test-perf", firstResultP50Ms: 1_000, firstResultP95Ms: 1_000,
+                requiredDeviceClass: .mac, requiredBuildConfiguration: buildMode)),
+            environment: benchEnv)
         print("    Gate → \(decision.headline)：\(decision.blockingReasons.joined(separator: "；"))\n")
         r.expect(decision.status == .blocked,
                  "回归用例挂了（Pass Rate \(String(format: "%.3f", candidateRun.regressionPassRate)) < 0.98）→ Gate 拦住")

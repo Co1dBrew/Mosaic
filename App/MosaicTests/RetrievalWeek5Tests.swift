@@ -45,6 +45,21 @@ final class RetrievalWeek5Tests: XCTestCase {
         XCTFail("评测未在 \(timeout)s 内结束，phase = \(vm.phase)")
     }
 
+
+    /// 接受模拟器 + 当前构建的性能 policy。
+    ///
+    /// 这些用例测的是 **Promote 机制**（谁能换生产配置），不是性能。
+    /// 用生产的 `perf-v2` 会让它们全部 STALE —— 那个行为本身由
+    /// `testDefaultPolicyBlocksPromoteFromSimulatorNumbers` 单独守。
+    private func installPermissivePerformancePolicy(_ store: ReleaseStore) {
+        store.updateThresholds(GateThresholds(performance: PerformanceGatePolicy(
+            version: "test-permissive",
+            firstResultP50Ms: 100_000, firstResultP95Ms: 100_000,
+            semanticLocalP95Ms: 100_000,
+            requiredDeviceClass: .simulator,
+            requiredBuildConfiguration: "debug")))
+    }
+
     // MARK: 1 · 注册表落盘
 
     func testReleaseStorePersistsRegistryAcrossLaunches() throws {
@@ -76,6 +91,7 @@ final class RetrievalWeek5Tests: XCTestCase {
         let card = try seed(ctx, title: "延期毕业相关", texts: ["我问了 advisor 能不能延期一个学期毕业。"])
 
         let release = ReleaseStore(directory: tempDirectory())
+        installPermissivePerformancePolicy(release)
         let datasets = EvalDatasetStore(directory: tempDirectory())
         datasets.addGolden(query: "延期 毕业", expectedNoteIDs: [card.id.uuidString])
 
@@ -121,6 +137,7 @@ final class RetrievalWeek5Tests: XCTestCase {
         let card = try seed(ctx, title: "笔记", texts: ["延期一个学期毕业。"])
 
         let release = ReleaseStore(directory: tempDirectory())
+        installPermissivePerformancePolicy(release)
         let datasets = EvalDatasetStore(directory: tempDirectory())
         datasets.addGolden(query: "延期 毕业", expectedNoteIDs: [card.id.uuidString])
 
@@ -147,6 +164,7 @@ final class RetrievalWeek5Tests: XCTestCase {
         try seed(ctx, title: "笔记", texts: [String(repeating: "延期毕业的讨论内容。", count: 40)])
 
         let release = ReleaseStore(directory: tempDirectory())
+        installPermissivePerformancePolicy(release)
         let vectors = InMemoryVectorStore()
         let indexing = IndexingService(provider: MockEmbeddingProvider(dimension: 16),
                                        vectors: vectors,
@@ -202,6 +220,12 @@ final class RetrievalWeek5Tests: XCTestCase {
     /// 判定 BLOCKED 时，Promote 不只是按钮置灰 —— 注册表本身拒绝。
     func testBlockedDecisionCannotPromoteEvenIfCalledDirectly() throws {
         let release = ReleaseStore(directory: tempDirectory())
+        // 环境宽松（允许模拟器），但**延迟预算保持严格** —— 这一条测的正是
+        // 「P95 超预算时不能 promote」，宽松的延迟预算会让它测不到东西。
+        release.updateThresholds(GateThresholds(performance: PerformanceGatePolicy(
+            version: "test-strict-latency",
+            firstResultP50Ms: 100, firstResultP95Ms: 250,
+            requiredDeviceClass: .simulator, requiredBuildConfiguration: "debug")))
         let candidate = try XCTUnwrap(release.duplicate(from: release.registry.production.id) { $0.topK = 30 })
         release.setCandidate(id: candidate.id)
 
@@ -231,6 +255,7 @@ final class RetrievalWeek5Tests: XCTestCase {
         try seed(ctx, title: "延期毕业", texts: ["我问了 advisor 能不能延期一个学期毕业。"])
 
         let release = ReleaseStore(directory: tempDirectory())
+        installPermissivePerformancePolicy(release)
         let candidate = try XCTUnwrap(release.duplicate(from: release.registry.production.id) { $0.topK = 30 })
         release.setCandidate(id: candidate.id)
         let metrics = EvalMetrics(caseCount: 2, recallAt1: 1, recallAt3: 1, recallAt5: 1,
@@ -262,6 +287,36 @@ final class RetrievalWeek5Tests: XCTestCase {
         let trace = try XCTUnwrap(traces.first)
         XCTAssertEqual(trace.configVersion, candidate.config.version,
                        "线上检索用的是被 Promote 的那套配置，不是编译期常量")
+    }
+
+    // MARK: 5 · 默认 policy 必须拦住模拟器数字
+
+    /// **分层 policy 的产品主张**：模拟器 / debug 的性能数字没有资格换生产配置。
+    /// 这一条用生产默认 `perf-v2`，刻意不装宽松 policy。
+    func testDefaultPolicyBlocksPromoteFromSimulatorNumbers() throws {
+        let release = ReleaseStore(directory: tempDirectory())   // 默认 perf-v2
+        let candidate = try XCTUnwrap(release.duplicate(from: release.registry.production.id) { $0.topK = 30 })
+        release.setCandidate(id: candidate.id)
+
+        let good = EvalMetrics(caseCount: 4, recallAt1: 1, recallAt3: 1, recallAt5: 1,
+                               mrr: 1, p50Ms: 5, p95Ms: 9)
+        let base = EvalMetrics(caseCount: 4, recallAt1: 0.5, recallAt3: 0.5, recallAt5: 0.5,
+                               mrr: 0.5, p50Ms: 5, p95Ms: 9)
+        release.recordRun(EvalRun(configVersion: candidate.config.version, embeddingVersion: "m",
+                                  metrics: good, goldenMetrics: good,
+                                  regressionMetrics: .zero, failures: []))
+        release.recordBaselineRun(EvalRun(configVersion: candidate.config.version, embeddingVersion: "m",
+                                          metrics: base, goldenMetrics: base,
+                                          regressionMetrics: .zero, failures: []))
+
+        XCTAssertEqual(release.decision.status, .stale,
+                       "质量四项全绿，但数字来自模拟器 / debug → STALE，不是 PASS")
+        XCTAssertTrue(release.decision.staleReason?.contains("测量环境") == true,
+                      "说明原因是环境不合格，而不是质量或延迟")
+        XCTAssertFalse(release.promote(id: candidate.id, decision: release.decision),
+                       "STALE 的判定无法 promote —— 拿不到真机数字就换不了生产配置")
+        XCTAssertNotEqual(release.productionConfig.topK, 30, "生产配置没有被换掉")
+        XCTAssertNotNil(release.latestRunEnvironment, "recordRun 必须捕获当时的测量环境")
     }
 }
 

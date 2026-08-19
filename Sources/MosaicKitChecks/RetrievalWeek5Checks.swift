@@ -69,6 +69,30 @@ enum RetrievalWeek5Checks {
         }
     }
 
+
+    // MARK: 测量环境（分层 policy 之后，判定的前置条件）
+
+    /// 与**当前构建**匹配的合格环境。写死 `release` 会让 debug 下的 checks 全变 STALE，
+    /// 而这一节测的是判定逻辑，不是性能。
+    static var qualifyingEnvironment: RunEnvironment {
+        RunEnvironment(deviceClass: .mac,
+                       deviceModel: "test",
+                       osVersion: "test",
+                       buildConfiguration: buildMode,
+                       thermalState: "nominal",
+                       lowPowerMode: false,
+                       measuredLayer: .firstResult,
+                       providerRegion: nil,
+                       capturedAt: Date())
+    }
+
+    /// 接受当前构建的 policy —— 只为让质量类断言能跑到，不代表生产 policy。
+    static var qualifyingThresholds: GateThresholds {
+        GateThresholds(performance: PerformanceGatePolicy(
+            version: "test-perf", requiredDeviceClass: .mac,
+            requiredBuildConfiguration: buildMode))
+    }
+
     // MARK: 5.2 · 四项检查
 
     /// 构造一次跑批结果。指标直接给定 —— 这一节测的是**判定逻辑**，
@@ -94,7 +118,9 @@ enum RetrievalWeek5Checks {
         // 全过。
         let pass = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                         current: run(version: "retrieval-v2", recall5: 0.875, mrr: 0.781, p95: 181),
-                                        baseline: baseline)
+                                        baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(pass.status == .pass, "四项全过 → PASS")
         r.expect(pass.checks.count == 4, "恰好四项检查 —— 与 DEVTOOLS §4.7 一一对应")
         r.expect(pass.headline == "PASS", "判定区文案")
@@ -103,21 +129,25 @@ enum RetrievalWeek5Checks {
         // P95 超预算 —— 质量再好也拦。
         let slow = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                         current: run(version: "retrieval-v2", recall5: 0.990, mrr: 0.950, p95: 310),
-                                        baseline: baseline)
+                                        baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(slow.status == .blocked, "P95 310ms > 250ms → BLOCKED")
-        r.expect(slow.blockingChecks.map(\.kind) == [.p95], "只有 P95 那一行是阻断行")
+        r.expect(slow.blockingChecks.map(\.kind) == [.firstResultLatency], "只有 Metric A 那一行是阻断行")
         r.expect(slow.checks.first { $0.kind == .recallAt5 }?.passed == true,
                  "其余三项照常通过 —— 不做加权，「大部分指标都很好」不能换来放行")
-        r.expect(slow.checks.first { $0.kind == .p95 }?.actualText == "310 ms",
-                 "实测值直接摆在行里（\(slow.checks.first { $0.kind == .p95 }?.actualText ?? "—")）")
-        r.expect(slow.checks.first { $0.kind == .p95 }?.opensFailures == false,
+        r.expect(slow.checks.first { $0.kind == .firstResultLatency }?.actualText == "P50 155 ms · P95 310 ms",
+                 "P50 与 P95 在同一行里给出（\(slow.checks.first { $0.kind == .firstResultLatency }?.actualText ?? "—")）")
+        r.expect(slow.checks.first { $0.kind == .firstResultLatency }?.opensFailures == false,
                  "P95 超预算不对应任何一条 case，不给 Open Failures")
 
         // Regression 97.5% —— 40 条里错 1 条。
         let regressed = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                              current: run(version: "retrieval-v2", recall5: 0.861, mrr: 0.766,
                                                           p95: 181, regressionCases: 40, regressionRecall5: 0.975),
-                                             baseline: baseline)
+                                             baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(regressed.status == .blocked, "Regression 97.5% < 98% → BLOCKED")
         let reg = regressed.checks.first { $0.kind == .regression }!
         r.expect(reg.actualText == "97.5% · 39/40", "通过率与条数同时给出（\(reg.actualText)）")
@@ -126,30 +156,42 @@ enum RetrievalWeek5Checks {
         // MRR 容差：baseline 0.742，容差 0.010 → 0.732 仍然通过，0.731 不通过。
         let onTolerance = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                                current: run(version: "retrieval-v2", recall5: 0.875, mrr: 0.732, p95: 100),
-                                               baseline: baseline)
+                                               baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(onTolerance.checks.first { $0.kind == .mrr }?.passed == true,
                  "MRR 恰在容差边界上通过 —— 边界不能因为一次浮点除法差 1 ulp 就翻面")
         let belowTolerance = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                                   current: run(version: "retrieval-v2", recall5: 0.875, mrr: 0.700, p95: 100),
-                                                  baseline: baseline)
+                                                  baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(belowTolerance.status == .blocked, "MRR 跌破容差 → BLOCKED")
 
         // Recall@5 默认零容差。
         let recallDown = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                               current: run(version: "retrieval-v2", recall5: 0.824, mrr: 0.800, p95: 100),
-                                              baseline: baseline)
+                                              baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(recallDown.status == .blocked,
                  "Recall@5 低于 baseline 即阻断 —— 默认零容差，「掉一点点换别的好处」不是 Gate 能表达的事")
         let recallEqual = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                                current: run(version: "retrieval-v2", recall5: 0.825, mrr: 0.800, p95: 100),
-                                               baseline: baseline)
+                                               baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(recallEqual.checks.first { $0.kind == .recallAt5 }?.passed == true, "与 baseline 相等算通过")
 
         // 阈值可配。
         let loose = ReleaseGate.evaluate(configVersion: "retrieval-v2",
                                          current: run(version: "retrieval-v2", recall5: 0.990, mrr: 0.950, p95: 310),
                                          baseline: baseline,
-                                         thresholds: GateThresholds(p95BudgetMs: 400))
+                                         thresholds: GateThresholds(performance: PerformanceGatePolicy(
+                                             version: "test-loose", firstResultP50Ms: 200, firstResultP95Ms: 400,
+                                             requiredDeviceClass: .mac,
+                                             requiredBuildConfiguration: buildMode)),
+                                         environment: qualifyingEnvironment)
         r.expect(loose.status == .pass, "阈值可配 —— 拿到 PRD 定值后只改这一个结构体")
 
         // 已知不支持的跨语言 case 单独报告，不能拖低主指标或阻断发布。
@@ -170,7 +212,8 @@ enum RetrievalWeek5Checks {
                                      regressionMetrics: .zero, failures: [],
                                      inScopeMetrics: supportedBaseline)
         let scopedDecision = ReleaseGate.evaluate(configVersion: "retrieval-v2",
-                                                  current: scopedCurrent, baseline: scopedBaseline)
+                                                  current: scopedCurrent, baseline: scopedBaseline,
+                                        thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         r.expect(scopedDecision.status == .pass,
                  "Gate 只看 in-scope 正例；cross-language 与负例只作诊断")
         r.expect(scopedDecision.checks.first { $0.kind == .recallAt5 }?.actualText == "0.950",
@@ -183,29 +226,34 @@ enum RetrievalWeek5Checks {
         let current = run(version: "retrieval-v2", recall5: 0.875, mrr: 0.781, p95: 181)
 
         // 没跑过评测。
-        let noRun = ReleaseGate.evaluate(configVersion: "retrieval-v2", current: nil, baseline: nil)
+        let noRun = ReleaseGate.evaluate(configVersion: "retrieval-v2", current: nil, baseline: nil,
+                                          thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         r.expect(noRun.status == .stale, "还没有评测结果 → STALE，不是 PASS")
         r.expect(noRun.isPass == false, "STALE 不可 promote")
         r.expect(noRun.staleReason?.contains("先在 Eval Center") == true, "给出补救动作")
 
         // 评测跑的是别的配置。
-        let mismatched = ReleaseGate.evaluate(configVersion: "retrieval-v3", current: current, baseline: nil)
+        let mismatched = ReleaseGate.evaluate(configVersion: "retrieval-v3", current: current, baseline: nil,
+                                                thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         r.expect(mismatched.status == .stale,
                  "评测结果早于当前配置 → STALE —— 「改完参数没重跑评测」时判定还是绿的，但它判的是上一套")
         r.expect(mismatched.staleReason?.contains("retrieval-v2") == true, "说明跑的是哪一套")
 
         // 没有 baseline：质量类检查无法成立，且不能默认放行。
-        let noBaseline = ReleaseGate.evaluate(configVersion: "retrieval-v2", current: current, baseline: nil)
+        let noBaseline = ReleaseGate.evaluate(configVersion: "retrieval-v2", current: current, baseline: nil,
+                                                thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         r.expect(noBaseline.status == .blocked, "没有 baseline 时不能默认放行")
         r.expect(noBaseline.checks.first { $0.kind == .recallAt5 }?.detail?.contains("baseline") == true,
                  "说明是「还没跑 baseline」而不是「质量下降」—— 补救动作完全不同")
-        r.expect(noBaseline.checks.first { $0.kind == .p95 }?.passed == true,
+        r.expect(noBaseline.checks.first { $0.kind == .firstResultLatency }?.passed == true,
                  "P95 是绝对预算，没有 baseline 也能判")
 
         // 用例集不同 —— §14.3 抓到过的那个缺陷，在 Gate 上同样致命。
         let baselineOtherSet = run(version: "retrieval-v2", recall5: 0.825, mrr: 0.742, p95: 154, caseCount: 39)
         let incomparable = ReleaseGate.evaluate(configVersion: "retrieval-v2",
-                                                current: current, baseline: baselineOtherSet)
+                                                current: current, baseline: baselineOtherSet,
+                                                thresholds: qualifyingThresholds,
+                                                environment: qualifyingEnvironment)
         r.expect(incomparable.status == .blocked, "两次跑批用例数不同 → 不放行")
         r.expect(incomparable.checks.first { $0.kind == .recallAt5 }?.detail?.contains("用例数不同") == true,
                  "点明分母变了 —— 否则会有人在这里开始调 topK")
@@ -215,7 +263,8 @@ enum RetrievalWeek5Checks {
             configVersion: "retrieval-v2",
             current: run(version: "retrieval-v2", recall5: 0.875, mrr: 0.781, p95: 181,
                          regressionCases: 0, regressionRecall5: 0),
-            baseline: run(version: "retrieval-v2", recall5: 0.825, mrr: 0.742, p95: 154))
+            baseline: run(version: "retrieval-v2", recall5: 0.825, mrr: 0.742, p95: 154),
+            thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         let empty = emptyRegression.checks.first { $0.kind == .regression }!
         r.expect(empty.passed, "回归集为空时这一项恒过 —— 没有回归用例就没有回归")
         r.expect(empty.detail?.contains("回归集还没有用例") == true, "但要说明它为什么是绿的")
@@ -234,7 +283,9 @@ enum RetrievalWeek5Checks {
         let baseline = run(version: "retrieval-v1", recall5: 0.825, mrr: 0.742, p95: 154)
         let blocked = ReleaseGate.evaluate(configVersion: candidate.version,
                                            current: run(version: candidate.version, recall5: 0.9, mrr: 0.9, p95: 310),
-                                           baseline: baseline)
+                                           baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
 
         var didThrow = false
         do { _ = try registry.promote(id: candidate.id, decision: blocked) } catch { didThrow = true }
@@ -244,7 +295,8 @@ enum RetrievalWeek5Checks {
         // 判定属于另一套配置。
         let passForOther = ReleaseGate.evaluate(configVersion: "retrieval-v99",
                                                 current: run(version: "retrieval-v99", recall5: 0.9, mrr: 0.9, p95: 100),
-                                                baseline: run(version: "retrieval-v99", recall5: 0.8, mrr: 0.8, p95: 100))
+                                                baseline: run(version: "retrieval-v99", recall5: 0.8, mrr: 0.8, p95: 100),
+                                        thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         r.expect(passForOther.isPass, "构造一个 PASS 判定")
         didThrow = false
         do { _ = try registry.promote(id: candidate.id, decision: passForOther) } catch { didThrow = true }
@@ -254,7 +306,9 @@ enum RetrievalWeek5Checks {
         // 正常路径。
         let good = ReleaseGate.evaluate(configVersion: candidate.version,
                                         current: run(version: candidate.version, recall5: 0.875, mrr: 0.781, p95: 181),
-                                        baseline: baseline)
+                                        baseline: baseline,
+                                        thresholds: qualifyingThresholds,
+                                        environment: qualifyingEnvironment)
         r.expect(good.isPass, "同一套配置的 PASS 判定")
         let at = Date(timeIntervalSince1970: 1_800_000_000)
         let promoted = try? registry.promote(id: candidate.id, decision: good, at: at)
@@ -401,12 +455,175 @@ enum RetrievalWeek5Checks {
         r.expect(SearchDestination(noteID: "n1", anchor: .top).id == "n1|top", "顶部落点的身份稳定")
     }
 
+
+    // MARK: 5.9b · 分层性能 policy 与测量环境闸门
+
+    static func checkLayeredPerformanceGate(_ r: CheckRunner) async {
+        r.suite("Week5 · 分层性能 policy —— 环境不合格判 STALE，不是 FAIL")
+
+        let quality = run(version: "v", recall5: 0.90, mrr: 0.90, p95: 120)
+        let baseline = run(version: "v", recall5: 0.80, mrr: 0.80, p95: 120)
+
+        func env(_ deviceClass: RunEnvironment.DeviceClass,
+                 _ build: String,
+                 layer: MeasuredLatencyLayer = .firstResult,
+                 thermal: String = "nominal",
+                 lowPower: Bool = false,
+                 region: String? = nil) -> RunEnvironment {
+            RunEnvironment(deviceClass: deviceClass, deviceModel: "m", osVersion: "o",
+                           buildConfiguration: build, thermalState: thermal,
+                           lowPowerMode: lowPower, measuredLayer: layer,
+                           providerRegion: region)
+        }
+        let v2 = GateThresholds(performance: .v2)   // 要求 release + 真机
+
+        // ① 没有环境元数据 → STALE
+        let noEnv = ReleaseGate.evaluate(configVersion: "v", current: quality,
+                                         baseline: baseline, thresholds: v2, environment: nil)
+        r.expect(noEnv.status == .stale, "没记录测量环境 → STALE（不知道跑在什么机器上）")
+        r.expect(noEnv.staleReason?.contains("测量环境") == true, "说明原因是环境，不是质量")
+
+        // ② 模拟器数字 → STALE。**这条最重要**：模拟器跑的是 Mac 的 CPU。
+        let sim = ReleaseGate.evaluate(configVersion: "v", current: quality, baseline: baseline,
+                                       thresholds: v2, environment: env(.simulator, "release"))
+        r.expect(sim.status == .stale, "模拟器数字 → STALE，不能用于发布判定")
+        r.expect(sim.staleReason?.contains("simulator") == true, "点明是模拟器")
+
+        // ③ debug 构建 → STALE。本项目实测 debug 慢 18 倍。
+        r.expect(ReleaseGate.evaluate(configVersion: "v", current: quality, baseline: baseline,
+                                      thresholds: v2,
+                                      environment: env(.physicalDevice, "debug")).status == .stale,
+                 "debug 构建 → STALE（同一份代码实测慢 18 倍）")
+
+        // ④ 低电量 / 发热 → STALE：那时测的是被限频后的性能。
+        r.expect(ReleaseGate.evaluate(configVersion: "v", current: quality, baseline: baseline,
+                                      thresholds: v2,
+                                      environment: env(.physicalDevice, "release", lowPower: true)).status == .stale,
+                 "低电量模式 → STALE（CPU 被限频）")
+        r.expect(ReleaseGate.evaluate(configVersion: "v", current: quality, baseline: baseline,
+                                      thresholds: v2,
+                                      environment: env(.physicalDevice, "release", thermal: "serious")).status == .stale,
+                 "设备发热 → STALE（已降频）")
+
+        // ⑤ 真机 release → 真正参与判定
+        let real = ReleaseGate.evaluate(configVersion: "v", current: quality, baseline: baseline,
+                                        thresholds: v2, environment: env(.physicalDevice, "release"))
+        r.expect(real.status == .pass, "真机 release + 四项达标 → PASS")
+        r.expect(real.checks.count == 4, "仍然是四行 —— P50/P95 合成一行，不改 DEVTOOLS §4.7 的版式")
+        let metricA = real.checks.first { $0.kind == .firstResultLatency }!
+        r.expect(metricA.actualText.contains("P50") && metricA.actualText.contains("P95"),
+                 "Metric A 一行里同时给出两个分位点（\(metricA.actualText)）")
+
+        // ⑥ region 不匹配 → STALE。**这是「延迟是地理问题」的直接对策。**
+        let regionPolicy = GateThresholds(performance: PerformanceGatePolicy(
+            version: "perf-v2-us", semanticCloudP95Ms: 2_500,
+            requiredDeviceClass: .physicalDevice, requiredBuildConfiguration: "release",
+            requiredProviderRegion: "us-east"))
+        let wrongRegion = ReleaseGate.evaluate(
+            configVersion: "v", current: quality, baseline: baseline, thresholds: regionPolicy,
+            environment: env(.physicalDevice, "release", layer: .semanticCloud, region: "cn-shanghai"))
+        r.expect(wrongRegion.status == .stale,
+                 "同一份 policy 在 cn-shanghai 与 us-east 下不该给同一个判决 → STALE")
+        r.expect(wrongRegion.staleReason?.contains("cn-shanghai") == true, "点明实际区域")
+
+        // ⑦ cloud 层预算为 nil = 记录但不判定，且必须说明它为什么是绿的
+        let recordOnly = GateThresholds(performance: PerformanceGatePolicy(
+            version: "perf-v2", semanticCloudP95Ms: nil,
+            requiredDeviceClass: .physicalDevice, requiredBuildConfiguration: "release"))
+        let cloudRun = ReleaseGate.evaluate(
+            configVersion: "v",
+            current: run(version: "v", recall5: 0.90, mrr: 0.90, p95: 1_317),
+            baseline: baseline, thresholds: recordOnly,
+            environment: env(.physicalDevice, "release", layer: .semanticCloud))
+        let metricB = cloudRun.checks.first { $0.kind == .semanticLatency }!
+        r.expect(metricB.passed, "cloud 层 P95 1317ms 不阻断 —— policy 明确不为它设阈值")
+        r.expect(metricB.detail?.contains("地理位置") == true,
+                 "但必须说明它为什么是绿的，否则一条恒过的检查看起来像一次通过")
+        r.expect(cloudRun.status == .pass, "其余三项达标 → PASS")
+
+        // ⑧ 同一份数字换回 perf-v1（单一 SLO）会被判 FAIL —— 分层的意义就在这个对比里
+        let v1 = GateThresholds(performance: .v1)
+        let underV1 = ReleaseGate.evaluate(
+            configVersion: "v",
+            current: run(version: "v", recall5: 0.90, mrr: 0.90, p95: 1_317),
+            baseline: baseline, thresholds: v1,
+            environment: env(.mac, "release", layer: .semanticCloud))
+        r.expect(underV1.status == .blocked,
+                 "perf-v1 用一个数字判所有层 → 云端语义被判不达标；perf-v2 把它归为「记录不判定」")
+    }
+
+    /// 用**现有真实数据**重跑 Gate，把结论记录下来。
+    static func rerunGateWithRealData(_ r: CheckRunner) async {
+        r.suite("Week5 · 用现有真实数据重跑 Gate")
+
+        guard let provider = try? LocalEmbedding.make(),
+              let dataset = try? HumanLikeGoldenFixture.load() else {
+            r.expect(true, "缺本地模型或 fixture，跳过（结论：待验证）"); return
+        }
+        let chunks = dataset.chunks
+        let store = InMemoryVectorStore()
+        for start in stride(from: 0, to: chunks.count, by: 32) {
+            let batch = Array(chunks[start..<min(start + 32, chunks.count)])
+            guard let vs = try? await provider.embed(batch: batch.map(\.text)) else { continue }
+            for (c, v) in zip(batch, vs) {
+                await store.upsert(EmbeddingRecord(ref: c.ref, chunkID: c.id,
+                                                   chunkIndex: c.indexInBlock,
+                                                   contentHash: c.contentHash,
+                                                   embeddingVersion: provider.modelInfo.version,
+                                                   chunkStrategy: c.strategy,
+                                                   dimension: v.count, vector: v))
+            }
+        }
+        let service = RetrievalService(provider: provider, vectors: store)
+        let runner = EvalRunner(service: service, chunksProvider: { chunks })
+        func cfg(_ mode: RetrievalMode) -> RetrievalConfig {
+            RetrievalConfig(version: "gate-rerun", mode: mode,
+                            embeddingProvider: provider.modelInfo.identifier,
+                            embeddingVersion: provider.modelInfo.version,
+                            chunkStrategy: .default, topK: 10)
+        }
+        guard let hybrid = try? await runner.run(cases: dataset.evalCases, config: cfg(.hybrid)),
+              let keyword = try? await runner.run(cases: dataset.evalCases, config: cfg(.keyword)) else {
+            r.expect(false, "跑批应当成功"); return
+        }
+
+        // 真实环境：这台机器、这个构建。**不伪造。**
+        let actual = RunEnvironment.capture(layer: .firstResult)
+        let v2 = GateThresholds(performance: .v2)
+        let decision = ReleaseGate.evaluate(configVersion: "gate-rerun", current: hybrid,
+                                            baseline: keyword, thresholds: v2, environment: actual)
+
+        print("\n    ── Gate 重跑（perf-v2 · 真实环境 \(actual.deviceClass.rawValue)/\(actual.buildConfiguration)）──")
+        print("    current  hybrid  in-scope R@5 \(String(format: "%.3f", hybrid.inScopeMetrics.recallAt5)) · MRR \(String(format: "%.3f", hybrid.inScopeMetrics.mrr)) · P95 \(String(format: "%.1f", hybrid.inScopeMetrics.p95Ms))ms")
+        print("    baseline keyword in-scope R@5 \(String(format: "%.3f", keyword.inScopeMetrics.recallAt5)) · MRR \(String(format: "%.3f", keyword.inScopeMetrics.mrr))")
+        print("    判定 → \(decision.headline)")
+        for reason in decision.blockingReasons { print("      · \(reason)") }
+
+        r.expect(decision.status == .stale,
+                 "perf-v2 下 Mac 数字判 STALE —— **这不是失败，是 Gate 在正常工作**："
+                 + "它拦住了「拿模拟器/Mac 的性能数字发布」这条路")
+        r.expect(decision.checks.isEmpty,
+                 "STALE 时不列四项检查 —— 环境不合格时那些数字没有解释意义")
+
+        // 换回 perf-v1（允许 Mac）后才真正判四项，用于对照。
+        let underV1 = ReleaseGate.evaluate(configVersion: "gate-rerun", current: hybrid,
+                                           baseline: keyword, thresholds: GateThresholds(performance: .v1),
+                                           environment: actual)
+        print("    同一份数字换 perf-v1（允许 Mac）→ \(underV1.headline)")
+        for reason in underV1.blockingReasons { print("      · \(reason)") }
+        print("")
+        r.expect(underV1.checks.count == 4 || underV1.status == .stale,
+                 "perf-v1 下能真正判四项（或因构建配置仍不合格而 STALE）")
+    }
+
     static func run(_ r: CheckRunner) async {
         checkRegistry(r)
         checkGate(r)
         checkGateEdges(r)
         checkPromote(r)
         checkLanding(r)
+        await checkLayeredPerformanceGate(r)
+        await rerunGateWithRealData(r)
         await checkSLO(r)
     }
 }

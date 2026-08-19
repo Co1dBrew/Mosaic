@@ -24,6 +24,9 @@ final class ReleaseStore {
     /// Gate 不自己跑评测，否则会出现两处各自跑出来的数字。
     private(set) var latestRun: EvalRun?
     private(set) var latestBaselineRun: EvalRun?
+    /// **跑批当时**的测量环境。分层 policy 之后它是判定的前置条件 ——
+    /// 在记录时捕获，而不是判定时补一个，否则记的就不是那批数字的环境了。
+    private(set) var latestRunEnvironment: RunEnvironment?
     private(set) var lastError: String?
 
     private let fileURL: URL
@@ -68,13 +71,17 @@ final class ReleaseStore {
         ReleaseGate.evaluate(configVersion: evaluationTarget.config.version,
                              current: latestRun,
                              baseline: latestBaselineRun,
-                             thresholds: thresholds)
+                             thresholds: thresholds,
+                             environment: latestRunEnvironment)
     }
 
     // MARK: 写
 
-    func recordRun(_ run: EvalRun) {
+    func recordRun(_ run: EvalRun, environment: RunEnvironment? = nil) {
         latestRun = run
+        // 默认捕获**当下**的环境。模拟器 / debug 构建会因此被 perf-v2 判 STALE ——
+        // 那正是想要的：不能拿模拟器的数字 Promote。
+        latestRunEnvironment = environment ?? RunEnvironment.capture(layer: .firstResult)
         // 换了 current 就没有可比的 baseline 了（§14.3 同一条理由）。
         latestBaselineRun = nil
     }

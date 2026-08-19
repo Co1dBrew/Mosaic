@@ -24,15 +24,45 @@ public struct RunEnvironment: Codable, Equatable, Sendable {
     public let buildConfiguration: String
     public let thermalState: String
     public let lowPowerMode: Bool
+    /// 这批数字测的是哪一层延迟。三层预算不同，混判必然出错。
+    public var measuredLayer: MeasuredLatencyLayer
+    /// 云端 provider 的区域标签。**地理相关的延迟必须带它**，否则数字不可比。
+    public var providerRegion: String?
     public let capturedAt: Date
 
-    public static func capture(now: Date = Date()) -> RunEnvironment {
+    /// 显式构造。测试与「手工记录一次外部测量」都需要它 ——
+    /// 隐式 memberwise init 是 internal，跨模块用不了。
+    public init(deviceClass: DeviceClass,
+                deviceModel: String,
+                osVersion: String,
+                buildConfiguration: String,
+                thermalState: String,
+                lowPowerMode: Bool,
+                measuredLayer: MeasuredLatencyLayer = .firstResult,
+                providerRegion: String? = nil,
+                capturedAt: Date = Date()) {
+        self.deviceClass = deviceClass
+        self.deviceModel = deviceModel
+        self.osVersion = osVersion
+        self.buildConfiguration = buildConfiguration
+        self.thermalState = thermalState
+        self.lowPowerMode = lowPowerMode
+        self.measuredLayer = measuredLayer
+        self.providerRegion = providerRegion
+        self.capturedAt = capturedAt
+    }
+
+    public static func capture(layer: MeasuredLatencyLayer = .firstResult,
+                               providerRegion: String? = nil,
+                               now: Date = Date()) -> RunEnvironment {
         RunEnvironment(deviceClass: currentDeviceClass(),
                                deviceModel: hardwareIdentifier(),
                                osVersion: currentOSVersion(),
                                buildConfiguration: currentBuildConfiguration(),
                                thermalState: currentThermalState(),
                                lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
+                               measuredLayer: layer,
+                               providerRegion: providerRegion,
                                capturedAt: now)
     }
 

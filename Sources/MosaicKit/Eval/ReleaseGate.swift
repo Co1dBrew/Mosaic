@@ -23,11 +23,16 @@ public struct GateThresholds: Sendable, Equatable, Codable {
     /// Regression 通过率下限。为什么不是 100%：`DEVTOOLS.md` §6.3 ——
     /// 一个总是被跳过的 Gate 等于没有 Gate。
     public var regressionPassRateMin: Double
+    /// 分层性能预算。`p95BudgetMs` 保留只为兼容 `perf-v1` 的单一 SLO 口径，
+    /// **新判定读这里** —— 一个数字判不了 keyword 快通道和跨洲网络两件事。
+    public var performance: PerformanceGatePolicy
 
     public init(recallAt5MinDelta: Double = 0,
                 mrrTolerance: Double = 0.010,
                 p95BudgetMs: Double = 250,
-                regressionPassRateMin: Double = 0.98) {
+                regressionPassRateMin: Double = 0.98,
+                performance: PerformanceGatePolicy = .v2) {
+        self.performance = performance
         self.recallAt5MinDelta = recallAt5MinDelta
         self.mrrTolerance = mrrTolerance
         self.p95BudgetMs = p95BudgetMs
@@ -44,15 +49,22 @@ public struct GateCheck: Sendable, Equatable, Identifiable {
     public enum Kind: String, Sendable, Equatable, Codable, CaseIterable {
         case recallAt5
         case mrr
+        /// 分层之前的单一延迟检查（`perf-v1`）。保留以便对照旧结论。
         case p95
+        /// Metric A —— 第一批可交互结果。**阻断项。**
+        case firstResultLatency
+        /// Metric B —— 语义升级。cloud 层可配为「记录但不判定」。
+        case semanticLatency
         case regression
 
         public var label: String {
             switch self {
-            case .recallAt5:  return "Recall@5"
-            case .mrr:        return "MRR"
-            case .p95:        return "P95"
-            case .regression: return "Regression"
+            case .recallAt5:          return "Recall@5"
+            case .mrr:                return "MRR"
+            case .p95:                return "P95"
+            case .firstResultLatency: return "Metric A · First Result"
+            case .semanticLatency:    return "Metric B · Semantic"
+            case .regression:         return "Regression"
             }
         }
     }
@@ -157,6 +169,7 @@ public enum ReleaseGate {
                                 current: EvalRun?,
                                 baseline: EvalRun?,
                                 thresholds: GateThresholds = .default,
+                                environment: RunEnvironment? = nil,
                                 now: Date = Date()) -> GateDecision {
 
         guard let current else {
@@ -167,6 +180,19 @@ public enum ReleaseGate {
             return GateDecision(status: .stale, configVersion: configVersion, evaluatedAt: now,
                                 checks: [],
                                 staleReason: "评测跑的是 \(current.configVersion)，当前配置是 \(configVersion) —— 重跑评测。")
+        }
+
+        // 测量环境不合格 → **STALE，不是 FAIL**。
+        // 「这批数字没有资格参与判定」与「性能不达标」是两件事，补救动作也不同：
+        // 一个是换台机器重测，一个是去优化代码。判成 FAIL 会让人去优化一份
+        // 本来就不该拿来判定的数字。
+        if let reason = thresholds.performance.disqualification(environment) {
+            return GateDecision(status: .stale, configVersion: configVersion, evaluatedAt: now,
+                                checks: [],
+                                staleReason: "测量环境不合格：\(reason)。"
+                                    + "policy \(thresholds.performance.version) 要求 "
+                                    + "\(thresholds.performance.requiredBuildConfiguration) 构建 / "
+                                    + "\(thresholds.performance.requiredDeviceClass.rawValue)。")
         }
 
         // baseline 缺席 / 用例集不同 → 质量类检查**无法成立**。
@@ -213,12 +239,36 @@ public enum ReleaseGate {
                                     detail: comparability))
         }
 
-        // ── 3 · P95 ≤ 预算 ──（不需要 baseline：预算是绝对值，不是相对值）
-        checks.append(GateCheck(
-            kind: .p95,
-            passed: current.inScopeMetrics.p95Ms <= thresholds.p95BudgetMs + epsilon,
-            conditionText: "≤ \(ms(thresholds.p95BudgetMs))",
-            actualText: ms(current.inScopeMetrics.p95Ms)))
+        // ── 3 · 分层延迟 ──（不需要 baseline：预算是绝对值）
+        //
+        // P50 与 P95 合成**一行**：`DEVTOOLS.md` §4.7 的版式是四行，
+        // 拆成五行是改设计而不是加信息 —— 两个都是同一个承诺的两个分位点。
+        let layer = environment?.measuredLayer ?? .firstResult
+        let kind: GateCheck.Kind = layer == .firstResult ? .firstResultLatency : .semanticLatency
+        let p50 = current.inScopeMetrics.p50Ms
+        let p95 = current.inScopeMetrics.p95Ms
+        if let p95Budget = thresholds.performance.p95Budget(for: layer) {
+            let p50Budget = thresholds.performance.p50Budget(for: layer)
+            let p50OK = p50Budget.map { p50 <= $0 + epsilon } ?? true
+            let p95OK = p95 <= p95Budget + epsilon
+            let condition = p50Budget.map { "P50 ≤ \(ms($0)) · P95 ≤ \(ms(p95Budget))" }
+                ?? "P95 ≤ \(ms(p95Budget))"
+            checks.append(GateCheck(
+                kind: kind,
+                passed: p50OK && p95OK,
+                conditionText: "\(condition)（\(layer.rawValue)）",
+                actualText: "P50 \(ms(p50)) · P95 \(ms(p95))"))
+        } else {
+            // `nil` 预算 = 记录但不判定。**如实说明它为什么是绿的**，
+            // 否则一条恒过的检查看起来像一次通过。
+            checks.append(GateCheck(
+                kind: kind, passed: true,
+                conditionText: "记录，不判定（\(layer.rawValue)）",
+                actualText: "P50 \(ms(p50)) · P95 \(ms(p95))",
+                detail: "这一层含网络往返，耗时主要由地理位置决定，因此 policy "
+                    + "\(thresholds.performance.version) 不为它设阈值；"
+                    + "progressive enhancement 下已有 keyword 兜底。"))
+        }
 
         // ── 4 · Regression Pass Rate ≥ 阈值 ──
         let rate = current.regressionPassRate

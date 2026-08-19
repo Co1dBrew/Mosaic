@@ -152,12 +152,16 @@ public struct CloudEmbeddingProvider: EmbeddingProvider {
     private let baseURL: String
     private let apiKey: String
     private let session: URLSession
+    /// 可选的耗时采集。**网络与计算分开记** —— 见 `EmbeddingTiming`。
+    private let latency: EmbeddingLatencyRecorder?
 
     public init(baseURL: String, apiKey: String, model: String, dimension: Int,
-                session: URLSession = .shared) {
+                session: URLSession = .shared,
+                latency: EmbeddingLatencyRecorder? = nil) {
         self.baseURL = baseURL
         self.apiKey = apiKey
         self.session = session
+        self.latency = latency
         self.modelInfo = EmbeddingModelInfo(identifier: "cloud-\(model)",
                                             dimension: dimension,
                                             version: "cloud-\(model)-d\(dimension)")
@@ -177,13 +181,23 @@ public struct CloudEmbeddingProvider: EmbeddingProvider {
                                            model: modelInfo.identifier
                                                .replacingOccurrences(of: "cloud-", with: ""),
                                            inputs: cleaned)
+        // 网络那一段单独计时 —— 它是地理相关的，不能和解析混在一起。
+        let tNet = DispatchTime.now().uptimeNanoseconds
         let (data, response) = try await runTransport(request)
+        let networkMs = Double(DispatchTime.now().uptimeNanoseconds - tNet) / 1_000_000
+
+        let tDecode = DispatchTime.now().uptimeNanoseconds
         guard let http = response as? HTTPURLResponse else {
             throw EmbeddingProviderError.transport("no HTTP response")
         }
         try Self.mapStatus(http.statusCode, body: data)
         let vectors = try Self.parse(data, expectedCount: cleaned.count, dimension: modelInfo.dimension)
-        return vectors.map { VectorMath.normalize($0) }
+        let normalized = vectors.map { VectorMath.normalize($0) }
+        let decodeMs = Double(DispatchTime.now().uptimeNanoseconds - tDecode) / 1_000_000
+
+        await latency?.record(EmbeddingTiming(networkMs: networkMs, decodeMs: decodeMs,
+                                             batchSize: cleaned.count))
+        return normalized
     }
 
     private func runTransport(_ request: URLRequest) async throws -> (Data, URLResponse) {
