@@ -1136,3 +1136,56 @@ provider 的地方，闸门放在这里而不是调用方，是因为「每个�
 **路线该变时也不自动变**：`desiredRoute` 只是标记出来，由用户显式确认。
 换向量空间 = 清空索引 + 全库重嵌，还可能是付费云端调用 ——
 在用户打字打到一半时替他做这个决定是不合适的。
+
+---
+
+# 20. Synthetic Golden v2：解除共线与双语边界证据
+
+`synthetic-human-v1` 把 source、language、length 绑在一起，overall 指标无法归因。
+2026-08-18 重做为 `synthetic-human-v2`：60 篇、五类 source 各 12 篇且每类中英 6/6，
+54 条正例（35 in-scope / 19 cross-language）、10 条 no-result、6 篇跨五类来源的长文、
+34 篇不作为 expected 的干扰项。完整方法和 release 数字见 `HUMANLIKE_GOLDEN_SET.md`。
+
+## 20.1 Eval 的主指标与边界指标分离
+
+`EvalCase` 现在记录 `queryLanguage`、`expectedLanguage`、`scope` 和 `expectation`。
+`EvalRunner` 同时产出：
+
+- `inScopeMetrics`：仅 in-scope 正例，供 Eval Compare 与 Release Gate 使用；
+- `crossLanguageMetrics`：已知边界，只作诊断；
+- `metrics`：全部正例的 overall 参考值，并承载负例指标；
+- `noResultAccuracy` / `falsePositiveRate`：负例单独口径，暂不进 Gate。
+
+旧落盘数据没有语言字段时迁移为 in-scope，以维持升级前行为。新建 Golden Case 时由
+编辑器显式收集 query / expected language，scope 由两者是否一致确定。
+
+Release Gate 的 Recall@5、MRR、P95 与 Regression Pass Rate 均只读取 in-scope 正例；
+断言构造了“overall 很差但 in-scope 变好”的用例，确认 cross-language 不会阻断发布。
+
+## 20.2 双语 persona 推翻了“整库一个本地向量空间足够”的假设
+
+Mac release、真实 Apple `NLEmbedding`、默认切分：
+
+| Mode | Group | Recall@5 | MRR |
+|---|---|---:|---:|
+| Keyword | in-scope / cross | 0.457 / 0.105 | 0.457 / 0.105 |
+| Vector | in-scope / cross | 0.343 / 0.158 | 0.226 / 0.145 |
+| Hybrid | in-scope / cross | **0.600 / 0.211** | **0.494 / 0.171** |
+
+这不是“跨语言再调一点参数”的证据，而是 §19 整库单向量空间的产品边界。当前生产实现
+保持不变，不在没有产品选择时擅自改成另一套架构。待决方案只有三类：
+
+1. 云端多语言模型：一个空间覆盖中英；需要明确同意、成本与隐私表述；
+2. 中英双索引：两个 provider / store，各取 Top-K 后融合；需要重定索引和融合契约；
+3. 明确不支持跨语言语义：保留 keyword 兜底，并把边界写进产品承诺。
+
+在选择前，cross-language 永远单独报告，不进入 Gate。
+
+## 20.3 TD-10 已有负例实证
+
+10 条 no-result query 在 release 跑批中：Keyword 空结果 10/10；Vector 与 Hybrid
+误召回 10/10。当前正确口径严格是 `results.isEmpty`，因为还没有相关性下限。
+
+这证明 `.noResults` 在语义路可用时几乎不可达，但**仍不据此拍一个余弦阈值**：§18.3
+已经证明余弦被长度显著混淆。负例指标先观察，相关性下限与 Gate 阈值等真实 Golden Set、
+模型路线和 PRD 精确要求齐备后再定。

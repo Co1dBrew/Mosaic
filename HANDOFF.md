@@ -48,12 +48,12 @@ Prompt Studio · LLM-as-Judge · Cost / Job / Vector DB / Feature Flag Dashboard
 ### 常用命令
 
 ```bash
-# MosaicKit 内核测试（807 断言）
+# MosaicKit 内核测试（1048 断言）
 swift run mosaic-checks
-# release 模式（817 断言，含 SLO 与规模断言 —— 性能数字只有 release 才有意义）
+# release 模式（1058 断言，含 SLO 与规模断言 —— 性能数字只有 release 才有意义）
 swift run -c release mosaic-checks
 
-# App 测试（72 个 XCTest，跑在真实模拟器上）
+# App 测试（80 个 XCTest，跑在真实模拟器上）
 xcodebuild test -scheme Mosaic -project App/Mosaic.xcodeproj \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 
@@ -241,9 +241,9 @@ provider 为 nil 时给 Lab 塞 `MockEmbeddingProvider()` 的既有不一致 —
 ## 5. 当前状态
 
 ```
-MosaicKit  swift run mosaic-checks        ✅ 807 断言
-           swift run -c release            ✅ 817（多出的是 SLO 与规模断言）
-App        xcodebuild test                 ✅ 72/72
+MosaicKit  swift run mosaic-checks        ✅ 1048 断言
+           swift run -c release            ✅ 1058（多出的是 SLO 与规模断言）
+App        xcodebuild test                 ✅ 80/80
 Figma      node test/all.js                ✅ 5 套件全绿（本轮未改）
            devtools node test/run.js       ✅ 6/6
 ```
@@ -344,8 +344,18 @@ OCR → DerivedWorkScanner.plan → AIJobCoordinator → provider.embed
 
 ### ⚠️ 仍然是当前最大风险：Golden Set 规模
 
-内核 checks 里那份是 **7 条 query / 8 篇笔记**，改一条用例数字就跳 0.14，
-**没有统计效力**；而且**只有纯文本** —— OCR / 转写 / 文档 / 链接一条都没有。
+旧内核 checks 里那份是 **7 条 query / 8 篇笔记**，改一条用例数字就跳 0.14，
+**没有统计效力**；而且只有纯文本。
+
+2026-08-18 已重做为 `synthetic-human-v2`：**60 篇仿真人笔记 / 54 条正向 query /
+10 条正式 no-result 用例**。五类语料各 12 篇且每类中英 6/6；35 条 in-scope / 19 条
+cross-language；6 篇 >600 字符长文覆盖五类来源；34 篇干扰项从不作为 expected。
+机器可读源在 `Sources/MosaicKitChecks/Fixtures/HumanLikeGoldenSet.json`，方法与 release
+实测在 `HUMANLIKE_GOLDEN_SET.md`，架构结论见 `RETRIEVAL_ARCHITECTURE.md` §20。
+
+v2 已把 language / scope / no-result 接进正式 `EvalCase`、`EvalRunner` 和 Developer Tools；
+Release Gate 只读 in-scope 正例，cross-language 与负例单独报告。它解决了工程 fixture 的
+来源×语言×长度共线，但**仍然不是真实用户标注**，不能用于声称真实用户 Recall 提升。
 
 标注入口已经有（D5 → Golden Set → +），但用例引用**本机笔记的 UUID**，
 代码里预置不了，必须在设备上标。**Release Gate 的阈值建立在这种样本上没有意义。**
@@ -364,8 +374,9 @@ OCR → DerivedWorkScanner.plan → AIJobCoordinator → provider.embed
 | **TD-1** | `SummaryService` 无 stale 保护（**既有缺陷**）。捕获 `blocks` → `await` → 写回，无 job identity / dedup / 校验。今天不算数据损坏但并发生成是 last-write-wins | 开放。现在有三个可抄的用例 |
 | **TD-4** | `AIJobCoordinator.acquireSlot()` 用 `withCheckedContinuation`，排队中被取消会漏一个 waiter | 开放，当前深度下无害 |
 | **TD-6** | 向量索引仅在内存，启动时从 derived store 重建（20k chunks ≈ 30MB @ dim 384） | 开放 |
-| **TD-10** | **向量检索没有相关性下限**：按余弦取 Top K，再离谱的 query 也会拿回整个语料 → 语义可用时 `.noResults` 几乎不可达。**不能随手拍阈值** —— 余弦绝对值没有解释力，而 **TD-11 查明了原因：它被文本长度混淆**。要靠 Golden Set + 一组负例 query 校准 | 扩 Golden Set 时一并做 |
+| **TD-10** | **向量检索没有相关性下限**：按余弦取 Top K，再离谱的 query 也会拿回整个语料 → 语义可用时 `.noResults` 几乎不可达。v2 的 10 条负例已正式接入 Runner：Keyword 10/10 空结果，Vector / Hybrid 10/10 误召回。**不能随手拍阈值** —— TD-11 证明余弦被长度混淆 | 开放；负例指标已可观测，阈值待真实 Golden Set + 模型路线 |
 | **TD-11** *(new)* | **`NLEmbedding` 余弦受文本长度支配**：拉长 16 倍余弦掉 0.0496，而相关/无关只差 0.0115（4.3 倍）。长笔记天然吃亏；TD-10 的阈值因此不能只看余弦 | 开放。`RetrievalWeek6Checks.checkCosineLengthBias` 钉住现象；换模型时重测 |
+| **TD-12** *(new)* | **双语 persona 与整库单向量空间冲突**：v2 release 的 Hybrid Recall@5 为 in-scope 0.600 / cross-language 0.211。不是调参能消除的差异 | 待产品选择：云端多语言模型 / 中英双索引 / 明确不支持。选择前 cross-language 不进 Gate |
 | **TD-9** | **iOS 上没有中文句向量模型**。模拟器矩阵：`zh-Hans ❌ · en ✅ 512 维`；macOS zh-Hans ✅。**2026-08-13 本机确认**。现已按语言分流：本机中文 → 离线；有中文无本机中文 → 云端 embedding；纯英文 → 本机英文。**不拿英文模型嵌中文笔记。** 云端未配置时含中文库 Gate 仍为 STALE | **已确认；云端退路已接线。** 用户需在设置填写支持 `/v1/embeddings` 的模型 |
 | — | ~~`NLEmbedding` 对**长文本**的稳定性未验证~~ | **已测（§18.2/18.3）**：长文用例在三种 chunk 策略下全败，根因是 TD-11 |
 | — | benchmark 是在 Mac 上用确定性向量测的，**iPhone 数字一定不同** | Week 6 真机复测 |
