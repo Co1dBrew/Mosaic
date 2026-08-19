@@ -175,8 +175,8 @@ public enum ReleaseGate {
         let comparability: String?
         if baseline == nil {
             comparability = "还没有 baseline 跑批 —— 在 Eval Compare 里跑一次 baseline。"
-        } else if let baseline, baseline.metrics.caseCount != current.metrics.caseCount {
-            comparability = "两次跑批的用例数不同（current \(current.metrics.caseCount) / baseline \(baseline.metrics.caseCount)）—— delta 无意义，重跑 baseline。"
+        } else if let baseline, baseline.inScopeMetrics.caseCount != current.inScopeMetrics.caseCount {
+            comparability = "两次跑批的 in-scope 用例数不同（current \(current.inScopeMetrics.caseCount) / baseline \(baseline.inScopeMetrics.caseCount)）—— delta 无意义，重跑 baseline。"
         } else {
             comparability = nil
         }
@@ -185,44 +185,44 @@ public enum ReleaseGate {
 
         // ── 1 · Recall@5 ≥ baseline − tolerance ──
         if let baseline, comparability == nil {
-            let floor = baseline.metrics.recallAt5 + thresholds.recallAt5MinDelta
+            let floor = baseline.inScopeMetrics.recallAt5 + thresholds.recallAt5MinDelta
             checks.append(GateCheck(
                 kind: .recallAt5,
-                passed: current.metrics.recallAt5 >= floor - epsilon,
+                passed: current.inScopeMetrics.recallAt5 >= floor - epsilon,
                 conditionText: "≥ \(fixed(floor))",
-                actualText: fixed(current.metrics.recallAt5)))
+                actualText: fixed(current.inScopeMetrics.recallAt5)))
         } else {
             checks.append(GateCheck(kind: .recallAt5, passed: false,
                                     conditionText: "≥ baseline",
-                                    actualText: fixed(current.metrics.recallAt5),
+                                    actualText: fixed(current.inScopeMetrics.recallAt5),
                                     detail: comparability))
         }
 
         // ── 2 · MRR ≥ baseline − tolerance ──
         if let baseline, comparability == nil {
-            let floor = baseline.metrics.mrr - thresholds.mrrTolerance
+            let floor = baseline.inScopeMetrics.mrr - thresholds.mrrTolerance
             checks.append(GateCheck(
                 kind: .mrr,
-                passed: current.metrics.mrr >= floor - epsilon,
-                conditionText: "≥ \(fixed(floor))（baseline \(fixed(baseline.metrics.mrr)) − 容差 \(fixed(thresholds.mrrTolerance)))",
-                actualText: fixed(current.metrics.mrr)))
+                passed: current.inScopeMetrics.mrr >= floor - epsilon,
+                conditionText: "≥ \(fixed(floor))（baseline \(fixed(baseline.inScopeMetrics.mrr)) − 容差 \(fixed(thresholds.mrrTolerance)))",
+                actualText: fixed(current.inScopeMetrics.mrr)))
         } else {
             checks.append(GateCheck(kind: .mrr, passed: false,
                                     conditionText: "≥ baseline − \(fixed(thresholds.mrrTolerance))",
-                                    actualText: fixed(current.metrics.mrr),
+                                    actualText: fixed(current.inScopeMetrics.mrr),
                                     detail: comparability))
         }
 
         // ── 3 · P95 ≤ 预算 ──（不需要 baseline：预算是绝对值，不是相对值）
         checks.append(GateCheck(
             kind: .p95,
-            passed: current.metrics.p95Ms <= thresholds.p95BudgetMs + epsilon,
+            passed: current.inScopeMetrics.p95Ms <= thresholds.p95BudgetMs + epsilon,
             conditionText: "≤ \(ms(thresholds.p95BudgetMs))",
-            actualText: ms(current.metrics.p95Ms)))
+            actualText: ms(current.inScopeMetrics.p95Ms)))
 
         // ── 4 · Regression Pass Rate ≥ 阈值 ──
         let rate = current.regressionPassRate
-        let n = current.regressionMetrics.caseCount
+        let n = current.inScopeRegressionMetrics.caseCount
         checks.append(GateCheck(
             kind: .regression,
             passed: rate >= thresholds.regressionPassRateMin - epsilon,
@@ -253,6 +253,6 @@ public extension EvalRun {
     /// 回归集里通过的条数。Pass Rate 与 Recall@5 同口径，所以这里由 Recall@5 反推 ——
     /// 单独再存一份计数会立刻产生「两个数对不上」的可能。
     var regressionPassedCount: Int {
-        Int((regressionMetrics.recallAt5 * Double(regressionMetrics.caseCount)).rounded())
+        Int((inScopeRegressionMetrics.recallAt5 * Double(inScopeRegressionMetrics.caseCount)).rounded())
     }
 }

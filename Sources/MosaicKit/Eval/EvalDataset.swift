@@ -54,14 +54,30 @@ public struct EvalDataset: Sendable, Equatable, Codable {
     /// 两处用不同口径判重，迟早会出现「Golden 里去重了、Regression 里没去重」的分母差异。
     @discardableResult
     public mutating func addGolden(query: String, expectedNoteIDs: [String], note: String? = nil) -> Bool {
+        addGolden(query: query,
+                  expectation: expectedNoteIDs.isEmpty
+                    ? .noRelevantResult
+                    : .relevant(noteIDs: expectedNoteIDs),
+                  note: note)
+    }
+
+    @discardableResult
+    public mutating func addGolden(query: String, expectation: EvalExpectation,
+                                   queryLanguage: EvalLanguage? = nil,
+                                   expectedLanguage: EvalLanguage? = nil,
+                                   scope: EvalScope = .inScope,
+                                   note: String? = nil) -> Bool {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty, !expectedNoteIDs.isEmpty else { return false }
-        let expected = Set(expectedNoteIDs)
+        guard !q.isEmpty else { return false }
+        if case let .relevant(noteIDs) = expectation, noteIDs.isEmpty { return false }
         guard !golden.contains(where: {
-            $0.query.trimmingCharacters(in: .whitespacesAndNewlines) == q && Set($0.expectedNoteIDs) == expected
+            $0.query.trimmingCharacters(in: .whitespacesAndNewlines) == q
+                && expectationsMatch($0.expectation, expectation)
         }) else { return false }
 
-        golden.append(EvalCase(query: q, expectedNoteIDs: expectedNoteIDs, source: .golden, note: note))
+        golden.append(EvalCase(query: q, expectation: expectation, source: .golden,
+                               queryLanguage: queryLanguage, expectedLanguage: expectedLanguage,
+                               scope: scope, note: note))
         return true
     }
 
@@ -81,5 +97,13 @@ public struct EvalDataset: Sendable, Equatable, Codable {
     /// 而那不是检索质量的问题 —— UI 要能把这种「用例本身坏了」标出来。
     public static func danglingCases(_ cases: [EvalCase], existingNoteIDs: Set<String>) -> [EvalCase] {
         cases.filter { !$0.expectedNoteIDs.allSatisfy(existingNoteIDs.contains) }
+    }
+}
+
+private func expectationsMatch(_ lhs: EvalExpectation, _ rhs: EvalExpectation) -> Bool {
+    switch (lhs, rhs) {
+    case (.noRelevantResult, .noRelevantResult): return true
+    case let (.relevant(left), .relevant(right)): return Set(left) == Set(right)
+    default: return false
     }
 }

@@ -151,6 +151,30 @@ enum RetrievalWeek5Checks {
                                          baseline: baseline,
                                          thresholds: GateThresholds(p95BudgetMs: 400))
         r.expect(loose.status == .pass, "阈值可配 —— 拿到 PRD 定值后只改这一个结构体")
+
+        // 已知不支持的跨语言 case 单独报告，不能拖低主指标或阻断发布。
+        let poorOverall = EvalMetrics(caseCount: 59, recallAt1: 0.2, recallAt3: 0.3,
+                                      recallAt5: 0.35, mrr: 0.25, p50Ms: 10, p95Ms: 999)
+        let supported = EvalMetrics(caseCount: 35, recallAt1: 0.8, recallAt3: 0.9,
+                                    recallAt5: 0.95, mrr: 0.85, p50Ms: 9, p95Ms: 20)
+        let supportedBaseline = EvalMetrics(caseCount: 35, recallAt1: 0.7, recallAt3: 0.8,
+                                            recallAt5: 0.90, mrr: 0.80, p50Ms: 8, p95Ms: 18)
+        let scopedCurrent = EvalRun(configVersion: "retrieval-v2", embeddingVersion: "e1",
+                                    metrics: poorOverall, goldenMetrics: poorOverall,
+                                    regressionMetrics: .zero, failures: [],
+                                    inScopeMetrics: supported,
+                                    crossLanguageMetrics: EvalMetrics(caseCount: 24, recallAt1: 0,
+                                        recallAt3: 0, recallAt5: 0, mrr: 0, p50Ms: 900, p95Ms: 999))
+        let scopedBaseline = EvalRun(configVersion: "retrieval-v2", embeddingVersion: "e1",
+                                     metrics: poorOverall, goldenMetrics: poorOverall,
+                                     regressionMetrics: .zero, failures: [],
+                                     inScopeMetrics: supportedBaseline)
+        let scopedDecision = ReleaseGate.evaluate(configVersion: "retrieval-v2",
+                                                  current: scopedCurrent, baseline: scopedBaseline)
+        r.expect(scopedDecision.status == .pass,
+                 "Gate 只看 in-scope 正例；cross-language 与负例只作诊断")
+        r.expect(scopedDecision.checks.first { $0.kind == .recallAt5 }?.actualText == "0.950",
+                 "Gate 展示的是 in-scope 实测值，不是 overall 0.350")
     }
 
     static func checkGateEdges(_ r: CheckRunner) {

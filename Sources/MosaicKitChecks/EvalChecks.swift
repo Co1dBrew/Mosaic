@@ -67,7 +67,7 @@ enum EvalChecks {
     // MARK: 1 · 指标口径
 
     static func checkMetrics(_ r: CheckRunner) async {
-        r.suite("Week4 · 指标口径 —— Recall@K / MRR / P50 / P95")
+        r.suite("Week4 · 指标口径 —— Recall@K / MRR / No-result / P50 / P95")
 
         guard let (service, config) = await makeService() else {
             r.expect(true, "本机无本地句向量模型，跳过")
@@ -78,6 +78,8 @@ enum EvalChecks {
         guard let run else { r.expect(false, "评测应当成功"); return }
 
         r.expect(run.metrics.caseCount == 7, "全部用例被执行")
+        r.expect(run.metrics.relevantCaseCount == 7 && run.metrics.noResultCaseCount == 0,
+                 "正例与负例分母明确分开")
         r.expect(run.recallInRange, "Recall 全部落在 [0,1]")
         r.expect(run.metrics.recallAt1 <= run.metrics.recallAt3, "Recall@1 ≤ Recall@3（单调）")
         r.expect(run.metrics.recallAt3 <= run.metrics.recallAt5, "Recall@3 ≤ Recall@5（单调）")
@@ -95,6 +97,29 @@ enum EvalChecks {
         let strictRun = try? await runner.run(cases: [strict], config: config)
         r.expect(strictRun?.metrics.recallAt5 == 0,
                  "多个 expected 时必须全部命中才算通过 —— 宽松口径会让「找到一半」看起来和「全找到」一样好")
+
+        // 负例进入同一个 Runner，但不污染 Recall / MRR。严格口径是结果列表为空。
+        let negative = EvalCase(id: "n1", query: "护照换发材料",
+                                expectation: .noRelevantResult)
+        let keywordConfig = RetrievalConfig(version: "negative-keyword", mode: .keyword,
+                                             embeddingProvider: config.embeddingProvider,
+                                             embeddingVersion: config.embeddingVersion,
+                                             chunkStrategy: .block, topK: 10)
+        let negativeKeyword = try? await runner.run(cases: [negative], config: keywordConfig)
+        r.expect(negativeKeyword?.metrics.relevantCaseCount == 0
+                 && negativeKeyword?.metrics.noResultCaseCount == 1,
+                 "负例不进入 Recall 分母")
+        r.expect(negativeKeyword?.metrics.noResultAccuracy == 1
+                 && negativeKeyword?.metrics.falsePositiveRate == 0,
+                 "keyword 空结果：No-result Accuracy 100%，FPR 0%")
+        r.expect(negativeKeyword?.failures.isEmpty == true, "正确返回空列表的负例不收为失败")
+
+        let negativeHybrid = try? await runner.run(cases: [negative], config: config)
+        r.expect(negativeHybrid?.metrics.noResultAccuracy == 0
+                 && negativeHybrid?.metrics.falsePositiveRate == 1,
+                 "无相关性下限时 hybrid 误召回：No-result Accuracy 0%，FPR 100%")
+        r.expect(negativeHybrid?.failures.first?.evalCase.id == "n1",
+                 "负例误召回进入 Failure Inspection")
 
         print("\n    ── Golden Set 实测（真实 embedding · \(notes.count) 篇笔记 / \(goldenSet().count) 条 query）──")
         print(String(format: "    Recall@1 = %.3f   Recall@3 = %.3f   Recall@5 = %.3f   MRR = %.3f",
@@ -251,9 +276,14 @@ enum EvalChecks {
         r.expect(dataset.addGolden(query: "新的 query", expectedNoteIDs: ["delay", "policy"]),
                  "期望集合不同则是另一条用例")
         r.expect(!dataset.addGolden(query: "   ", expectedNoteIDs: ["delay"]), "空 query 不入集")
-        r.expect(!dataset.addGolden(query: "有 query 没期望", expectedNoteIDs: []),
-                 "没有期望笔记的用例无法判定命中，不入集")
-        r.expect(dataset.golden.last?.query == "新的 query", "入集前 trim")
+        r.expect(dataset.addGolden(query: "有 query 没期望", expectedNoteIDs: []),
+                 "空 expected 的旧调用明确迁移为 noRelevantResult")
+        r.expect(!dataset.addGolden(query: " 有 query 没期望 ", expectation: .noRelevantResult),
+                 "负例按 trim 后 query + expectation 幂等")
+        r.expect(!dataset.addGolden(query: "坏正例", expectation: .relevant(noteIDs: [])),
+                 "空 relevant 仍是非法标注，不能与负例混淆")
+        r.expect(dataset.golden.last?.query == "有 query 没期望", "入集前 trim")
+        r.expect(dataset.golden.last?.expectation == .noRelevantResult, "负例意图被显式保存")
         r.expect(dataset.golden.allSatisfy { $0.source == .golden }, "来源标记为 golden")
 
         // 选择器返回的用例带正确的 source，所以两部分指标在任何选择下都能分开统计。
@@ -273,6 +303,14 @@ enum EvalChecks {
             r.expect(back == dataset, "可 JSON 往返 —— 数据集要能持久化")
         } else {
             r.expect(false, "可 JSON 往返 —— 数据集要能持久化")
+        }
+
+        let legacy = #"{"id":"legacy","query":"旧数据","expectedNoteIDs":["delay"],"source":"golden","addedAt":0}"#
+        if let oldCase = try? JSONDecoder().decode(EvalCase.self, from: Data(legacy.utf8)) {
+            r.expect(oldCase.expectation == .relevant(noteIDs: ["delay"]),
+                     "升级后可读取只有 expectedNoteIDs 的旧设备数据")
+        } else {
+            r.expect(false, "旧 EvalCase JSON 必须可迁移读取")
         }
 
         // 用例引用的笔记被删了 —— 那不是检索质量的问题，UI 必须能区分。
