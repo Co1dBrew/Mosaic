@@ -1,5 +1,5 @@
 {
-  "version": "synthetic-human-v3",
+  "version": "synthetic-human-v4",
   "disclaimer": "Synthetic, human-like candidate data. It is not real-user ground truth and must not be reported as such.",
   "notes": [
     {
@@ -1393,6 +1393,486 @@
       "content": "Keep a consistent wake time, avoid caffeine after early afternoon, and get bright light within an hour of waking. Screens matter less than timing and consistency.",
       "middleMarker": null,
       "endMarker": null
+    },
+    {
+      "id": "T38",
+      "title": "CS5330 第七周作业",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "CS5330 第七周作业：实现 RoIAlign 的双线性插值部分，截止时间是十一月十四日晚上十一点五十九分。交付物是 roialign.py 加一页对比实验说明。允许两人一组，但要各自提交。"
+    },
+    {
+      "id": "T39",
+      "title": "CS5330 第三周作业",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "CS5330 第三周作业：实现 Canny 边缘检测的非极大值抑制，截止时间是十月三日晚上十一点五十九分。交付物是 canny.py 加一页参数敏感性说明。必须独立完成，不允许组队。"
+    },
+    {
+      "id": "T40",
+      "title": "CS5330 第十一周作业",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "CS5330 第十一周作业：在自建数据集上微调检测模型，截止时间是十二月十二日晚上十一点五十九分。交付物是训练脚本加两页结果分析。允许三人一组，提交一份即可。"
+    },
+    {
+      "id": "T41",
+      "title": "组会改到周四",
+      "source": "text",
+      "language": "zh",
+      "role": "target",
+      "content": "这周的组会从周三下午三点改到周四下午三点，地点还是 ISEC 六楼小会议室。改期原因是导师周三要去开评审会。下周恢复周三。"
+    },
+    {
+      "id": "T42",
+      "title": "上周组会记录",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "上周的组会照常在周三下午三点开，地点 ISEC 六楼小会议室。讨论了数据标注的进度，没有改期安排。"
+    },
+    {
+      "id": "T43",
+      "title": "另一个组的周会",
+      "source": "text",
+      "language": "zh",
+      "role": "distractor",
+      "content": "视觉组的周会固定在周五上午十点，地点是 ISEC 四楼开放区。和我们组没有关系，只是共用日历所以会看到。"
+    },
+    {
+      "id": "T44",
+      "title": "CS7180 midterm rescheduled",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "The CS7180 midterm has been rescheduled to October 24, 6pm, in Snell 108. The original date is cancelled. Bring one double-sided cheat sheet; calculators are not allowed."
+    },
+    {
+      "id": "T45",
+      "title": "CS7180 midterm original notice",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "The CS7180 midterm is scheduled for October 17, 6pm, in Richards 300. Bring one double-sided cheat sheet; calculators are not allowed. This notice was superseded later."
+    },
+    {
+      "id": "T46",
+      "title": "CS7180 final exam schedule",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "The CS7180 final exam is on December 15, 3pm, in Snell 108. It is cumulative. Two double-sided cheat sheets are allowed, and calculators are permitted."
+    },
+    {
+      "id": "T47",
+      "title": "TA office hours moved",
+      "source": "text",
+      "language": "en",
+      "role": "target",
+      "content": "TA office hours have moved to Thursday 2pm in the fourth floor lounge, starting this week. The Tuesday slot is discontinued for the rest of the semester."
+    },
+    {
+      "id": "T48",
+      "title": "TA office hours original",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "TA office hours are Tuesday 2pm in the fourth floor lounge. Walk-ins welcome; no appointment needed. This was the arrangement before the change."
+    },
+    {
+      "id": "T49",
+      "title": "Professor office hours",
+      "source": "text",
+      "language": "en",
+      "role": "distractor",
+      "content": "Professor office hours are Thursday 4pm in ISEC 610, by appointment only. Email at least one day ahead to reserve a slot."
+    },
+    {
+      "id": "I38",
+      "title": "车险保单 自付额",
+      "source": "ocr",
+      "language": "zh",
+      "role": "target",
+      "content": "保单类型 车险 承保人 平安 自付额 五百美元 年保费 一千二百美元 生效日 三月一日 碰撞险 含 道路救援 含"
+    },
+    {
+      "id": "I39",
+      "title": "租客险保单 自付额",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "保单类型 租客险 承保人 平安 自付额 一千五百美元 年保费 一百八十美元 生效日 三月一日 财产损失 含 责任险 含"
+    },
+    {
+      "id": "I40",
+      "title": "健康险保单 自付额",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "保单类型 健康险 承保人 平安 自付额 五千美元 年保费 三千六百美元 生效日 一月一日 门诊 含 处方药 含"
+    },
+    {
+      "id": "I41",
+      "title": "体检报告 血糖",
+      "source": "ocr",
+      "language": "zh",
+      "role": "target",
+      "content": "检验项目 空腹血糖 结果 六点八 单位 毫摩尔每升 参考范围 三点九至六点一 提示 偏高 采样日期 九月十二日"
+    },
+    {
+      "id": "I42",
+      "title": "体检报告 血脂",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "检验项目 总胆固醇 结果 五点九 单位 毫摩尔每升 参考范围 三点一至五点二 提示 偏高 采样日期 九月十二日"
+    },
+    {
+      "id": "I43",
+      "title": "药盒标签",
+      "source": "ocr",
+      "language": "zh",
+      "role": "distractor",
+      "content": "药品名称 布洛芬缓释胶囊 规格 零点三克 用法 每次一粒 每十二小时一次 饭后服用 有效期 二零二七年五月"
+    },
+    {
+      "id": "I44",
+      "title": "Toner CF259A label",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "HP LaserJet Toner Cartridge CF259A Standard Yield approx 3000 pages Compatible M404 M428 Black Manufactured 2025-04"
+    },
+    {
+      "id": "I45",
+      "title": "Toner CF259X label",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "HP LaserJet Toner Cartridge CF259X High Yield approx 10000 pages Compatible M404 M428 Black Manufactured 2025-04"
+    },
+    {
+      "id": "I46",
+      "title": "Toner CF258A label",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "HP LaserJet Toner Cartridge CF258A Standard Yield approx 3000 pages Compatible M404 M428 Black Note this model is not interchangeable with CF259A"
+    },
+    {
+      "id": "I47",
+      "title": "Parking permit Zone B",
+      "source": "ocr",
+      "language": "en",
+      "role": "target",
+      "content": "Campus Parking Permit Zone B Valid through May 31 2027 Vehicle VNB3K21099 Lot Renaissance Garage Levels 3 to 5 only"
+    },
+    {
+      "id": "I48",
+      "title": "Parking permit Zone A",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "Campus Parking Permit Zone A Valid through August 31 2026 Vehicle VNB3K21099 Lot Columbus Garage Levels 1 to 2 only"
+    },
+    {
+      "id": "I49",
+      "title": "Visitor parking pass",
+      "source": "ocr",
+      "language": "en",
+      "role": "distractor",
+      "content": "Visitor Parking Pass Valid single day October 9 2026 Vehicle not registered Lot Columbus Garage surface level Display on dashboard"
+    },
+    {
+      "id": "A38",
+      "title": "初诊 用药医嘱",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "医生说先按阿莫西林五百毫克每八小时一次吃，连吃七天。如果第三天还是发烧就回来复诊，不要自己停药。"
+    },
+    {
+      "id": "A39",
+      "title": "复诊 剂量调整",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "复诊时医生把阿莫西林改成八百七十五毫克每十二小时一次，再吃五天。他说这样胃里舒服一些，效果差不多。"
+    },
+    {
+      "id": "A40",
+      "title": "家人的用药",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "我妈那边是头孢克肟两百毫克每十二小时一次，吃五天。和我的不是一个药，别拿混了。"
+    },
+    {
+      "id": "A41",
+      "title": "房东电话 押金",
+      "source": "transcript",
+      "language": "zh",
+      "role": "target",
+      "content": "房东在电话里说押金会在退租后二十一天内退回，扣掉清洁费一百五十美元。他说今年改了流程，比以前快。"
+    },
+    {
+      "id": "A42",
+      "title": "去年退租的电话",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "去年退租的时候房东说押金三十天内退，清洁费扣两百美元。那是旧流程，今年不一样了。"
+    },
+    {
+      "id": "A43",
+      "title": "中介电话 看房",
+      "source": "transcript",
+      "language": "zh",
+      "role": "distractor",
+      "content": "中介说押金要在签约当天交，金额是一个月房租。这说的是签约，不是退租。"
+    },
+    {
+      "id": "A44",
+      "title": "Advisor call thesis defense",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "content": "My advisor said the thesis defense should be scheduled in April, and the committee needs the full draft six weeks before. He will send the committee list next week."
+    },
+    {
+      "id": "A45",
+      "title": "Advisor call proposal defense",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "My advisor said the proposal defense should happen in December, and the committee only needs a ten page outline two weeks before. That is a different milestone."
+    },
+    {
+      "id": "A46",
+      "title": "Committee call other student",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "The committee discussed another student whose defense is in June. The six week draft rule was mentioned but it does not apply to my timeline."
+    },
+    {
+      "id": "A47",
+      "title": "HR call reimbursement cap",
+      "source": "transcript",
+      "language": "en",
+      "role": "target",
+      "content": "HR confirmed the daily meal reimbursement cap is now one hundred twenty dollars, effective this fiscal year. Receipts are still required for anything above twenty five dollars."
+    },
+    {
+      "id": "A48",
+      "title": "HR call old cap",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "HR said the daily meal reimbursement cap used to be seventy five dollars. That figure was replaced when the new fiscal year started."
+    },
+    {
+      "id": "A49",
+      "title": "HR call travel booking",
+      "source": "transcript",
+      "language": "en",
+      "role": "distractor",
+      "content": "HR walked through the travel booking tool. Flights must be booked through Concur, and hotels above three hundred dollars a night need pre approval."
+    },
+    {
+      "id": "D38",
+      "title": "续租附录 通知期",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "续租附录 第三条 提前解约通知期自本附录生效之日起调整为三十日。本条与原租约第十四条冲突的，以本附录为准。附录生效日为六月一日。"
+    },
+    {
+      "id": "D39",
+      "title": "原租约 通知期条款",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "租赁协议 第十四条 承租人如需提前解约，应提前六十日以书面形式通知出租人，并支付相当于一个月租金的违约金。"
+    },
+    {
+      "id": "D40",
+      "title": "另一处房子的租约",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "租赁协议 第十四条 承租人如需提前解约，应提前九十日以书面形式通知出租人。本协议适用于 Mission Hill 的公寓，与现住处无关。"
+    },
+    {
+      "id": "D41",
+      "title": "报销政策 第二版",
+      "source": "extracted",
+      "language": "zh",
+      "role": "target",
+      "content": "差旅报销政策 第二版 单日餐饮报销上限调整为一百二十美元。超过二十五美元的支出需附收据。本版自本财年起执行，替代第一版。"
+    },
+    {
+      "id": "D42",
+      "title": "报销政策 第一版",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "差旅报销政策 第一版 单日餐饮报销上限为七十五美元。超过二十五美元的支出需附收据。本版已于本财年被第二版替代。"
+    },
+    {
+      "id": "D43",
+      "title": "差旅预订政策",
+      "source": "extracted",
+      "language": "zh",
+      "role": "distractor",
+      "content": "差旅预订政策 机票须通过 Concur 预订，单晚超过三百美元的酒店需事先审批。本政策不涉及餐饮报销上限。"
+    },
+    {
+      "id": "D44",
+      "title": "I-20 extension approved",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "Form I-20 Program Extension APPROVED. New program end date is 2027-05-15. The extension was granted based on the academic reason stated in your request. No further action is required."
+    },
+    {
+      "id": "D45",
+      "title": "I-20 extension pending",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "Form I-20 Program Extension PENDING. Additional documentation is required: an updated funding letter and an advisor statement. Your current program end date remains 2026-05-15."
+    },
+    {
+      "id": "D46",
+      "title": "I-20 initial issuance",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "Form I-20 Initial Issuance. Program start date 2024-09-04, program end date 2026-05-15. This document was issued at admission and is not an extension."
+    },
+    {
+      "id": "D47",
+      "title": "Offer letter signing bonus",
+      "source": "extracted",
+      "language": "en",
+      "role": "target",
+      "content": "Offer of Employment. Base salary 145000 USD annually. Signing bonus 8000 USD payable in the first full pay cycle. Start date 2026-07-06. This offer expires in ten business days."
+    },
+    {
+      "id": "D48",
+      "title": "Revised offer letter",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "Revised Offer of Employment. Base salary 145000 USD annually. Signing bonus 10000 USD payable in two equal installments at six and twelve months. Start date 2026-07-06."
+    },
+    {
+      "id": "D49",
+      "title": "Internship offer",
+      "source": "extracted",
+      "language": "en",
+      "role": "distractor",
+      "content": "Internship Offer. Hourly rate 48 USD. No signing bonus is provided for internship positions. Duration 2026-05-18 through 2026-08-21."
+    },
+    {
+      "id": "L38",
+      "title": "导师邮件 已批准",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "邮件主题 关于你的延期申请 内容 你的延期申请已经批准，项目主任那边也签了字。新的项目结束日期是二零二七年五月十五日，不需要再补材料。"
+    },
+    {
+      "id": "L39",
+      "title": "导师邮件 需补材料",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "邮件主题 关于你的延期申请 内容 你的延期申请还差两份材料：更新后的资助证明和一份导师说明。补齐之后我再转给项目主任。"
+    },
+    {
+      "id": "L40",
+      "title": "导师邮件 已驳回",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "邮件主题 关于你的课程豁免申请 内容 你的课程豁免申请没有通过，理由是先修课学分不满足要求。延期申请是另一件事，不受影响。"
+    },
+    {
+      "id": "L41",
+      "title": "春季选课通知",
+      "source": "link",
+      "language": "zh",
+      "role": "target",
+      "content": "选课通知 春季学期选课从十一月十日上午九点开始，按学分数分批开放。研究生第一批，本科生第二批。选课系统在开放前十分钟进入维护。"
+    },
+    {
+      "id": "L42",
+      "title": "秋季选课通知",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "选课通知 秋季学期选课从四月七日上午九点开始，按学分数分批开放。研究生第一批，本科生第二批。请提前确认没有欠费。"
+    },
+    {
+      "id": "L43",
+      "title": "图书馆闭馆通知",
+      "source": "link",
+      "language": "zh",
+      "role": "distractor",
+      "content": "图书馆通知 十一月十日因系统维护闭馆一天，线上数据库不受影响。与选课系统的维护不是同一件事。"
+    },
+    {
+      "id": "L44",
+      "title": "Main Cabin change policy",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "Main Cabin tickets may be changed without a change fee. Fare difference still applies. Changes must be made at least two hours before departure through the app or website."
+    },
+    {
+      "id": "L45",
+      "title": "Basic Economy change policy",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Basic Economy tickets cannot be changed or refunded after the twenty four hour window. No fare difference option is offered. Same day standby is not permitted."
+    },
+    {
+      "id": "L46",
+      "title": "Baggage allowance policy",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Main Cabin includes one carry on and one personal item. The first checked bag is thirty five dollars. Baggage rules are separate from change and refund rules."
+    },
+    {
+      "id": "L47",
+      "title": "Apartment tour Unit 4B",
+      "source": "link",
+      "language": "en",
+      "role": "target",
+      "content": "Your tour for Unit 4B is confirmed for Saturday at 11am. Unit 4B is a one bedroom on the fourth floor, rent 2350 per month, available from July 1."
+    },
+    {
+      "id": "L48",
+      "title": "Apartment tour Unit 12A",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "Your tour for Unit 12A is confirmed for Saturday at 2pm. Unit 12A is a two bedroom on the twelfth floor, rent 3100 per month, available from August 1."
+    },
+    {
+      "id": "L49",
+      "title": "Apartment waitlist notice",
+      "source": "link",
+      "language": "en",
+      "role": "distractor",
+      "content": "You have been added to the waitlist for one bedroom units. No tour is scheduled at this time. We will contact you when a unit becomes available."
     }
   ],
   "cases": [
@@ -2840,6 +3320,630 @@
       "scope": "cross-language",
       "longRegion": null,
       "note": "英文通话，中文提问"
+    },
+    {
+      "id": "HG115",
+      "query": "第七周作业 截止",
+      "expectedNoteIDs": [
+        "T38"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "三次同构作业里问第七周"
+    },
+    {
+      "id": "HG116",
+      "query": "那个要交 roialign 的作业什么时候截止",
+      "expectedNoteIDs": [
+        "T38"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "只记得交付物"
+    },
+    {
+      "id": "HG117",
+      "query": "哪次作业允许两人一组",
+      "expectedNoteIDs": [
+        "T38"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "三次作业组队规则不同"
+    },
+    {
+      "id": "HG118",
+      "query": "组会 改到周四",
+      "expectedNoteIDs": [
+        "T41"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "改期 vs 未改期"
+    },
+    {
+      "id": "HG119",
+      "query": "这周组会是不是不在周三了",
+      "expectedNoteIDs": [
+        "T41"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "模糊表达问改期"
+    },
+    {
+      "id": "HG120",
+      "query": "车险 自付额",
+      "expectedNoteIDs": [
+        "I38"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "三份保单自付额不同"
+    },
+    {
+      "id": "HG121",
+      "query": "车险一年保费多少",
+      "expectedNoteIDs": [
+        "I38"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "三份保单同格式，问车险的年保费而不是自付额"
+    },
+    {
+      "id": "HG122",
+      "query": "空腹血糖 偏高",
+      "expectedNoteIDs": [
+        "I41"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "同一次体检两个指标"
+    },
+    {
+      "id": "HG123",
+      "query": "阿莫西林 五百毫克",
+      "expectedNoteIDs": [
+        "A38"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "两种剂量方案"
+    },
+    {
+      "id": "HG124",
+      "query": "医生一开始让我怎么吃阿莫西林",
+      "expectedNoteIDs": [
+        "A38"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "初诊方案 vs 复诊改后的方案，问的是初诊"
+    },
+    {
+      "id": "HG125",
+      "query": "押金多久能退回来",
+      "expectedNoteIDs": [
+        "A41"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "今年 21 天 vs 去年 30 天"
+    },
+    {
+      "id": "HG126",
+      "query": "续租附录 三十日",
+      "expectedNoteIDs": [
+        "D38"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "附录与原租约冲突"
+    },
+    {
+      "id": "HG127",
+      "query": "现在提前解约要提前多久通知",
+      "expectedNoteIDs": [
+        "D38"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "以附录为准，不是原租约"
+    },
+    {
+      "id": "HG128",
+      "query": "餐饮报销上限 一百二十美元",
+      "expectedNoteIDs": [
+        "D41"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "新旧两版政策"
+    },
+    {
+      "id": "HG129",
+      "query": "现在一天最多能报多少餐费",
+      "expectedNoteIDs": [
+        "D41"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "要选新版"
+    },
+    {
+      "id": "HG130",
+      "query": "延期申请 已经批准",
+      "expectedNoteIDs": [
+        "L38"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "三封同主题不同结论"
+    },
+    {
+      "id": "HG131",
+      "query": "导师那边延期的事最后怎么样了",
+      "expectedNoteIDs": [
+        "L38"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "模糊表达"
+    },
+    {
+      "id": "HG132",
+      "query": "春季学期选课 十一月十日",
+      "expectedNoteIDs": [
+        "L41"
+      ],
+      "style": "exact",
+      "queryLanguage": "zh",
+      "expectedLanguage": "zh",
+      "scope": "in-scope",
+      "note": "春季 vs 秋季"
+    },
+    {
+      "id": "HG133",
+      "query": "CS7180 midterm rescheduled October 24",
+      "expectedNoteIDs": [
+        "T44"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "rescheduled vs original"
+    },
+    {
+      "id": "HG134",
+      "query": "when is the midterm actually happening now",
+      "expectedNoteIDs": [
+        "T44"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "natural, needs the superseding one"
+    },
+    {
+      "id": "HG135",
+      "query": "TA office hours Thursday",
+      "expectedNoteIDs": [
+        "T47"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "moved vs original vs professor"
+    },
+    {
+      "id": "HG136",
+      "query": "CF259X High Yield 10000 pages",
+      "expectedNoteIDs": [
+        "I45"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "three near-identical toner labels"
+    },
+    {
+      "id": "HG137",
+      "query": "which cartridge lasts longer",
+      "expectedNoteIDs": [
+        "I45"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "requires comparing yields"
+    },
+    {
+      "id": "HG138",
+      "query": "Parking Permit Zone B Renaissance Garage",
+      "expectedNoteIDs": [
+        "I47"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "Zone A vs Zone B, same vehicle"
+    },
+    {
+      "id": "HG139",
+      "query": "thesis defense April six weeks",
+      "expectedNoteIDs": [
+        "A44"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "thesis vs proposal defense"
+    },
+    {
+      "id": "HG140",
+      "query": "how early does the committee need the draft",
+      "expectedNoteIDs": [
+        "A44"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "six weeks not two"
+    },
+    {
+      "id": "HG141",
+      "query": "meal reimbursement cap one hundred twenty",
+      "expectedNoteIDs": [
+        "A47"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "new cap vs old cap"
+    },
+    {
+      "id": "HG142",
+      "query": "I-20 Program Extension APPROVED 2027",
+      "expectedNoteIDs": [
+        "D44"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "approved vs pending vs initial"
+    },
+    {
+      "id": "HG143",
+      "query": "did my extension go through or do they still need documents",
+      "expectedNoteIDs": [
+        "D44"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "approved, not pending"
+    },
+    {
+      "id": "HG144",
+      "query": "Signing bonus 8000 first full pay cycle",
+      "expectedNoteIDs": [
+        "D47"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "original vs revised offer"
+    },
+    {
+      "id": "HG145",
+      "query": "Main Cabin changed without a change fee",
+      "expectedNoteIDs": [
+        "L44"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "Main Cabin vs Basic Economy"
+    },
+    {
+      "id": "HG146",
+      "query": "can I move my flight or is it locked in",
+      "expectedNoteIDs": [
+        "L44"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "natural"
+    },
+    {
+      "id": "HG147",
+      "query": "Unit 4B one bedroom 2350",
+      "expectedNoteIDs": [
+        "L47"
+      ],
+      "style": "exact",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "4B vs 12A"
+    },
+    {
+      "id": "HG148",
+      "query": "which apartment tour is in the morning",
+      "expectedNoteIDs": [
+        "L47"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "en",
+      "scope": "in-scope",
+      "note": "11am vs 2pm"
+    },
+    {
+      "id": "HV061",
+      "query": "期中考试改到哪天了",
+      "expectedNoteIDs": [
+        "T44"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中文问英文通知"
+    },
+    {
+      "id": "HV062",
+      "query": "助教答疑改到星期几",
+      "expectedNoteIDs": [
+        "T47"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英"
+    },
+    {
+      "id": "HV063",
+      "query": "高容量墨盒能打多少页",
+      "expectedNoteIDs": [
+        "I45"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英 OCR"
+    },
+    {
+      "id": "HV064",
+      "query": "停车证 B 区停哪个车库",
+      "expectedNoteIDs": [
+        "I47"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英"
+    },
+    {
+      "id": "HV065",
+      "query": "论文答辩安排在几月",
+      "expectedNoteIDs": [
+        "A44"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英转写"
+    },
+    {
+      "id": "HV066",
+      "query": "餐补上限提高到多少了",
+      "expectedNoteIDs": [
+        "A47"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英"
+    },
+    {
+      "id": "HV067",
+      "query": "I-20 延期批了没有",
+      "expectedNoteIDs": [
+        "D44"
+      ],
+      "style": "mixed",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "混合→英"
+    },
+    {
+      "id": "HV068",
+      "query": "签字费是多少",
+      "expectedNoteIDs": [
+        "D47"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英"
+    },
+    {
+      "id": "HV069",
+      "query": "主舱机票改签要不要手续费",
+      "expectedNoteIDs": [
+        "L44"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英"
+    },
+    {
+      "id": "HV070",
+      "query": "四楼那套一居室租金多少",
+      "expectedNoteIDs": [
+        "L47"
+      ],
+      "style": "natural",
+      "queryLanguage": "zh",
+      "expectedLanguage": "en",
+      "scope": "cross-language",
+      "note": "中→英"
+    },
+    {
+      "id": "HV071",
+      "query": "when is the group meeting moved to",
+      "expectedNoteIDs": [
+        "T41"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中"
+    },
+    {
+      "id": "HV072",
+      "query": "which homework allows working in pairs",
+      "expectedNoteIDs": [
+        "T38"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中"
+    },
+    {
+      "id": "HV073",
+      "query": "what is the car insurance deductible",
+      "expectedNoteIDs": [
+        "I38"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中 OCR"
+    },
+    {
+      "id": "HV074",
+      "query": "how many days to get the deposit back",
+      "expectedNoteIDs": [
+        "A41"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中转写"
+    },
+    {
+      "id": "HV075",
+      "query": "new notice period for early termination",
+      "expectedNoteIDs": [
+        "D38"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中，附录优先"
+    },
+    {
+      "id": "HV076",
+      "query": "daily meal reimbursement limit",
+      "expectedNoteIDs": [
+        "D41"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中"
+    },
+    {
+      "id": "HV077",
+      "query": "was the extension request approved",
+      "expectedNoteIDs": [
+        "L38"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中"
+    },
+    {
+      "id": "HV078",
+      "query": "when does spring registration open",
+      "expectedNoteIDs": [
+        "L41"
+      ],
+      "style": "natural",
+      "queryLanguage": "en",
+      "expectedLanguage": "zh",
+      "scope": "cross-language",
+      "note": "英→中"
     }
   ],
   "negativeQueries": [
@@ -2942,6 +4046,56 @@
       "id": "HN020",
       "query": "AirPods 保修到什么时候",
       "reason": "有多张设备标签，但没有 AirPods 记录"
+    },
+    {
+      "id": "HN021",
+      "query": "驾照路考预约在哪里改期",
+      "reason": "语料中没有驾照相关信息"
+    },
+    {
+      "id": "HN022",
+      "query": "宠物疫苗接种记录",
+      "reason": "语料里出现过宠物条款，但没有疫苗记录"
+    },
+    {
+      "id": "HN023",
+      "query": "how do I dispute a credit card charge",
+      "reason": "语料中没有信用卡争议流程"
+    },
+    {
+      "id": "HN024",
+      "query": "健身房私教课价格表",
+      "reason": "语料有健身房合约但没有私教价格"
+    },
+    {
+      "id": "HN025",
+      "query": "what is the wifi password for the library",
+      "reason": "语料有图书馆通知但没有 wifi 密码"
+    },
+    {
+      "id": "HN026",
+      "query": "第三周作业允许几人一组的补充说明",
+      "reason": "第三周作业明确不允许组队，不存在补充说明"
+    },
+    {
+      "id": "HN027",
+      "query": "CF260A toner compatibility",
+      "reason": "语料只有 CF259A CF259X CF258A，没有 CF260A"
+    },
+    {
+      "id": "HN028",
+      "query": "Zone C parking permit renewal",
+      "reason": "语料只有 Zone A 与 Zone B"
+    },
+    {
+      "id": "HN029",
+      "query": "退税申报截止日期",
+      "reason": "语料中没有报税信息"
+    },
+    {
+      "id": "HN030",
+      "query": "dental insurance annual maximum",
+      "reason": "语料有牙科保险提及但没有年度上限数字"
     }
   ]
 }

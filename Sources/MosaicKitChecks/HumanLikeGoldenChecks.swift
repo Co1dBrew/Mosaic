@@ -18,12 +18,12 @@ enum HumanLikeGoldenChecks {
             return
         }
 
-        r.expect(dataset.version == "synthetic-human-v3", "版本明确是 synthetic-human-v3")
+        r.expect(dataset.version == "synthetic-human-v4", "版本明确是 synthetic-human-v4")
         r.expect(dataset.disclaimer.lowercased().contains("not real-user"),
                  "数据自身携带免责声明，不能冒充真人标注")
-        r.expect(dataset.notes.count == 150, "语料扩到 150 篇，Top-5 只覆盖 3.3% 的库")
-        r.expect(dataset.cases.count == 114, "114 条正向 query")
-        r.expect(dataset.negativeQueries.count == 20, "20 条无答案 query 已接入 Runner")
+        r.expect(dataset.notes.count == 210, "语料扩到 210 篇，Top-5 只覆盖 2.4% 的库")
+        r.expect(dataset.cases.count == 166, "166 条正向 query")
+        r.expect(dataset.negativeQueries.count == 30, "30 条无答案 query 已接入 Runner")
 
         let noteIDs = Set(dataset.notes.map(\.id))
         let positiveIDs = dataset.cases.map(\.id)
@@ -69,7 +69,7 @@ enum HumanLikeGoldenChecks {
             let notes = dataset.notes.filter { $0.source == source }
             let zh = notes.filter { $0.language == .zh }.count
             let en = notes.filter { $0.language == .en }.count
-            r.expect(notes.count == 30, "\(source.rawValue) 有 30 篇语料")
+            r.expect(notes.count == 42, "\(source.rawValue) 有 42 篇语料")
             r.expect(abs(zh - en) <= 1,
                      "\(source.rawValue) 中英数量差 ≤ 1（zh \(zh) / en \(en)）")
         }
@@ -93,7 +93,7 @@ enum HumanLikeGoldenChecks {
         }
         let inScope = dataset.cases.filter { $0.scope == .inScope }.count
         let cross = dataset.cases.filter { $0.scope == .crossLanguage }.count
-        r.expect(inScope == 67 && cross == 47,
+        r.expect(inScope == 101 && cross == 65,
                  "分组固定为 67 in-scope / 47 cross-language（实际 \(inScope) / \(cross)）")
 
         let originalCross = Set(dataset.cases.prefix(42)
@@ -156,7 +156,7 @@ enum HumanLikeGoldenChecks {
                                          r: CheckRunner) {
         let expected = Set(dataset.cases.flatMap(\.expectedNoteIDs))
         let distractors = dataset.notes.filter { $0.role == .distractor }
-        r.expect(distractors.count >= 60, "至少 60 篇近似或规模干扰项（实际 \(distractors.count)）")
+        r.expect(distractors.count >= 100, "至少 100 篇近似或规模干扰项（实际 \(distractors.count)）")
         r.expect(distractors.allSatisfy { !expected.contains($0.id) },
                  "干扰项从不被标成 expected")
         let requiredDistractors: Set<String> = ["T05", "T06", "T07", "D05", "I05", "A05", "A06", "A07"]
@@ -173,6 +173,46 @@ enum HumanLikeGoldenChecks {
                  "租约簇：六份条款各不相同的租约（通知期 / 宠物 / 解约 / 车位 / 押金 / 过期）")
         r.expect(graduationCluster.isSubset(of: ids),
                  "毕业簇：五封同主题不同答案的学校邮件（学位授予 / OPT / 休学 / SEVIS / 典礼）")
+
+        // ── v4 新增：**结构同构、只差一个关键事实**的簇 ──
+        //
+        // v3 的干扰簇是「同话题不同答案」。v4 更狠一层：整篇几乎逐句对应，
+        // 只有一个数字或一个结论不同。云端 embedding 在 v3 上 in-scope R@5 打到 1.000，
+        // 说明「话题级」的干扰已经区分不出模型了 —— 要压出差异，得让干扰项
+        // 在向量空间里**比目标还近**。
+        let v4Clusters: [(String, Set<String>)] = [
+            ("同课三次作业（周次 / 截止 / 组队规则各不同）", ["T38", "T39", "T40"]),
+            ("改期 vs 未改期 vs 别的组", ["T41", "T42", "T43"]),
+            ("midterm 改期 / 原通知 / final", ["T44", "T45", "T46"]),
+            ("答疑时间 改后 / 改前 / 教授的", ["T47", "T48", "T49"]),
+            ("三份保单自付额 500 / 1500 / 5000", ["I38", "I39", "I40"]),
+            ("墨盒 CF259A / CF259X / CF258A", ["I44", "I45", "I46"]),
+            ("停车证 Zone B / Zone A / 访客", ["I47", "I48", "I49"]),
+            ("用药 500mg q8h / 875mg q12h / 别人的药", ["A38", "A39", "A40"]),
+            ("押金 今年21天 / 去年30天 / 签约时交", ["A41", "A42", "A43"]),
+            ("答辩 thesis四月 / proposal十二月 / 别人的", ["A44", "A45", "A46"]),
+            ("报销上限 新120 / 旧75 / 差旅预订", ["A47", "A48", "A49"]),
+            ("租约 续租附录30日 / 原约60日 / 别处90日", ["D38", "D39", "D40"]),
+            ("报销政策 v2 / v1 / 预订政策", ["D41", "D42", "D43"]),
+            ("I-20 批准 / 待补材料 / 初次签发", ["D44", "D45", "D46"]),
+            ("Offer 签字费 8000 / 修订版10000 / 实习无", ["D47", "D48", "D49"]),
+            ("导师邮件 批准 / 补材料 / 驳回", ["L38", "L39", "L40"]),
+            ("选课 春季 / 秋季 / 图书馆同日闭馆", ["L41", "L42", "L43"]),
+            ("改签 Main Cabin / Basic Economy / 行李", ["L44", "L45", "L46"]),
+            ("看房 Unit 4B / Unit 12A / 候补", ["L47", "L48", "L49"]),
+        ]
+        for (label, cluster) in v4Clusters {
+            r.expect(cluster.isSubset(of: ids), "v4 同构簇：\(label)")
+        }
+        r.expect(v4Clusters.count >= 19, "v4 至少 19 个同构干扰簇（实际 \(v4Clusters.count)）")
+
+        // 每个 v4 簇里**至多一篇**能当答案 —— 否则「只差一个事实」的设计就废了：
+        // 两篇都算对的话，排序层分不分得清都拿满分。
+        for (label, cluster) in v4Clusters {
+            let answers = cluster.filter { expected.contains($0) }
+            r.expect(answers.count <= 1,
+                     "v4 簇「\(label)」里最多一篇是 expected（实际 \(answers.sorted().joined(separator: ","))）")
+        }
         r.expect(deductibleCluster.isSubset(of: ids),
                  "自付额簇：车险 / 租客险 / 健康险 / 牙科，字面都写 deductible")
 
@@ -233,11 +273,11 @@ enum HumanLikeGoldenChecks {
                          (mode.rawValue, "cross", overallRun.crossLanguageMetrics),
                          (mode.rawValue, "overall", overallRun.metrics)]
                 negativeRows.append((mode.rawValue, negativeRun.metrics))
-                r.expect(overallRun.inScopeMetrics.caseCount == 67
-                         && overallRun.crossLanguageMetrics.caseCount == 47,
+                r.expect(overallRun.inScopeMetrics.caseCount == 101
+                         && overallRun.crossLanguageMetrics.caseCount == 65,
                          "\(mode.rawValue) 核心 Runner 正确拆出两个语言分组")
-                r.expect(negativeRun.metrics.noResultCaseCount == 20,
-                         "\(mode.rawValue) 完整跑完 20 条负例")
+                r.expect(negativeRun.metrics.noResultCaseCount == 30,
+                         "\(mode.rawValue) 完整跑完 30 条负例")
             } catch {
                 r.expect(false, "\(mode.rawValue) 跑批失败：\(error)")
             }
