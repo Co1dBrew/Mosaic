@@ -176,5 +176,23 @@ enum EmbeddingProviderChecks {
                  "维度不符 → 失败（宁可失败也不能混进不可比的向量）")
         r.expect((try? CloudEmbeddingProvider.parse(Data("not json".utf8), expectedCount: 1, dimension: 3)) == nil,
                  "非法 JSON → 失败")
+
+        // usage.prompt_tokens —— 成本一项要写 measured 就得拿服务端自己报的数
+        let withUsage = """
+        {"data":[{"index":0,"embedding":[1,0,0]}],"usage":{"prompt_tokens":42,"total_tokens":42}}
+        """.data(using: .utf8)!
+        r.expect(CloudEmbeddingProvider.parseUsage(withUsage) == 42,
+                 "解析出服务端回报的 prompt_tokens —— 成本口径是 token，字符数只是代理量")
+        r.expect(CloudEmbeddingProvider.parseUsage(json) == nil,
+                 "服务端没回报 usage → nil，**不是 0** —— 0 会把成本算成免费")
+        r.expect((try? CloudEmbeddingProvider.parse(withUsage, expectedCount: 1, dimension: 3))?.count == 1,
+                 "带 usage 的响应照常解析出向量")
+        let usageOnlyTotal = """
+        {"data":[],"usage":{"total_tokens":7}}
+        """.data(using: .utf8)!
+        r.expect(CloudEmbeddingProvider.parseUsage(usageOnlyTotal) == 7,
+                 "只报 total_tokens 的服务端也要能取到（回退，不是猜）")
+        r.expect(CloudEmbeddingProvider.parseUsage(Data("not json".utf8)) == nil,
+                 "usage 解析失败不抛错 —— 它不该让一批已经拿到的向量作废")
     }
 }

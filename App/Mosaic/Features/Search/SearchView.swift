@@ -63,6 +63,31 @@ struct SearchView: View {
         }
     }
 
+    /// P1 #8 · 该不该在零结果下提一句「开启云端能搜到另一种语言」。
+    ///
+    /// 判断在内核（`EmbeddingRouter.shouldOfferCloudUpgrade`），这里只负责问一次 ——
+    /// 四个抑制条件（已在用云端 / 没配 Key / 已授权 / 单语库）都由它把关，
+    /// 不在 View 里重写一遍，否则两处条件迟早会漂移。
+    private var offersCloudUpgrade: Bool { retrieval?.offersCloudUpgrade == true }
+
+    private var cloudUpgradeCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            Text(Copy.cloudUpgradeOffer)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("开启云端智能搜索") { showCloudConsent = true }
+                .font(.footnote)
+        }
+        .padding(AppSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, AppSpacing.md)
+        // 一条建议，不是一个错误 —— 朗读顺序排在空结果说明之后。
+        .accessibilityElement(children: .combine)
+    }
+
     /// 云端已配好、只差用户点头。此时状态条上的动作是「开启」而不是「重试」——
     /// 「重试」会让人以为是网络出了问题，而实际上是**我们在等他授权**。
     private var needsCloudConsent: Bool {
@@ -89,9 +114,16 @@ struct SearchView: View {
         case .idle:
             IdleSuggestions { query = $0 }
         case .noResults:
-            EmptyStateView(icon: "doc.text.magnifyingglass",
-                           title: Copy.noResultsTitle(viewModel.capability),
-                           message: Copy.noResultsMessage(viewModel.capability))
+            VStack(spacing: AppSpacing.md) {
+                EmptyStateView(icon: "doc.text.magnifyingglass",
+                               title: Copy.noResultsTitle(viewModel.capability),
+                               message: Copy.noResultsMessage(viewModel.capability))
+                // P1 #8：双语库 + 云端已配未授权时，本地那条路搜不到另一种语言的笔记，
+                // 而系统在此之前是**安静地**用本地跑完的。零结果这一刻正好是解释它的时候。
+                if offersCloudUpgrade {
+                    cloudUpgradeCard
+                }
+            }
         case .searching, .ready:
             // §4.3：`.searching` 保留上一次结果 —— 清空会造成每次按键的白屏闪烁。
             resultList(viewModel)
@@ -338,4 +370,18 @@ private enum Copy {
         case .semanticUnavailable, .offline: return "当前只能按关键词搜索，换个关键词试试。"
         }
     }
+
+    /// P1 #8 · 「开启云端能搜到英文文档」。
+    ///
+    /// **为什么挂在零结果上，而不是常驻状态条**：这不是一个降级状态。
+    /// 状态条（§4.4）说的是「有什么坏了」，常驻一条「其实可以更好」会把两件事混起来，
+    /// 而且双语用户每次搜索都要看一遍。零结果那一刻才是它真正有用、也最不打扰的位置 ——
+    /// 用户正好撞上了它要解释的那个现象。
+    ///
+    /// 文案受 §1.1.1 禁用词表约束：不出现「向量 / 语义检索 / semantic / index / chunk」，
+    /// 只用「智能搜索」。也**不许只讲好处** —— 上传与授权必须在同一句里交代。
+    static let cloudUpgradeOffer =
+        "你的笔记里中英文都有。本机的智能搜索一次只覆盖一种语言，"
+        + "所以中文词搜不到英文的那些。开启云端智能搜索可以跨语言找 —— "
+        + "它需要把笔记文字发给第三方，要你先同意。"
 }

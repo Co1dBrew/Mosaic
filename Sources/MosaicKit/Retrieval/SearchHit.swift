@@ -84,8 +84,18 @@ public enum TextMatcher {
     /// - Returns: 合并后的区间（按 start 升序，互不重叠），以及每个 token 的出现次数。
     ///   任何一个 token 完全没出现 → 返回 `nil`（AND 语义，与既有匹配器一致）。
     public static func locate(tokens: [String], in text: String) -> (ranges: [TextRange], counts: [Int])? {
+        locate(tokens: tokens, inNormalized: Array(normalizedForOffsets(text)))
+    }
+
+    /// 同上，但接受**已经归一化好的**字符数组。
+    ///
+    /// 归一化只取决于文本本身，与 query 无关 —— 每次查询重算是纯浪费
+    /// （20k chunks 上占 keyword 总耗时 68.5%）。`NormalizedTextCache` 负责缓存，
+    /// 这里负责用。**上面那个重载直接委托到这里**，所以两条路是同一份逻辑，
+    /// 不存在「缓存版和非缓存版语义不同」的可能。
+    public static func locate(tokens: [String],
+                              inNormalized hayChars: [Character]) -> (ranges: [TextRange], counts: [Int])? {
         guard !tokens.isEmpty else { return nil }
-        let hayChars = Array(normalizedForOffsets(text))
         guard !hayChars.isEmpty else { return nil }
 
         var all: [TextRange] = []

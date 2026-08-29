@@ -4,11 +4,55 @@ import Foundation
 public enum FusionMethod: Sendable, Equatable, Hashable, Codable, CustomStringConvertible {
     /// Reciprocal Rank Fusion。`k` 越大，靠前名次之间的差距越平缓。
     case rrf(k: Int)
-    /// 加权分数相加。需要两路分数可比 —— 目前**并不可比**（一个是 TF 分，一个是余弦），
-    /// 保留只为在 Lab 里作为对照，不作为默认。
+    /// 加权**名次倒数**相加：`Σ 权重 / rank`。
+    ///
+    /// ⚠️ 这里原本写的是「需要两路分数可比 —— 目前并不可比」，**那句话描述的不是
+    /// 本实现**：下面用的是 `kw / Double(kr)`，即名次倒数，和 RRF 一样绕开了
+    /// 分数可比性问题，区别只在有权重、没有 `k` 平滑。弃用理由因此不成立，已更正。
+    ///
+    /// 实测（§25）：本地臂上它明显优于 RRF（in-scope R@1 0.358 vs 0.269）——
+    /// 因为 RRF 等权会让**弱的向量臂稀释强的 keyword 臂**。
+    /// **但默认值仍是 RRF**：改它是产品决策，证据只有一个 synthetic 数据集（P1 #18）。
     case weighted(keyword: Double, vector: Double)
 
-    public static let `default` = FusionMethod.rrf(k: 60)
+    /// # 默认：加权名次融合，keyword 0.7 / vector 0.3
+    ///
+    /// **2026-08-21 从 `rrf(k: 60)` 换过来。** 换的理由是等权 RRF 被实测证明
+    /// **主动有害**，不是「加权更好听」：
+    ///
+    /// | 数据集 | in-scope R@1：RRF | 加权 w=0.7 | keyword 单独 |
+    /// |---|---:|---:|---:|
+    /// | v3（150 篇 / 67 in-scope） | 0.269 | 0.358 | 0.343 |
+    /// | v4（210 篇 / 101 in-scope） | 0.287 | **0.386** | 0.386 |
+    ///
+    /// **RRF 把 keyword 已经排对的第一名弄丢了** —— v3 上 5 条、v4 上 10 条。
+    /// 机制：RRF 等权，而本地向量臂 in-scope R@1 只有 0.069–0.104，
+    /// 等权让**弱臂稀释强臂**。这与「中英双索引反而更差」是同一个失效模式。
+    ///
+    /// ## 为什么是 0.7 而不是各自最优
+    ///
+    /// 两个 provider 的最优点不同（v4 上 cloud 最优在 w=0.5 拿 0.802，
+    /// local 最优在 w≥0.6 拿 0.386+），但 **w ∈ [0.6, 0.9] 是共同平台**：
+    /// 选 w=0.7 云端只付 **−0.010**，本地拿 **+0.099** —— 交换比约 **10:1**。
+    /// 平台宽 4 个采样点，所以这不是挑了个好看的点。
+    ///
+    /// ## 这个默认值管什么、不管什么
+    ///
+    /// 它只影响**新建**的 `RetrievalConfig`。已经 promote 进生产的配置自带
+    /// 各自的 `fusion` 值，**不会被这次改动改掉** —— 生产配置只能经
+    /// `promote(id:decision:)` 更换，这条纪律不因为默认值变了而松动。
+    ///
+    /// ## 仍然成立的限制
+    ///
+    /// 证据全部来自 **synthetic** 评测集。它支持的结论是「等权 RRF 是错的」，
+    /// **不是**「hybrid 比 keyword 单独更好」—— v4 上两者 R@1 恰好都是 0.386。
+    /// 要回答后者需要真实标注（P0 #1/#3）。
+    ///
+    /// 回退就是把这一行改回 `.rrf(k: 60)`。
+    public static let `default` = FusionMethod.weighted(keyword: 0.7, vector: 0.3)
+
+    /// 换掉之前的默认值。保留具名常量，便于对照实验与一行回退。
+    public static let rrfDefault = FusionMethod.rrf(k: 60)
 
     public var description: String {
         switch self {

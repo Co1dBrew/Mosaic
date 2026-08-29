@@ -206,6 +206,22 @@ final class RetrievalEnvironment {
     /// 放进编辑路径会随库线性变成打字卡顿。只在低频时机（启动 / 手动 Rescan /
     /// 设置变更）重算，编辑时只看被改的那一篇（见 `noteDidChange`）。
     private(set) var corpusHasHan = false
+    /// 库里有没有拉丁字母。与 `corpusHasHan` 一起决定「这是不是双语库」——
+    /// 只有双语库才存在「本地一次只覆盖一种语言」的问题（P1 #8）。
+    private(set) var corpusHasLatin = false
+
+    /// P1 #8 · 零结果时该不该提「开启云端能搜到另一种语言」。
+    ///
+    /// 判断全在内核（`EmbeddingRouter.shouldOfferCloudUpgrade`），这里只把四个输入凑齐。
+    /// **不在 View 里重写条件** —— 两处条件迟早会漂移。
+    var offersCloudUpgrade: Bool {
+        EmbeddingRouter.shouldOfferCloudUpgrade(
+            route: route,
+            cloudConfigured: settings?.isCloudEmbeddingConfigured ?? false,
+            cloudConsentGranted: settings?.hasAcceptedCloudEmbeddingNotice ?? false,
+            corpusContainsHan: corpusHasHan,
+            corpusContainsLatin: corpusHasLatin)
+    }
 
     /// 按当前语料 + 设置**应该**走的路线。与 `route`（当前生效的）不同时，
     /// 说明需要一次重建索引才能切过去。
@@ -230,8 +246,10 @@ final class RetrievalEnvironment {
     /// - Parameter rebuildIfChanged: 换了向量空间是否立刻重建索引。
     func resolveProvider(rescanCorpus: Bool = true, rebuildIfChanged: Bool = true) async {
         if rescanCorpus {
-            corpusHasHan = ProductionEmbedding.corpusContainsHan(cards: indexing.fetchCards(),
-                                                                 derived: derived)
+            let cards = indexing.fetchCards()
+            corpusHasHan = ProductionEmbedding.corpusContainsHan(cards: cards, derived: derived)
+            // 双语判断只服务 P1 #8 的提示，不参与路由 —— 一次扫描顺带取到，不额外遍历。
+            corpusHasLatin = ProductionEmbedding.corpusContainsLatin(cards: cards, derived: derived)
         }
         let decision = currentDecision()
         route = decision.route

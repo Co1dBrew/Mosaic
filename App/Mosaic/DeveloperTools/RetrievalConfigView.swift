@@ -141,7 +141,11 @@ struct RetrievalConfigView: View {
     @ViewBuilder
     private var thresholdsSection: some View {
         Section {
-            LabeledContent("Recall@5", value: "≥ baseline + \(String(format: "%.3f", store.thresholds.recallAt5MinDelta))")
+            // R@1 是主判定指标，R@5 是 safety-net —— 判定区里它俩合成一行，
+            // 这里也照同一个口径展示，免得开发者以为 Gate 只看 R@5。
+            LabeledContent("Recall @1/@5",
+                           value: "R@1 ≥ baseline + \(String(format: "%.3f", store.thresholds.recallAt1MinDelta))"
+                                + " · R@5 ≥ baseline + \(String(format: "%.3f", store.thresholds.recallAt5MinDelta))")
                 .font(.footnote)
             LabeledContent("MRR 容差", value: String(format: "%.3f", store.thresholds.mrrTolerance)).font(.footnote)
             LabeledContent("P95 预算", value: "\(Int(store.thresholds.p95BudgetMs)) ms").font(.footnote)

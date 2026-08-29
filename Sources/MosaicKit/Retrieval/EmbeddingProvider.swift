@@ -196,7 +196,8 @@ public struct CloudEmbeddingProvider: EmbeddingProvider {
         let decodeMs = Double(DispatchTime.now().uptimeNanoseconds - tDecode) / 1_000_000
 
         await latency?.record(EmbeddingTiming(networkMs: networkMs, decodeMs: decodeMs,
-                                             batchSize: cleaned.count))
+                                             batchSize: cleaned.count,
+                                             promptTokens: Self.parseUsage(data)))
         return normalized
     }
 
@@ -254,5 +255,23 @@ public struct CloudEmbeddingProvider: EmbeddingProvider {
                 "维度不符：期望 \(dimension)，得到 \(item.embedding.count)")
         }
         return ordered.map { $0.embedding.map(Float.init) }
+    }
+
+    /// 服务端回报的 `usage.prompt_tokens`。**成本口径是 token，字符数只是代理量**，
+    /// 所以这一段单独解析：拿到就能把成本写成 measured，拿不到就老实返回 `nil`
+    /// 让上层标 *estimated*，而不是拿字符数硬凑一个像实测的数字。
+    ///
+    /// 它**不参与向量解析的成败** —— usage 缺失或字段改名不该让一批已经拿到的
+    /// 向量作废，所以这里返回 optional 而不是 throw。
+    public static func parseUsage(_ data: Data) -> Int? {
+        struct Response: Decodable {
+            struct Usage: Decodable { let promptTokens: Int?; let totalTokens: Int? }
+            let usage: Usage?
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let decoded = try? decoder.decode(Response.self, from: data),
+              let usage = decoded.usage else { return nil }
+        return usage.promptTokens ?? usage.totalTokens
     }
 }

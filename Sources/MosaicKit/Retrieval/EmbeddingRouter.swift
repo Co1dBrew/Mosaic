@@ -94,6 +94,49 @@ public enum EmbeddingRouter {
             : "本机没有可用的句向量模型，语义检索不可用；关键词搜索不受影响。")
     }
 
+    /// # 「开启云端能搜到英文文档」—— D-AI-003 的已知缺口
+    ///
+    /// `choose` 在「本地可用 + 云端已配置但未授权」时返回 `.localChinese`，
+    /// **不返回 `.cloudNeedsConsent`** —— 那是刻意的：本地顶得上时不该弹窗打扰。
+    ///
+    /// 但它留下一个缺口：**双语库**下本地语义只覆盖一种语种，
+    /// 中文 query 搜不到英文文档，而系统安静地用本地跑完，**不告诉用户还有更好的选项**。
+    /// 用户看到的是「搜不到」，不是「有个开关能搜到」。
+    ///
+    /// 实测代价（v4 · 210 篇 / 65 条跨语言 query）：
+    /// cross-language R@5 本地 **0.092** → 云端 **0.892**。这不是边角差异。
+    ///
+    /// 所以路由之外单独给一个提示信号。**它不改变路由**（`choose` 的返回值不变），
+    /// 只回答「要不要顺带告诉用户一句」。分开的理由：路由是能力判定，
+    /// 提示是产品沟通，混在一个返回值里会让「弹不弹窗」变成路由的副作用。
+    ///
+    /// 四个条件缺一不可 —— 少任何一个，这句提示要么没用要么是骚扰：
+    ///
+    /// 1. 当前走的是**本地**语义（云端已经在用就没什么可提示的）
+    /// 2. 云端**已配置**（没配 Key 时提示只会让人去做一件更长的事）
+    /// 3. 用户**尚未授权**（已授权还提示 = 打扰）
+    /// 4. 语料**确实是双语**（单语库上本地够用，提示是纯噪声）
+    /// **返回的是判断，不是文案。** 用户可见的句子由 App 侧的 `Copy` 提供 ——
+    /// `SEARCH_CONTRACT.md` §1.1.1 有一张禁用词表（向量 / 语义检索 / chunk / index …），
+    /// 而内核不该、也没法执行那张表。内核只回答「这一刻值不值得说一句」。
+    public static func shouldOfferCloudUpgrade(route: EmbeddingRoute,
+                                               cloudConfigured: Bool,
+                                               cloudConsentGranted: Bool,
+                                               corpusContainsHan: Bool,
+                                               corpusContainsLatin: Bool) -> Bool {
+        guard !route.usesCloud else { return false }
+        guard cloudConfigured, !cloudConsentGranted else { return false }
+        guard corpusContainsHan && corpusContainsLatin else { return false }
+        switch route {
+        case .localChinese, .localEnglish:
+            return true
+        case .cloud, .cloudNeedsConsent, .unavailable:
+            // `.cloudNeedsConsent` 已经会在 UI 上出现授权入口，不需要第二句提示。
+            // `.unavailable` 是另一个状态，`explanation` 已经在说了。
+            return false
+        }
+    }
+
     /// 当前 provider 是本机英文时，中文 query 不能拿去嵌 —— 换语言就是换空间。
     /// 这种 query 只走关键词。
     public static func shouldSkipSemantic(query: String, route: EmbeddingRoute) -> Bool {

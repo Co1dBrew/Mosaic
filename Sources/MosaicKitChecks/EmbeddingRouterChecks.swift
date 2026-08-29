@@ -194,3 +194,49 @@ enum EmbeddingRouterChecks {
                  "本机中文不跳过中文 query")
     }
 }
+
+/// P1 #8 · 「开启云端能搜到英文文档」提示。
+///
+/// 断言的是**什么时候不该提示** —— 一句在四种情形里有三种会变成骚扰的提示，
+/// 价值全在它的抑制条件上，不在文案上。
+extension EmbeddingRouterChecks {
+    static func runCloudUpgradeHint(_ r: CheckRunner) {
+        r.suite("P1 #8 · 云端升级提示 —— 四个条件缺一不可")
+
+        func hint(route: EmbeddingRoute, configured: Bool = true, consented: Bool = false,
+                  han: Bool = true, latin: Bool = true) -> Bool {
+            EmbeddingRouter.shouldOfferCloudUpgrade(route: route, cloudConfigured: configured,
+                                                    cloudConsentGranted: consented,
+                                                    corpusContainsHan: han, corpusContainsLatin: latin)
+        }
+
+        // 该提示的那一种：本地语义 + 云端已配未授权 + 双语库
+        r.expect(hint(route: .localChinese), "本地语义 + 云端已配未授权 + 双语库 → 提示")
+        r.expect(hint(route: .localEnglish), "本地英文语义下同样适用（反方向搜不到中文）")
+        r.expect(true, "文案不在内核 —— §1.1.1 的禁用词表由 App 侧的 Copy 执行，内核只给判断")
+
+        // 四种不该提示的
+        r.expect(!hint(route: .cloud, consented: true), "已经在用云端 → 不提示")
+        r.expect(!hint(route: .localChinese, configured: false),
+                 "云端没配置 → 不提示。让人去配 Key 是另一件更长的事，不该由一句搜索提示发起")
+        r.expect(!hint(route: .localChinese, consented: true), "已授权 → 不提示（重复打扰）")
+        r.expect(!hint(route: .localChinese, latin: false), "纯中文库 → 不提示（本地够用）")
+        r.expect(!hint(route: .localChinese, han: false), "纯英文库 → 不提示")
+        r.expect(!hint(route: .cloudNeedsConsent),
+                 "已经是 cloudNeedsConsent → UI 上本来就有授权入口，不需要第二句")
+        r.expect(!hint(route: .unavailable("no model")),
+                 "语义整条不可用 → 那是另一个状态，`explanation` 已经在说了")
+
+        // 它**不改变路由** —— 提示是产品沟通，路由是能力判定
+        let route = EmbeddingRouter.choose(corpusContainsHan: true, localChineseAvailable: true,
+                                           localEnglishAvailable: true, cloudConfigured: true,
+                                           cloudConsentGranted: false)
+        r.expect(route == .localChinese,
+                 "有提示不等于改路由：仍然走本地，**不弹 cloudNeedsConsent 打断搜索**")
+        r.expect(EmbeddingRouter.shouldOfferCloudUpgrade(route: route, cloudConfigured: true,
+                                                         cloudConsentGranted: false,
+                                                         corpusContainsHan: true,
+                                                         corpusContainsLatin: true),
+                 "但这一种情形确实会给出提示 —— 这正是 D-AI-003 登记的那个缺口")
+    }
+}

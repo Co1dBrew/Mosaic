@@ -74,4 +74,24 @@ enum ProductionEmbedding {
     static func corpusContainsHan(cards: [Card], derived: DerivedDataStore) -> Bool {
         cards.contains { noteContainsHan($0, derived: derived) }
     }
+
+    /// 库里有没有拉丁字母。**只用来判断「是不是双语库」**（P1 #8 的提示条件），
+    /// 不参与路由 —— 路由只关心「有没有中文」，因为那才决定要不要中文模型。
+    ///
+    /// 与 `corpusContainsHan` 同样是 O(全库) 且在 main actor 上，
+    /// 所以两者**在同一次 rescan 里一起调**，不各扫一遍。
+    @MainActor
+    static func corpusContainsLatin(cards: [Card], derived: DerivedDataStore) -> Bool {
+        cards.contains { card in
+            let ocr = derived.ocrTextByBlockID(noteID: card.id.uuidString)
+            // 同 `noteContainsHan`：不用 displayTitle，回退文案会污染判断。
+            let title = [card.userTitle, card.summary?.baseTitle]
+                .compactMap { $0 }
+                .joined(separator: " ")
+            return ScriptDetection.containsLatin(title: title,
+                                                 tags: card.tags,
+                                                 blocks: card.blockContents(),
+                                                 extraTexts: Array(ocr.values))
+        }
+    }
 }

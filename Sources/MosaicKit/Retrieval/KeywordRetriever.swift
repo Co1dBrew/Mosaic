@@ -38,15 +38,24 @@ public enum KeywordRetriever {
     /// 在一组 chunk 上执行关键词检索。
     ///
     /// - Returns: 按分数降序、同分按 chunkID 升序（保证可复现）。
+    /// - Parameter normalized: 与 `chunks` 一一对应的、**已归一化的**字符数组
+    ///   （`NormalizedTextCache` 产出）。给了就直接用，省掉每次查询把全库正文
+    ///   重折一遍 —— 20k chunks 上那是总耗时的 **68.5%**。
+    ///   `nil` 时就地计算，行为与从前**逐位一致**（两条路走同一个 `locate` 实现）。
+    ///   数量对不上时**忽略它并就地算**：宁可慢，不可把 A 的正文当成 B 的。
     public static func retrieve(query: String,
                                 chunks: [NoteChunk],
-                                topK: Int) -> [KeywordHit] {
+                                topK: Int,
+                                normalized: [[Character]]? = nil) -> [KeywordHit] {
         let tokens = SearchMatcher.tokens(from: query)
         guard !tokens.isEmpty, topK > 0 else { return [] }
+        let hays = (normalized?.count == chunks.count) ? normalized : nil
 
         var hits: [KeywordHit] = []
-        for chunk in chunks {
-            guard let (ranges, counts) = TextMatcher.locate(tokens: tokens, in: chunk.text) else { continue }
+        for (i, chunk) in chunks.enumerated() {
+            let located = hays.map { TextMatcher.locate(tokens: tokens, inNormalized: $0[i]) }
+                ?? TextMatcher.locate(tokens: tokens, in: chunk.text)
+            guard let (ranges, counts) = located else { continue }
             let length = max(1, chunk.text.count)
             let norm = Double(length).squareRoot()
             var score = 0.0

@@ -81,13 +81,18 @@ public actor RetrievalService {
     private let provider: (any EmbeddingProvider)?
     private let vectors: InMemoryVectorStore
     private let recorder: RetrievalTraceRecorder?
+    /// keyword 路的归一化缓存。**与 `vectors` 同一类**：derived、在内存、可随时重建。
+    /// `nil` = 不缓存，每次查询重新折叠全库正文（旧行为，逐位一致但慢 3 倍）。
+    private let normalizedText: NormalizedTextCache?
 
     public init(provider: (any EmbeddingProvider)?,
                 vectors: InMemoryVectorStore,
-                recorder: RetrievalTraceRecorder? = nil) {
+                recorder: RetrievalTraceRecorder? = nil,
+                normalizedText: NormalizedTextCache? = NormalizedTextCache()) {
         self.provider = provider
         self.vectors = vectors
         self.recorder = recorder
+        self.normalizedText = normalizedText
     }
 
     /// 执行一次检索。
@@ -136,7 +141,11 @@ public actor RetrievalService {
         var keywordMs = 0.0
         if wantsKeyword {
             let t = DispatchTime.now().uptimeNanoseconds
-            keywordHits = KeywordRetriever.retrieve(query: trimmed, chunks: chunks, topK: config.candidateK)
+            // 归一化只取决于 chunk 自身，与 query 无关 —— 缓存它省掉 20k 上 68.5% 的
+            // keyword 耗时，且**不改任何检索语义**（缓存与非缓存走同一个 locate 实现）。
+            let hays = await normalizedText?.normalized(for: chunks)
+            keywordHits = KeywordRetriever.retrieve(query: trimmed, chunks: chunks,
+                                                    topK: config.candidateK, normalized: hays)
             keywordMs = ms(since: t)
         }
 

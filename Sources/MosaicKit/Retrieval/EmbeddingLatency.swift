@@ -13,11 +13,17 @@ public struct EmbeddingTiming: Sendable, Equatable, Codable {
     public var totalMs: Double { networkMs + decodeMs }
     /// 这一次调用嵌了几条文本（批量时用来算单条成本）。
     public let batchSize: Int
+    /// 服务端回报的 `usage.prompt_tokens`。**计费口径是 token，不是字符**，
+    /// 用「字符数 ÷ 3.7」外推出来的 token 量只能算 *estimated*；这里存的是服务端
+    /// 自己报的数，成本一项因此可以写 measured。服务端不回报时为 `nil`
+    /// —— 缺省不能当 0，那会把成本算成免费。
+    public let promptTokens: Int?
 
-    public init(networkMs: Double, decodeMs: Double, batchSize: Int) {
+    public init(networkMs: Double, decodeMs: Double, batchSize: Int, promptTokens: Int? = nil) {
         self.networkMs = networkMs
         self.decodeMs = decodeMs
         self.batchSize = batchSize
+        self.promptTokens = promptTokens
     }
 }
 
@@ -47,5 +53,13 @@ public actor EmbeddingLatencyRecorder {
         let (nP50, nP95) = pct(samples.map(\.networkMs))
         let (dP50, dP95) = pct(samples.map(\.decodeMs))
         return (nP50, nP95, dP50, dP95, samples.count)
+    }
+
+    /// 服务端回报的 token 合计，以及有多少次调用**没有**回报。
+    /// 后者要一起返回：只给合计的话，一个「服务端根本不报 usage」的 provider
+    /// 会显示成「这批索引花了 0 token」。
+    public func promptTokenTotal() -> (tokens: Int, reportedCalls: Int, unreportedCalls: Int) {
+        let reported = samples.compactMap(\.promptTokens)
+        return (reported.reduce(0, +), reported.count, samples.count - reported.count)
     }
 }
