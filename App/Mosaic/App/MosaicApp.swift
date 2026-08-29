@@ -10,14 +10,26 @@ struct MosaicApp: App {
     @State private var container: ModelContainer
     @State private var derivedContainer: ModelContainer
     @State private var retrieval: RetrievalEnvironment
+    /// **同步的真实状态**，由「构建有没有能力 + 用户开没开 + 容器实际是什么」推导。
+    /// 在这里算一次并注入，而不是让设置页去读用户偏好 —— 偏好说明不了数据在哪。
+    @State private var cloudSyncState: CloudSyncState
 
     init() {
         let settings = SettingsStore()
         _settings = State(initialValue: settings)
         _summaryService = State(initialValue: SummaryService(settings: settings))
         _transcriptionService = State(initialValue: TranscriptionService(settings: settings))
-        let notes = ModelContainerFactory.make(cloudKitEnabled: settings.iCloudSyncEnabled)
+        let buildSupportsCloudKit = ModelContainerFactory.buildSupportsCloudKit
+        let store = ModelContainerFactory.makeNoteStore(
+            cloudKitRequested: CloudSyncPolicy.requestsCloudKitContainer(
+                buildSupportsCloudKit: buildSupportsCloudKit,
+                userEnabled: settings.iCloudSyncEnabled))
+        let notes = store.container
         _container = State(initialValue: notes)
+        _cloudSyncState = State(initialValue: CloudSyncPolicy.state(
+            buildSupportsCloudKit: buildSupportsCloudKit,
+            userEnabled: settings.iCloudSyncEnabled,
+            containerIsCloudKitBacked: store.isCloudKitBacked))
 
         // Derived data 走独立 container / 独立 store 文件，不进 CloudKit
         // （RETRIEVAL_ARCHITECTURE.md §2）。
@@ -55,6 +67,7 @@ struct MosaicApp: App {
         WindowGroup {
             RootView()
                 .environment(settings)
+                .environment(\.cloudSyncState, cloudSyncState)
                 .environment(\.summaryService, summaryService)
                 .environment(\.transcriptionService, transcriptionService)
                 .environment(retrieval)
@@ -76,6 +89,12 @@ private struct TranscriptionServiceKey: EnvironmentKey {
     static let defaultValue: TranscriptionService? = nil
 }
 
+/// 同步的真实状态。默认 `.unavailableInThisBuild` —— Preview / 测试里没注入时
+/// 显示「不提供同步」是安全的方向：它不会让任何界面声称数据已经上云。
+private struct CloudSyncStateKey: EnvironmentKey {
+    static let defaultValue: CloudSyncState = .unavailableInThisBuild
+}
+
 extension EnvironmentValues {
     var summaryService: SummaryService? {
         get { self[SummaryServiceKey.self] }
@@ -84,5 +103,9 @@ extension EnvironmentValues {
     var transcriptionService: TranscriptionService? {
         get { self[TranscriptionServiceKey.self] }
         set { self[TranscriptionServiceKey.self] = newValue }
+    }
+    var cloudSyncState: CloudSyncState {
+        get { self[CloudSyncStateKey.self] }
+        set { self[CloudSyncStateKey.self] = newValue }
     }
 }

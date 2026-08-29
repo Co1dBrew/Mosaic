@@ -43,7 +43,11 @@ final class AudioRecorderService {
         permissionDenied = false
 
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        // `.allowBluetooth` 在 iOS 26 SDK 里改名为 `.allowBluetoothHFP`（同一个值）。
+        // 新名字是**回溯可用**的（部署目标 iOS 17 下编译通过），所以直接用新名字，
+        // 不需要 `#available` 分支 —— 留分支反而会让旧名字继续报废弃警告。
+        try session.setCategory(.playAndRecord, mode: .default,
+                                options: [.defaultToSpeaker, .allowBluetoothHFP])
         try session.setActive(true)
 
         let relative = mediaStore.makeRelativePath(kind: .audio, ext: "m4a")

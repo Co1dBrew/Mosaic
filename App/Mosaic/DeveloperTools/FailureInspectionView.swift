@@ -1,6 +1,16 @@
 import SwiftUI
 import MosaicKit
 
+// MARK: - 仅内部构建
+//
+// Developer Tools **整目录**只在 DEBUG 或显式打开 `INTERNAL_BUILD` 的构建里编译。
+// 正式 Release 里这些类型根本不存在 —— 不是「入口藏起来」，是**没有这段代码**，
+// 所以不可能有第二条路径把它们暴露给普通用户（`design/DEVTOOLS.md` §1.2）。
+//
+// 内部 TestFlight 需要它时：在 Release 配置的
+// `SWIFT_ACTIVE_COMPILATION_CONDITIONS` 里加 `INTERNAL_BUILD`。
+#if DEBUG || INTERNAL_BUILD
+
 /// 失败用例列表。D5 与 D6 都从这里进 D9，**是同一个 View**，只是数据源不同
 /// （`DEVTOOLS.md` §5.4）。
 struct FailureListView: View {
@@ -198,3 +208,5 @@ struct FailureInspectionView: View {
         }
     }
 }
+
+#endif  // DEBUG || INTERNAL_BUILD

@@ -1,6 +1,16 @@
 import SwiftUI
 import MosaicKit
 
+// MARK: - 仅内部构建
+//
+// Developer Tools **整目录**只在 DEBUG 或显式打开 `INTERNAL_BUILD` 的构建里编译。
+// 正式 Release 里这些类型根本不存在 —— 不是「入口藏起来」，是**没有这段代码**，
+// 所以不可能有第二条路径把它们暴露给普通用户（`design/DEVTOOLS.md` §1.2）。
+//
+// 内部 TestFlight 需要它时：在 Release 配置的
+// `SWIFT_ACTIVE_COMPILATION_CONDITIONS` 里加 `INTERNAL_BUILD`。
+#if DEBUG || INTERNAL_BUILD
+
 /// # Retrieval Config（`DEVTOOLS.md` §4.6 · backlog 5.1）
 ///
 /// 设计侧刻意没有给它线框，理由是「它就是 D2 那六个 Picker 的持久化版本，
@@ -226,3 +236,5 @@ private enum ChunkStrategyOption: String, CaseIterable, Hashable {
         }
     }
 }
+
+#endif  // DEBUG || INTERNAL_BUILD

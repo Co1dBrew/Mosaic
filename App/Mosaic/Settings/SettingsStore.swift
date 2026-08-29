@@ -50,8 +50,18 @@ final class SettingsStore {
         didSet { defaults.set(developerModeEnabled, forKey: Keys.developerMode) }
     }
 
+    /// 用户的**意愿**。它不是「有没有在同步」—— 后者要看容器实际上是不是
+    /// CloudKit 支撑的，读 `MosaicApp` 注入的 `cloudSyncState`。
+    ///
+    /// 写入时收敛到这个构建允许的取值：装了不带 CloudKit 的构建之后，
+    /// 上一个构建存下的 `true` 不能继续让 UI 显示「已开启」。
     var iCloudSyncEnabled: Bool {
-        didSet { defaults.set(iCloudSyncEnabled, forKey: Keys.iCloudSync) }
+        didSet {
+            let sanitized = CloudSyncPolicy.sanitizedUserPreference(
+                iCloudSyncEnabled, buildSupportsCloudKit: ModelContainerFactory.buildSupportsCloudKit)
+            if sanitized != iCloudSyncEnabled { iCloudSyncEnabled = sanitized; return }
+            defaults.set(iCloudSyncEnabled, forKey: Keys.iCloudSync)
+        }
     }
 
     /// Whether to send images as vision input. Defaults to the provider's known
@@ -133,8 +143,11 @@ final class SettingsStore {
         self.hasAcceptedAIPrivacyNotice = defaults.bool(forKey: Keys.privacyAccepted)
         // Default OFF: iCloud/CloudKit requires a paid Apple Developer account.
         // The schema stays CloudKit-ready; enable this after adding the iCloud
-        // capability + entitlements (see Mosaic.entitlements).
-        self.iCloudSyncEnabled = defaults.object(forKey: Keys.iCloudSync) as? Bool ?? false
+        // capability + entitlements (see Mosaic.entitlements) and flipping
+        // `MosaicCloudKitEnabled` in project.yml.
+        self.iCloudSyncEnabled = CloudSyncPolicy.sanitizedUserPreference(
+            defaults.object(forKey: Keys.iCloudSync) as? Bool ?? false,
+            buildSupportsCloudKit: ModelContainerFactory.buildSupportsCloudKit)
         self.developerModeEnabled = defaults.object(forKey: Keys.developerMode) as? Bool ?? false
         self.visionEnabled = defaults.object(forKey: Keys.visionEnabled) as? Bool ?? resolvedProvider.defaultSupportsVision
         self.jsonModeEnabled = defaults.object(forKey: Keys.jsonMode) as? Bool ?? true

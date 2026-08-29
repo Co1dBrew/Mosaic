@@ -2,6 +2,16 @@ import Foundation
 import Observation
 import MosaicKit
 
+// MARK: - 仅内部构建
+//
+// Developer Tools **整目录**只在 DEBUG 或显式打开 `INTERNAL_BUILD` 的构建里编译。
+// 正式 Release 里这些类型根本不存在 —— 不是「入口藏起来」，是**没有这段代码**，
+// 所以不可能有第二条路径把它们暴露给普通用户（`design/DEVTOOLS.md` §1.2）。
+//
+// 内部 TestFlight 需要它时：在 Release 配置的
+// `SWIFT_ACTIVE_COMPILATION_CONDITIONS` 里加 `INTERNAL_BUILD`。
+#if DEBUG || INTERNAL_BUILD
+
 /// # D7 / D8 —— Release Gate 的 ViewModel（backlog 5.3 / 5.4）
 ///
 /// **它不算判定。** 判定在 `ReleaseGate.evaluate` 里，一行 `allSatisfy`
@@ -86,3 +96,5 @@ final class ReleaseGateViewModel {
 
     func dismissBanner() { banner = nil }
 }
+
+#endif  // DEBUG || INTERNAL_BUILD

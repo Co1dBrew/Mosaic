@@ -49,12 +49,15 @@ final class SearchLandingController {
         guard let blockID = resolved.blockID, SearchLanding.requiresScroll(resolved) else { return }
 
         timeline?.cancel()
+        // 闭包里对属性的写入一律显式 `self.` —— Swift 6 语言模式下隐式捕获是错误，
+        // 现在只是警告。这里的写入都在 `@MainActor` 上，加 `self.` 只是把捕获语义
+        // 写明白，不改变任何行为。
         timeline = Task { @MainActor [weak self] in
             guard let self else { return }
 
             // 1 · 音频命中：先展开转写。
             if SearchLanding.requiresTranscriptExpansion(resolved) {
-                expandedTranscriptBlockID = blockID
+                self.expandedTranscriptBlockID = blockID
                 // 等一次 layout pass。`Task.yield()` 只让出当前 actor 的一个调度点，
                 // 不保证 SwiftUI 已经重新布局过 —— 所以这里等一帧的时间。
                 try? await Task.sleep(nanoseconds: 33_000_000)
@@ -67,18 +70,18 @@ final class SearchLandingController {
             // 3 · 高亮：转场完成后 +0.15s 才开始。
             try? await Task.sleep(nanoseconds: UInt64(SearchLanding.highlightDelay * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            highlightedBlockID = blockID
-            highlightOpacity = 1
+            self.highlightedBlockID = blockID
+            self.highlightOpacity = 1
 
             // 4 · 保持 2.0s → 0.4s ease-out 淡出。
             try? await Task.sleep(nanoseconds: UInt64(SearchLanding.highlightHold * 1_000_000_000))
             guard !Task.isCancelled else { return }
             withAnimation(.easeOut(duration: SearchLanding.highlightFade)) {
-                highlightOpacity = 0
+                self.highlightOpacity = 0
             }
             try? await Task.sleep(nanoseconds: UInt64(SearchLanding.highlightFade * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            highlightedBlockID = nil
+            self.highlightedBlockID = nil
         }
     }
 
@@ -96,8 +99,8 @@ final class SearchLandingController {
         let blockID = highlightedBlockID
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(SearchLanding.interruptFade * 1_000_000_000))
-            guard let self, highlightedBlockID == blockID else { return }
-            highlightedBlockID = nil
+            guard let self, self.highlightedBlockID == blockID else { return }
+            self.highlightedBlockID = nil
         }
     }
 

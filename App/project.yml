@@ -46,6 +46,23 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_EMIT_LOC_STRINGS: "YES"
+        # iCloud / CloudKit 能力的**单一开关**。Info.plist 的 MosaicCloudKitEnabled
+        # 由它注入，`CloudSyncPolicy` 读那一个值决定 UI 能不能提供同步。
+        #
+        # 现在是 NO：`Mosaic/Mosaic.entitlements` 是空的 `<dict/>`，没有 iCloud 容器。
+        # 打开它需要**同时**做三件事，缺一不可：
+        #   1. 付费 Apple Developer 账号，在 App Store Connect 建 CloudKit 容器
+        #   2. 把容器 id 写进 Mosaic.entitlements（文件里有注释掉的模板）
+        #   3. 把这里改成 YES
+        # 只改这一个 = UI 会提供开关，容器申请失败后退回本地，状态显示为
+        # 「无法同步」而不是「同步中」—— 不会说谎，但也没有用。
+        MOSAIC_CLOUDKIT_ENABLED: "NO"
+        # Developer Tools 的编译闸门。Debug 自带 `DEBUG`，所以开发时照常有工具；
+        # Release 什么都不加 —— `App/Mosaic/DeveloperTools/` 整目录不编译，
+        # 类型在正式构建里根本不存在（不是「入口藏起来」）。
+        #
+        # 内部 TestFlight 要带工具时，在这一行后面加 `INTERNAL_BUILD`。
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited)"
     dependencies:
       - package: MosaicKit
         product: MosaicKit

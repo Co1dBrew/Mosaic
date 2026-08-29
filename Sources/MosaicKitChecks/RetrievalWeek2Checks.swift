@@ -418,12 +418,15 @@ enum RetrievalWeek2Checks {
         // 20k chunks took 1200 ms debug vs 9.8 ms release — the *same code*.
         // The SLO is therefore only asserted for optimised builds; debug still
         // prints its numbers, clearly labelled, so a regression is still visible.
+        // `optimised` 原来是一个编译期已知的 `let`，于是三处用到它的分支全都是
+        // 静态死代码，编译器每次都报 "will never be executed"。既然判断本来就发生在
+        // 编译期，就用 `#if` 表达它 —— 少两条恒真警告，读起来也更诚实。
         #if DEBUG
-        let optimised = false
+        let buildLabel = "  [DEBUG BUILD — not representative]"
         let sizes = [1_000, 5_000]
         let samples = 5
         #else
-        let optimised = true
+        let buildLabel = ""
         let sizes = [1_000, 5_000, 20_000]
         let samples = 25
         #endif
@@ -459,26 +462,26 @@ enum RetrievalWeek2Checks {
             r.expect(indexed == size, "\(size) vectors indexed")
         }
 
-        print("\n    ── brute-force cosine, dim \(dimension), topK 20 ──\(optimised ? "" : "  [DEBUG BUILD — not representative]")")
+        print("\n    ── brute-force cosine, dim \(dimension), topK 20 ──\(buildLabel)")
         print("    chunks        P50        P95")
         for (size, p50, p95) in table {
             print(String(format: "    %6d   %7.2f ms  %7.2f ms", size, p50, p95))
         }
         print("    SLO: P50 < 100 ms · P95 < 250 ms (retrieval only, no UI)")
-        if !optimised {
-            print("    ⚠️  Debug build (-Onone). Run `swift run -c release mosaic-checks` for the real curve.")
-        }
+        #if DEBUG
+        print("    ⚠️  Debug build (-Onone). Run `swift run -c release mosaic-checks` for the real curve.")
         print("")
-
+        r.expect(true, "benchmark recorded (debug build — SLO asserted only in release)")
+        #else
+        print("")
         // The measurement is the deliverable; the assertion guards against a
         // pathological regression. Whether ANN is needed is a decision to be made
         // from this table, not from a general belief about brute force.
-        if optimised, let largest = table.last {
+        if let largest = table.last {
             r.expect(largest.1 < 100, "P50 inside budget at \(largest.0) chunks (measured \(String(format: "%.1f", largest.1)) ms)")
             r.expect(largest.2 < 250, "P95 inside budget at \(largest.0) chunks (measured \(String(format: "%.1f", largest.2)) ms)")
-        } else {
-            r.expect(true, "benchmark recorded (debug build — SLO asserted only in release)")
         }
+        #endif
     }
 
     // MARK: Entry point

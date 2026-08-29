@@ -5,6 +5,8 @@ import MosaicKit
 /// connection, auto-update toggle, vision/JSON options, iCloud, and privacy.
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var settingsEnv
+    /// 同步的**真实**状态，由 `MosaicApp` 注入。设置页不自己推导，也不读用户偏好。
+    @Environment(\.cloudSyncState) private var cloudSyncState
     @Environment(\.summaryService) private var summaryService
 
     @State private var apiKeyDraft = ""
@@ -153,12 +155,28 @@ struct SettingsView: View {
                 }
             }
 
+            // 同步状态由**事实**推导，不是显示用户偏好。
+            // 老写法是一个普通 Toggle：用户打开 → 容器申请 CloudKit 失败 →
+            // 静默退回本地 → **开关还是开着的**。用户由此相信笔记有云端副本，
+            // 而这件事要到换手机或误删之后才会被发现。
             Section {
-                Toggle("启用 iCloud 同步", isOn: $settings.iCloudSyncEnabled)
+                if CloudSyncPolicy.isUserToggleable(buildSupportsCloudKit: ModelContainerFactory.buildSupportsCloudKit) {
+                    Toggle("启用 iCloud 同步", isOn: $settings.iCloudSyncEnabled)
+                    LabeledContent("当前状态", value: cloudSyncState.isActuallySyncing ? "同步中" : "仅本机")
+                        .foregroundStyle(cloudSyncState.isActuallySyncing ? Color.primary : .secondary)
+                } else {
+                    // 不可用时**不给开关**。给一个必然失败的开关不是「保留功能」，
+                    // 是留一个陷阱（`DECISION_CONFIG: ICLOUD = DISABLE_UNTIL_REAL_CLOUDKIT_READY`）。
+                    LabeledContent("iCloud 同步", value: "此版本不提供")
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("settings.icloud.unavailable")
+                }
             } header: {
                 Text("同步与数据")
             } footer: {
-                Text("iCloud 同步需要付费 Apple 开发者账号(并在工程中开启 iCloud/CloudKit 能力)。免费个人账号请保持关闭。更改后需重启 App 生效。")
+                Text(cloudSyncState.userFacingSummary
+                     + (CloudSyncPolicy.isUserToggleable(buildSupportsCloudKit: ModelContainerFactory.buildSupportsCloudKit)
+                        ? "更改后需重启 App 生效。" : "笔记可以用「导出」逐条备份。"))
             }
 
             Section {
@@ -175,6 +193,12 @@ struct SettingsView: View {
 
             // D0 —— Developer Mode 入口（design/DEVTOOLS.md §1.1）。
             // 默认 OFF；关闭时「开发者工具」整行不出现，而不是置灰。
+            //
+            // **整段在正式 Release 里不编译。** 之前只靠一个默认关闭的开关，
+            // 于是 App Store 构建里仍然存在一条通往内部工具的路径 ——
+            // 一个 UserDefaults 键就能打开它。现在 Release 里连
+            // `DeveloperModeView` 这个类型都不存在。
+            #if DEBUG || INTERNAL_BUILD
             Section {
                 Toggle("开发者模式", isOn: $settings.developerModeEnabled)
                 if settings.developerModeEnabled {
@@ -185,6 +209,7 @@ struct SettingsView: View {
             } footer: {
                 Text("仅供开发与评测使用。开启后可进入 Retrieval Lab / Trace。")
             }
+            #endif
 
             Section("关于") {
                 LabeledContent("应用", value: "万象记 Mosaic")
