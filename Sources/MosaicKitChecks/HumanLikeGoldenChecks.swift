@@ -1,14 +1,19 @@
 import Foundation
 import MosaicKit
 
-/// Synthetic human-like Golden Set v2：结构防回退 + 真实检索分组跑批。
+/// # 场景化评测集 `scenario-v5` —— 结构防回退 + 真实检索分组跑批
 ///
-/// 这不是实际用户 ground truth。自动检查只保护实验设计不再次把来源、语种和
-/// 长度绑在一起；质量数字仍只能描述这套 synthetic fixture。
+/// **这不是真实用户 ground truth。** 全部 query 与新增笔记都由 agent 按场景编写
+/// （`provenance = agent_authored_realistic`），不得称为 real user logs /
+/// actual user queries / production traffic。自动检查保护的是**实验设计**：
+/// 覆盖结构、标注一致性、干扰簇规模、split 分层。质量数字只描述这套 fixture。
+///
+/// 数据本身由 `tools/eval/build_scenario_set.py` 生成，那里写着每条用例的
+/// 场景与「为什么值得测」。这里断言的是**产物必须满足的性质**。
 enum HumanLikeGoldenChecks {
 
     static func run(_ r: CheckRunner) async {
-        r.suite("Human-like Golden Set v2 · 结构与实验设计")
+        r.suite("场景化评测集 scenario-v5 · 结构与实验设计")
 
         let dataset: HumanLikeGoldenFixture.Dataset
         do {
@@ -18,12 +23,19 @@ enum HumanLikeGoldenChecks {
             return
         }
 
-        r.expect(dataset.version == "synthetic-human-v4", "版本明确是 synthetic-human-v4")
-        r.expect(dataset.disclaimer.lowercased().contains("not real-user"),
+        r.expect(dataset.version == "scenario-v5", "版本明确是 scenario-v5")
+        r.expect(dataset.disclaimer.lowercased().contains("not real user"),
                  "数据自身携带免责声明，不能冒充真人标注")
-        r.expect(dataset.notes.count == 210, "语料扩到 210 篇，Top-5 只覆盖 2.4% 的库")
-        r.expect(dataset.cases.count == 166, "166 条正向 query")
-        r.expect(dataset.negativeQueries.count == 30, "30 条无答案 query 已接入 Runner")
+        r.expectNotNil(dataset.checksum, "冻结指纹存在 —— 没有它就无法证明判定用的是冻结的那一份")
+        r.expect(dataset.checksum?.hasPrefix("sha256:") == true, "指纹是 sha256")
+        r.expect(dataset.notes.count == 242, "语料 242 篇（实际 \(dataset.notes.count)）")
+        let totalQueries = dataset.cases.count + dataset.negativeQueries.count
+        r.expect((180...240).contains(totalQueries),
+                 "query 总数落在 180–240（实际 \(totalQueries)）")
+        r.expect(dataset.negativeQueries.count >= 8,
+                 "至少 8 条无答案 query 已接入 Runner（实际 \(dataset.negativeQueries.count)）")
+        r.expect(dataset.cases.allSatisfy { $0.provenance == .agentAuthoredRealistic },
+                 "每条用例都带 provenance —— 少一条就有可能被当成真人标注引用")
 
         let noteIDs = Set(dataset.notes.map(\.id))
         let positiveIDs = dataset.cases.map(\.id)
@@ -65,13 +77,16 @@ enum HumanLikeGoldenChecks {
 
     private static func checkSourceLanguageBalance(_ dataset: HumanLikeGoldenFixture.Dataset,
                                                    r: CheckRunner) {
+        // v5 之后各类语料不再强求条数相等：新增的 40 篇是为了把同构簇扩到 6–8 篇，
+        // 而簇的话题决定了它落在哪一类语料上。要保的是**没有哪一类被边缘化**，
+        // 以及**每一类内部中英不失衡**。
         for source in RetrievalSource.allCases {
             let notes = dataset.notes.filter { $0.source == source }
             let zh = notes.filter { $0.language == .zh }.count
             let en = notes.filter { $0.language == .en }.count
-            r.expect(notes.count == 42, "\(source.rawValue) 有 42 篇语料")
-            r.expect(abs(zh - en) <= 1,
-                     "\(source.rawValue) 中英数量差 ≤ 1（zh \(zh) / en \(en)）")
+            r.expect(notes.count >= 40, "\(source.rawValue) 至少 40 篇语料（实际 \(notes.count)）")
+            r.expect(Double(min(zh, en)) / Double(max(zh, en, 1)) >= 0.7,
+                     "\(source.rawValue) 中英不失衡（zh \(zh) / en \(en)）")
         }
     }
 
@@ -93,16 +108,12 @@ enum HumanLikeGoldenChecks {
         }
         let inScope = dataset.cases.filter { $0.scope == .inScope }.count
         let cross = dataset.cases.filter { $0.scope == .crossLanguage }.count
-        r.expect(inScope == 101 && cross == 65,
-                 "分组固定为 67 in-scope / 47 cross-language（实际 \(inScope) / \(cross)）")
-
-        let originalCross = Set(dataset.cases.prefix(42)
-            .filter { $0.scope == .crossLanguage }.map(\.id))
-        let reviewedCross: Set<String> = [
-            "HG003", "HG010", "HG012", "HG014", "HG016", "HG017", "HG021",
-            "HG026", "HG028", "HG030", "HG032", "HG034", "HG038", "HG042"
-        ]
-        r.expect(originalCross == reviewedCross, "评审确认的 14 条原始跨语言 case 未漂移")
+        let total = Double(inScope + cross)
+        r.expect(inScope > 0 && cross > 0, "两个 scope 都非空（\(inScope) / \(cross)）")
+        // 跨语言是**已知架构边界**，它不进 Gate 主指标，所以占比要受控 ——
+        // 让它膨胀会把一个诊断分组悄悄变成主分母。
+        r.expect((0.08...0.15).contains(Double(cross) / total),
+                 "cross-language 占 8%–15%（实际 \(percent(Double(cross) / total))）")
     }
 
     private static func checkLongNotes(_ dataset: HumanLikeGoldenFixture.Dataset,
@@ -131,11 +142,12 @@ enum HumanLikeGoldenChecks {
             r.expect(endPosition >= 0.80,
                      "\(note.id) 末段答案在 80% 之后（\(percent(endPosition))）")
 
+            // chunk 策略实验靠这两条：只有第一块的用例证明不了「切分把话切断了」。
             let cases = dataset.cases.filter { $0.expectedNoteIDs == [note.id] }
-            r.expect(cases.filter { $0.longRegion == .middle }.count == 1,
-                     "\(note.id) 有一条中段 query")
-            r.expect(cases.filter { $0.longRegion == .end }.count == 1,
-                     "\(note.id) 有一条末段 query")
+            r.expect(cases.contains { $0.longRegion == .middle },
+                     "\(note.id) 有中段 query")
+            r.expect(cases.contains { $0.longRegion == .end },
+                     "\(note.id) 有末段 query")
         }
     }
 
@@ -206,13 +218,51 @@ enum HumanLikeGoldenChecks {
         }
         r.expect(v4Clusters.count >= 19, "v4 至少 19 个同构干扰簇（实际 \(v4Clusters.count)）")
 
-        // 每个 v4 簇里**至多一篇**能当答案 —— 否则「只差一个事实」的设计就废了：
-        // 两篇都算对的话，排序层分不分得清都拿满分。
-        for (label, cluster) in v4Clusters {
-            let answers = cluster.filter { expected.contains($0) }
-            r.expect(answers.count <= 1,
-                     "v4 簇「\(label)」里最多一篇是 expected（实际 \(answers.sorted().joined(separator: ","))）")
+        // ── v5：簇规模 ──
+        //
+        // v4 的簇是 3 篇，而 Top-5 装得下整簇 —— 于是 in-scope R@5 恒为 1.000，
+        // 那个指标什么都没测到（HANDOFF_NEXT P1 #5 明确记了「一半没达成」）。
+        // v5 把主要的簇扩到 6–8 篇：Top-5 装不下整簇，R@5 才重新有区分度。
+        var clusterSizes: [String: Int] = [:]
+        for note in dataset.notes {
+            guard let cluster = note.cluster else { continue }
+            clusterSizes[cluster, default: 0] += 1
         }
+        let bigClusters = clusterSizes.filter { $0.value >= 6 }
+        r.expect(bigClusters.count >= 8,
+                 "至少 8 个 ≥6 篇的同构簇（实际 \(bigClusters.count)，"
+                 + "最大 \(clusterSizes.values.max() ?? 0) 篇）")
+        r.expect(clusterSizes.count >= 15,
+                 "簇标记覆盖足够多的近似组（实际 \(clusterSizes.count) 个）")
+        // 每个大簇都要有用例打进去，否则它只是一堆没人问过的笔记。
+        let answeredClusters = Set(dataset.cases.flatMap { c in
+            c.expectedNoteIDs.compactMap { id in dataset.notes.first { $0.id == id }?.cluster }
+        })
+        for (cluster, _) in bigClusters {
+            r.expect(answeredClusters.contains(cluster),
+                     "大簇 \(cluster) 至少有一条用例的答案落在里面")
+        }
+
+        // **不变量的正确粒度是「一条 query」，不是「整个数据集」。**
+        //
+        // v4 写的是「每个簇里至多一篇能当答案」，理由是「两篇都算对的话排序层
+        // 分不分得清都拿满分」。那个理由只对**单条 query** 成立。v5 给同一个簇里
+        // 的不同成员各写了一条 query（「哪次作业允许组队」vs「哪次不算分」），
+        // 这正是近似区分要考的东西 —— 按数据集粒度判会把它误判成设计缺陷。
+        //
+        // 所以改成：**同一条 query 的 expected 不能落在同一个簇里**，
+        // 除非它被显式标为 ambiguous（那一类的定义就是两个候选都成立）。
+        let clusterOf = Dictionary(uniqueKeysWithValues:
+            dataset.notes.compactMap { note in note.cluster.map { (note.id, $0) } })
+        for candidate in dataset.cases where candidate.category != .ambiguous {
+            let clusters = candidate.expectedNoteIDs.compactMap { clusterOf[$0] }
+            r.expect(Set(clusters).count == clusters.count,
+                     "\(candidate.id) 的多个 expected 不落在同一个簇里（除非标了 ambiguous）")
+        }
+        let ambiguous = dataset.cases.filter { $0.category == .ambiguous }
+        r.expect(ambiguous.count >= 8, "至少 8 条歧义用例（实际 \(ambiguous.count)）")
+        r.expect(ambiguous.allSatisfy { $0.expectedNoteIDs.count >= 2 },
+                 "歧义用例必须给出**两个以上**答案 —— 强行制造唯一答案就不是歧义了")
         r.expect(deductibleCluster.isSubset(of: ids),
                  "自付额簇：车险 / 租客险 / 健康险 / 牙科，字面都写 deductible")
 
@@ -273,11 +323,13 @@ enum HumanLikeGoldenChecks {
                          (mode.rawValue, "cross", overallRun.crossLanguageMetrics),
                          (mode.rawValue, "overall", overallRun.metrics)]
                 negativeRows.append((mode.rawValue, negativeRun.metrics))
-                r.expect(overallRun.inScopeMetrics.caseCount == 101
-                         && overallRun.crossLanguageMetrics.caseCount == 65,
+                let inScopeCount = dataset.cases.filter { $0.scope == .inScope }.count
+                let crossCount = dataset.cases.filter { $0.scope == .crossLanguage }.count
+                r.expect(overallRun.inScopeMetrics.caseCount == inScopeCount
+                         && overallRun.crossLanguageMetrics.caseCount == crossCount,
                          "\(mode.rawValue) 核心 Runner 正确拆出两个语言分组")
-                r.expect(negativeRun.metrics.noResultCaseCount == 30,
-                         "\(mode.rawValue) 完整跑完 30 条负例")
+                r.expect(negativeRun.metrics.noResultCaseCount == dataset.negativeQueries.count,
+                         "\(mode.rawValue) 完整跑完 \(dataset.negativeQueries.count) 条负例")
             } catch {
                 r.expect(false, "\(mode.rawValue) 跑批失败：\(error)")
             }

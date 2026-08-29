@@ -43,6 +43,60 @@ public enum GoldenSetFixture {
         case end
     }
 
+    // MARK: v5 —— 场景化评测集的新增标注
+    //
+    // 全部**可选**。v4 的 JSON 不带这些字段，仍然能被同一个解析器读出来 ——
+    // 换 schema 不该让历史跑批变成不可复现的。
+
+    /// 用例考的是哪一种检索能力。
+    ///
+    /// 它不是「难度的另一种说法」：`lexicalTrap` 与 `nearDuplicate` 都可以是 hard，
+    /// 但**失败原因完全不同**，改进方向也不同（一个是词面对抗，一个是排序区分度）。
+    /// 分类的价值在于「这一轮 60% 的失败集中在哪一类」，与 `FailureType` 同理。
+    public enum Category: String, Codable, Sendable, CaseIterable {
+        /// 记得意思，不记得原词。
+        case semanticRecall = "semantic_recall"
+        /// 要准确找到日期 / 金额 / 编号 / 版本号。
+        case exactFact = "exact_fact"
+        /// query 与**错误**笔记词面重合度高，正确笔记词面重合度低。
+        case lexicalTrap = "lexical_trap"
+        /// 两篇以上主题几乎一样，答案只在其中一篇。
+        case nearDuplicate = "near_duplicate"
+        /// 中文 query 找英文笔记，或反过来。
+        case crossLanguage = "cross_language"
+        /// 错别字 / 口语 / 缩写 / 实体记错一部分。
+        case noisyQuery = "noisy_query"
+        /// 只记得场景，靠上下文找。
+        case contextualRecall = "contextual_recall"
+        /// 语料里没有答案。
+        case negative
+        /// 存在两个都合理的候选。**必须在标注里说明**，不强行制造唯一答案。
+        case ambiguous
+    }
+
+    public enum Difficulty: String, Codable, Sendable, CaseIterable {
+        case easy, medium, hard
+    }
+
+    /// 开发集 / 留出集。
+    ///
+    /// 留出集**只用于发布判定**。允许在开发集上调参、分析、debug；
+    /// 针对某一条留出用例加特殊逻辑属于 evaluation overfit，必须撤销。
+    public enum Split: String, Codable, Sendable, CaseIterable {
+        case development, holdout
+    }
+
+    /// 数据来源标记。
+    ///
+    /// **这一项存在的唯一目的是防止把它说成真实用户数据。**
+    /// Agent 写出来的场景化用例可以叫「production-style / human-like / 场景化」，
+    /// 不能叫 real user logs / actual user queries / organic traffic。
+    public enum Provenance: String, Codable, Sendable {
+        case agentAuthoredRealistic = "agent_authored_realistic"
+        /// 留给将来真的拿到用户标注时用。
+        case humanAnnotated = "human_annotated"
+    }
+
     public struct Note: Codable, Equatable {
         public let id: String
         public let title: String
@@ -50,6 +104,12 @@ public enum GoldenSetFixture {
         public let language: Language
         public let role: NoteRole
         public let content: String
+        /// 同构簇 id。同一簇里的笔记**主题几乎一样**，只有细节不同 ——
+        /// near-duplicate 用例的干扰项就从这里来。
+        ///
+        /// v4 的簇是 3 篇，而 Top-5 装得下整簇，于是 in-scope R@5 恒为 1.000，
+        /// 这个指标什么都没测到。v5 的簇是 6–8 篇。
+        public var cluster: String?
         /// 长文专项的两处稳定锚点。中段锚点必须落在全文 40%–60%，末段锚点
         /// 必须落在 80% 之后，保证 chunking 实验不是只测第一块。
         public let middleMarker: String?
@@ -97,6 +157,43 @@ public enum GoldenSetFixture {
         public let longRegion: LongRegion?
         public let note: String
 
+        // MARK: v5 标注（可选）
+
+        /// 用户当时的处境，一句话。写它是为了让「这条 query 像不像真人问的」
+        /// 可以被第二个人复核 —— 没有场景就只能凭感觉判断。
+        public var scenario: String?
+        public var category: Category?
+        public var difficulty: Difficulty?
+        /// 目标笔记的语料类型。冗余存一份是为了能直接按类型切片统计，
+        /// 不必每次回查笔记表。**校验时会与笔记表对账**，对不上即数据错误。
+        public var contentType: RetrievalSource?
+        /// 分级相关性 `noteID -> 0...3`。
+        ///
+        /// 3 = 就是它 · 2 = 相关 · 1 = 部分相关 · 0 = 不相关但容易误判。
+        /// 现有指标体系是 binary 的，映射规则见 `binaryRelevantNoteIDs`；
+        /// 分级本身保留下来，将来上 nDCG 时不必重新标注。
+        public var relevance: [String: Int]?
+        /// 容易被误判成答案的笔记。**不是随机负例** —— 每一条都要能说出
+        /// 「为什么容易误判」（同一家公司 / 同一个日期附近 / 同一份合同的另一版）。
+        public var hardNegativeNoteIDs: [String]?
+        /// 期望的产品行为，用户侧说法。
+        public var expectedBehavior: String?
+        /// 期望的落点：`top` / `block:<id>` / `transcript:<id>`。
+        public var expectedLandingTarget: String?
+        /// 这条为什么值得测。
+        public var rationale: String?
+        public var provenance: Provenance?
+        public var split: Split?
+
+        /// 分级 → binary 的映射：**≥2 算相关**。
+        ///
+        /// 1 分（部分相关）不进分母也不算命中 —— 把「勉强沾边」算成命中会让
+        /// Recall 虚高，算成错误又会惩罚一个合理的结果。它只在将来上 nDCG 时有用。
+        public var binaryRelevantNoteIDs: [String] {
+            guard let relevance, !relevance.isEmpty else { return expectedNoteIDs }
+            return relevance.filter { $0.value >= 2 }.keys.sorted()
+        }
+
         public var evalCase: EvalCase {
             EvalCase(id: id, query: query, expectedNoteIDs: expectedNoteIDs,
                      source: .golden, addedAt: .distantPast,
@@ -109,6 +206,13 @@ public enum GoldenSetFixture {
         public let id: String
         public let query: String
         public let reason: String
+        public var scenario: String?
+        public var queryLanguage: Language?
+        public var difficulty: Difficulty?
+        /// 负例同样可以有 hard negative：语料里有主题相近但确实答不上的笔记。
+        public var hardNegativeNoteIDs: [String]?
+        public var provenance: Provenance?
+        public var split: Split?
 
         public var evalCase: EvalCase {
             EvalCase(id: id, query: query, expectation: .noRelevantResult,
@@ -122,6 +226,24 @@ public enum GoldenSetFixture {
         public let notes: [Note]
         public let cases: [Candidate]
         public let negativeQueries: [NegativeQuery]
+        /// 冻结这一份数据的内容指纹。留出集一旦冻结就不该再动 ——
+        /// 有指纹才能证明「这次判定用的是冻结的那一份」。
+        public var checksum: String?
+
+        /// 只取某一个 split 的全部用例（正例 + 负例）。
+        ///
+        /// 发布判定读 `.holdout`，调参与分析读 `.development`。
+        /// **没有标 split 的用例视为 development** —— v4 的历史数据落在这里，
+        /// 它们不该悄悄进入发布判定。
+        public func evalCases(split: Split) -> [EvalCase] {
+            let positives = cases
+                .filter { ($0.split ?? .development) == split }
+                .map(\.evalCase)
+            let negatives = negativeQueries
+                .filter { ($0.split ?? .development) == split }
+                .map(\.evalCase)
+            return positives + negatives
+        }
 
         public var evalCases: [EvalCase] { cases.map(\.evalCase) }
         public var negativeEvalCases: [EvalCase] { negativeQueries.map(\.evalCase) }

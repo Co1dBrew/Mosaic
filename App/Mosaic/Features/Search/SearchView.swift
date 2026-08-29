@@ -14,6 +14,8 @@ struct SearchView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(RetrievalEnvironment.self) private var retrieval: RetrievalEnvironment?
     @Environment(AppRouter.self) private var router
+    /// 只为了取全库标签。结果列表走 `SearchViewModel`，不经过它。
+    @Query private var allCards: [Card]
 
     var initialQuery: String = ""
 
@@ -30,6 +32,12 @@ struct SearchView: View {
                 SearchStatusBar(capability: viewModel.capability,
                                 needsCloudConsent: needsCloudConsent) {
                     if needsCloudConsent { showCloudConsent = true } else { viewModel.retrySemantic() }
+                }
+                // v2 §4：标签筛选从首页移到这里。点 chip = 把标签填进搜索框 ——
+                // `SearchMatcher` 本来就支持 tag 匹配，不需要第二套筛选逻辑，
+                // 也就不会出现「筛选说有 3 条、搜索说有 5 条」。
+                if !allTags.isEmpty {
+                    tagChipRow
                 }
                 content(viewModel)
             } else {
@@ -90,6 +98,29 @@ struct SearchView: View {
     private var needsCloudConsent: Bool {
         guard let retrieval else { return false }
         return retrieval.route.needsCloudConsent || retrieval.desiredRoute?.needsCloudConsent == true
+    }
+
+    /// 全库标签（归一化 + 去重）。`TagUtilities` 是内核里那一份，
+    /// 与写入路径同一个口径。
+    private var allTags: [String] {
+        TagUtilities.sanitize(allCards.flatMap { $0.tags })
+    }
+
+    private var tagChipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: AppSpacing.sm) {
+                ForEach(allTags, id: \.self) { tag in
+                    Button { query = tag } label: {
+                        TagChip(text: tag, isSelected: query == tag)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("search.tag.\(tag)")
+                }
+            }
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.sm)
+        }
+        .accessibilityIdentifier("search.tags")
     }
 
     @ViewBuilder
