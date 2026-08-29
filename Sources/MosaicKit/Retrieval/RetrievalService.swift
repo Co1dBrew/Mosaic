@@ -190,13 +190,23 @@ public actor RetrievalService {
         let similarityByID = Dictionary(uniqueKeysWithValues: vectorHits.map { ($0.chunkID, $0.similarity) })
 
         var results: [RetrievalResult] = []
-        for (i, f) in fused.prefix(config.topK).enumerated() {
-            // chunk 可能已被删除但索引尚未清理 —— 跳过而不是崩溃或返回空壳。
+        results.reserveCapacity(config.topK)
+        for f in fused {
+            guard results.count < config.topK else { break }
+            // chunk 在索引里但已经不在语料里 —— 笔记刚被删、清理还没跑完的那个窗口。
+            //
+            // **跳过它并继续往下取，而不是让它占掉一个名额。**
+            // 老写法是 `fused.prefix(topK)` 再逐条 skip，于是一条已删除笔记的向量
+            // 会吃掉 Top-5 里的一格，第 6 名永远出不来 —— 用户看到的不是一条错误
+            // 结果，而是**少了一条结果**，没有任何迹象说明发生过什么。
+            //
+            // 这不是「孤儿数据可以不清理」的理由（清理见 `DerivedConsistency`），
+            // 而是承认那个窗口一定存在：删除通知是异步的，索引重建也要时间。
             guard let chunk = byID[f.chunkID] else { continue }
             let kh = keywordByID[f.chunkID]
             results.append(RetrievalResult(
                 chunkID: f.chunkID, ref: chunk.ref, source: chunk.source, text: chunk.text,
-                fusedRank: i + 1, keywordRank: f.keywordRank, vectorRank: f.vectorRank,
+                fusedRank: results.count + 1, keywordRank: f.keywordRank, vectorRank: f.vectorRank,
                 similarity: similarityByID[f.chunkID], keywordScore: kh?.score,
                 matchedRanges: kh?.ranges ?? []
             ))

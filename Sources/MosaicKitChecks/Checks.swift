@@ -29,6 +29,8 @@ struct Checks {
         EmbeddingProviderChecks.runCloud(r)
         EmbeddingRouterChecks.run(r)
         EmbeddingRouterChecks.runCloudUpgradeHint(r)
+        DerivedConsistencyChecks.run(r)
+        await DerivedConsistencyChecks.runRetrieval(r)
         KeywordLatencyBreakdown.run(r)
         await KeywordLatencyBreakdown.checkCacheIsBitIdentical(r)
         await RetrievalProviderBenchmark.run(r)

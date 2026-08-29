@@ -91,6 +91,10 @@ final class IndexingService {
     /// 于是每次冷启动都重嵌一遍全库。
     func start() async {
         await loadPersistedIndex()
+        // 历史孤儿：这台设备上**在修复之前**删掉的文件夹留下的 derived 数据。
+        // 只修未来的删除路径不够 —— 那些记录已经在磁盘上，而且每次冷启动都会被
+        // `loadPersistedIndex` 忠实地灌回内存索引，继续占 topK 名额。
+        _ = await reconcileOrphans()
         await indexAll()
     }
 
@@ -182,6 +186,45 @@ final class IndexingService {
         scanned.removeValue(forKey: noteID)
         dirtyNoteIDs.remove(noteID)
         await refreshState()
+    }
+
+    /// 一批笔记被删除（删文件夹会一次删掉其中全部笔记）。
+    ///
+    /// **不是 `for id in ids { await noteWasDeleted(id) }` 的语法糖**：那样每篇都会
+    /// 走一次 `refreshState()`，删 200 篇就重算 200 次状态。这里只在末尾算一次。
+    func notesWereDeleted(_ noteIDs: [String]) async {
+        guard !noteIDs.isEmpty else { return }
+        for noteID in noteIDs {
+            derived.deleteChunks(derived.chunkIDs(noteID: noteID))
+            derived.deleteOCR(noteID: noteID)
+            await vectors.removeNote(noteID)
+            scanned.removeValue(forKey: noteID)
+            dirtyNoteIDs.remove(noteID)
+        }
+        await refreshState()
+    }
+
+    // MARK: 一致性对账
+
+    /// 只查不改。Developer Tools 的「Derived 一致性」一行读它，测试也读它。
+    func consistencyReport() async -> DerivedConsistencyReport {
+        DerivedConsistency.check(liveNoteIDs: Set(allCards().map { $0.id.uuidString }),
+                                 embeddingNoteIDs: derived.embeddingNoteIDs(),
+                                 ocrNoteIDs: derived.ocrNoteIDs(),
+                                 indexedNoteIDs: await vectors.noteIDs())
+    }
+
+    /// 查完就清。返回的是**清理前**的报告 —— 调用方要知道清掉了什么，
+    /// 而清理后的报告永远是「一致」，说明不了任何事。
+    ///
+    /// 空笔记库时拒绝执行（`DerivedConsistency.isSafeToReconcile`）：那更可能是一次
+    /// 读取失败，而猜错方向的代价是把一份要几分钟才能重建的索引删掉。
+    @discardableResult
+    func reconcileOrphans() async -> DerivedConsistencyReport {
+        let report = await consistencyReport()
+        guard !report.isConsistent, DerivedConsistency.isSafeToReconcile(report) else { return report }
+        await notesWereDeleted(report.orphanNoteIDs)
+        return report
     }
 
     // MARK: 主流程

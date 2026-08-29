@@ -182,6 +182,20 @@ final class DerivedDataStore {
         ((try? context.fetch(FetchDescriptor<EmbeddingRecordEntity>())) ?? []).map { $0.toValue() }
     }
 
+    /// Every noteID that has at least one embedding row.
+    ///
+    /// This is one of the three inputs to `DerivedConsistency.check`. It is a full
+    /// table scan, which is why it runs at launch and on explicit request — never
+    /// on the edit path.
+    func embeddingNoteIDs() -> Set<String> {
+        Set(((try? context.fetch(FetchDescriptor<EmbeddingRecordEntity>())) ?? []).map(\.noteID))
+    }
+
+    /// Every noteID that has at least one OCR row.
+    func ocrNoteIDs() -> Set<String> {
+        Set(((try? context.fetch(FetchDescriptor<ImageTextExtractionEntity>())) ?? []).map(\.noteID))
+    }
+
     /// Every chunk id stored for one note — what a note deletion has to clean up.
     func chunkIDs(noteID: String) -> [String] {
         var fetch = FetchDescriptor<EmbeddingRecordEntity>(predicate: #Predicate { $0.noteID == noteID })

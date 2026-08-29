@@ -4,6 +4,9 @@ import SwiftData
 /// Home screen: the folder list (PRD §4.1).
 struct FolderListView: View {
     @Environment(\.modelContext) private var modelContext
+    /// 可选：Preview / 测试里没有注入检索栈。删除路径必须在它缺席时仍然正确 ——
+    /// 只是那时没有 derived 数据要清。
+    @Environment(RetrievalEnvironment.self) private var retrieval: RetrievalEnvironment?
     @Query(sort: [SortDescriptor(\Folder.sortOrder), SortDescriptor(\Folder.createdAt)])
     private var folders: [Folder]
 
@@ -91,12 +94,20 @@ struct FolderListView: View {
     }
 
     private func delete(_ folder: Folder) {
+        // **先收集 noteID，再删。** cascade 删完之后 `folder.cards` 已经拿不到了，
+        // 那时再想知道「刚刚删掉的是哪几篇」就只能靠对账去猜。
+        let noteIDs = (folder.cards ?? []).map { $0.id.uuidString }
         // Clean up media files for all blocks before cascade delete.
         for card in folder.cards ?? [] {
             for block in card.blocks ?? [] { MediaStore.shared.deleteMedia(for: block) }
         }
         modelContext.delete(folder)
         try? modelContext.save()
+        // derived 数据在另一个 container 里，**没有任何 cascade 能到达它**。
+        // 漏掉这一步 = 残留向量继续进 topK，搜索页回查笔记失败后静默丢行。
+        if let retrieval {
+            Task { await retrieval.notesWereDeleted(noteIDs) }
+        }
     }
 }
 

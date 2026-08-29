@@ -17,6 +17,8 @@ struct DeveloperModeView: View {
     /// 各自 `NavigationLink` 里现场 new 一个的话，Gate 上看到的失败会和 Eval 里
     /// 刚标注过的那批对不上 —— 归因是会话内的工作状态，不是从磁盘读回来的。
     @State private var eval: RetrievalEvalViewModel?
+    /// derived 与笔记库的对账结果。`nil` = 这次进入页面还没查过。
+    @State private var consistency: DerivedConsistencyReport?
 
     var body: some View {
         List {
@@ -101,6 +103,33 @@ struct DeveloperModeView: View {
                 }
             }
 
+            // 孤儿 derived 数据是**静默**的失败：它占掉一个 topK 名额，
+            // 搜索页回查笔记失败后把那一行丢掉，用户只看到「少了一条结果」。
+            // 所以它必须有一处能被看见的地方。
+            Section("一致性") {
+                if let report = consistency {
+                    LabeledContent("Derived 对账",
+                                   value: report.isConsistent ? "一致" : "有孤儿")
+                        .foregroundStyle(report.isConsistent ? Color.primary : .red)
+                    Text(report.summary)
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !report.isConsistent {
+                        Button("清理孤儿数据") {
+                            Task {
+                                _ = await retrieval.indexing.reconcileOrphans()
+                                consistency = await retrieval.derivedConsistency()
+                            }
+                        }
+                    }
+                } else {
+                    ProgressView()
+                }
+                Button("重新对账") {
+                    Task { consistency = await retrieval.derivedConsistency() }
+                }
+            }
+
             Section {
                 Text("这些工具只面向开发者与 AI TPM。普通用户不会看到本页，也不会在产品界面里见到 embedding / 向量 / RRF 等词。")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -117,6 +146,7 @@ struct DeveloperModeView: View {
                     release: retrieval.release)
             }
             await retrieval.indexing.refreshState()
+            consistency = await retrieval.derivedConsistency()
         }
     }
 }
@@ -296,6 +326,22 @@ final class RetrievalEnvironment {
         await indexing.noteWasDeleted(noteID)
         // 删笔记同样不重扫全库：这里不会**新增**中文，只可能减少，而降级不紧急。
         refreshDesiredRoute()
+    }
+
+    /// 一批笔记被删除 —— 删文件夹走这条。
+    ///
+    /// 文件夹删除此前**完全没有**接线：SwiftData 的 cascade 删掉了笔记，
+    /// 而 derived 数据在另一个 container 里，没有任何 cascade 能到达它。
+    /// 残留的向量会继续进 topK，搜索页拿 noteID 回查笔记失败后静默丢掉那一行 ——
+    /// 用户看到的不是错误结果，而是**少了一条结果**。
+    func notesWereDeleted(_ noteIDs: [String]) async {
+        await indexing.notesWereDeleted(noteIDs)
+        refreshDesiredRoute()
+    }
+
+    /// derived 数据与笔记库的对账。只查不改。
+    func derivedConsistency() async -> DerivedConsistencyReport {
+        await indexing.consistencyReport()
     }
 
     /// 设置变了（填了 Key、给了同意）→ 重新看一眼应该走哪条，但不擅自重建。

@@ -127,4 +127,10 @@ public actor InMemoryVectorStore: VectorSearching {
     public func count() async -> Int { entries.count }
     public func chunkIDs(for ref: BlockRef) -> [String] { Array(byBlock[ref] ?? []).sorted() }
     public func allChunkIDs() -> [String] { entries.keys.sorted() }
+
+    /// 索引里出现过的全部 noteID —— `DerivedConsistency` 对账的第三个输入。
+    ///
+    /// 从 `byBlock` 的 key 取而不是遍历 `entries`：一篇笔记的 N 个 chunk 共享
+    /// 同一个 `BlockRef.noteID`，按块聚合天然少一个数量级的遍历。
+    public func noteIDs() -> Set<String> { Set(byBlock.keys.map(\.noteID)) }
 }
