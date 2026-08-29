@@ -1,0 +1,11 @@
+{
+  "name": "Mosaic Dev Tools 线框（Track B）",
+  "id": "mosaic-devtools-wireframe",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "reasoning": "完全离线，只在当前文件内创建一个 🔧 Dev Tools 页。"
+  }
+}

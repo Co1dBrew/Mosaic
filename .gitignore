@@ -20,4 +20,13 @@ App/Mosaic.xcodeproj/
 # Secrets / local config
 *.local
 Secrets.xcconfig
-design/
+# 真机云端基准的凭据（MosaicBench.test5）—— 打进测试 bundle 才能上设备，
+# 因为设备上的测试进程读不到 Mac 的环境变量。跑完请删掉。
+App/MosaicBench/CloudCredentials.json
+
+# design/ 是**受版本控制**的（DECISION_CONFIG: DESIGN_DIRECTORY = VERSION_CONTROLLED）。
+# 只忽略里面的一次性产物，不忽略整个目录 —— 设计契约与 Figma 插件源码是
+# Source of Truth，它们不在 git 里就没有人能复现产品设计。
+design/**/node_modules/
+design/**/*.fig
+design/**/exports/

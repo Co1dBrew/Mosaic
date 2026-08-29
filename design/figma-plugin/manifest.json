@@ -1,0 +1,11 @@
+{
+  "name": "Mosaic UI v2 生成器",
+  "id": "mosaic-ui-v2-generator",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "reasoning": "插件完全离线运行，只在当前文件内创建图层，不发起任何网络请求。"
+  }
+}
