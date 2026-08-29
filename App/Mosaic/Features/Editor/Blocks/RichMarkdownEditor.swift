@@ -7,7 +7,21 @@ import UIKit
 /// plain Markdown source in the bound string.
 struct RichMarkdownEditor: UIViewRepresentable {
     @Binding var text: String
+    /// 双向焦点。**v2 需要它做两件事**：
+    /// 1. 失焦即渲染 Markdown、聚焦即显示源码（`UI_REDESIGN.md` §3.8，零按钮）
+    /// 2. 卡片为空时自动创建一个空文字块并**把光标放进去**（§3.5「进入即可写」）
+    ///
+    /// SwiftUI 的 `@FocusState` 管不到 `UITextView`，所以焦点必须由这里代理。
+    @Binding var isFocused: Bool
     var onChange: () -> Void = {}
+
+    init(text: Binding<String>,
+         isFocused: Binding<Bool> = .constant(false),
+         onChange: @escaping () -> Void = {}) {
+        self._text = text
+        self._isFocused = isFocused
+        self.onChange = onChange
+    }
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -31,6 +45,13 @@ struct RichMarkdownEditor: UIViewRepresentable {
 
     func updateUIView(_ uiView: UITextView, context: Context) {
         if uiView.text != text { uiView.text = text }
+        // 只在**状态不一致**时动一次。无条件调用 `becomeFirstResponder()` 会在每一次
+        // 布局更新里抢回焦点，用户点别的块就再也点不走。
+        if isFocused, !uiView.isFirstResponder {
+            DispatchQueue.main.async { uiView.becomeFirstResponder() }
+        } else if !isFocused, uiView.isFirstResponder {
+            DispatchQueue.main.async { uiView.resignFirstResponder() }
+        }
     }
 
     /// **既有缺陷的修复。** 不实现这个方法时，SwiftUI 只能用 `UITextView` 的固有尺寸，
@@ -49,7 +70,7 @@ struct RichMarkdownEditor: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, UITextViewDelegate {
-        private let parent: RichMarkdownEditor
+        private var parent: RichMarkdownEditor
         weak var textView: UITextView?
 
         init(_ parent: RichMarkdownEditor) { self.parent = parent }
@@ -57,6 +78,16 @@ struct RichMarkdownEditor: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
             parent.onChange()
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            guard !parent.isFocused else { return }
+            parent.isFocused = true
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            guard parent.isFocused else { return }
+            parent.isFocused = false
         }
 
         func makeToolbar() -> UIToolbar {

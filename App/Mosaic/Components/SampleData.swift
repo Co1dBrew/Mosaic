@@ -4,21 +4,14 @@ import SwiftUI
 import SwiftData
 import MosaicKit
 
-/// DEBUG-only screen (via `--cards-demo`) that seeds data then shows the first
-/// folder's card list, for screenshotting tags / pinning UI.
+/// DEBUG-only screen (via `--cards-demo`)：灌样例数据后直接进 v2 首页，
+/// 用来截图笔记流 / 置顶 / 标签。
 struct CardsDemoView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var folders: [Folder]
 
     var body: some View {
-        Group {
-            if let folder = folders.first {
-                CardListView(folder: folder)
-            } else {
-                ProgressView()
-            }
-        }
-        .task { SampleData.seedIfEmpty(modelContext) }
+        NoteListView()
+            .task { SampleData.seedIfEmpty(modelContext) }
     }
 }
 

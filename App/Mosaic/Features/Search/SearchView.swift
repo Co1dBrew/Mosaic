@@ -13,6 +13,7 @@ import MosaicKit
 struct SearchView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(RetrievalEnvironment.self) private var retrieval: RetrievalEnvironment?
+    @Environment(AppRouter.self) private var router
 
     var initialQuery: String = ""
 
@@ -20,7 +21,6 @@ struct SearchView: View {
     @State private var viewModel: SearchViewModel?
     /// §3.1 的导航载荷：**笔记 + 落点**，不只是笔记。
     /// 只带 noteID 的话，进笔记后只能停在顶部 —— 那正是 5.10 之前的行为。
-    @State private var selection: Selection?
     @State private var showCloudConsent = false
 
     var body: some View {
@@ -58,9 +58,6 @@ struct SearchView: View {
         } message: {
             Text("你的笔记里有中文，而这台设备上没有可离线使用的中文模型。开启后，笔记中的文字会通过 HTTPS 发送到你在「设置」里配置的第三方服务来建立索引;不开启则只按关键词搜索,不会发送任何内容。调用费用由你的账户承担。")
         }
-        .navigationDestination(item: $selection) { selection in
-            CardEditorView(card: selection.card, landing: selection.anchor)
-        }
     }
 
     /// P1 #8 · 该不该在零结果下提一句「开启云端能搜到另一种语言」。
@@ -93,19 +90,6 @@ struct SearchView: View {
     private var needsCloudConsent: Bool {
         guard let retrieval else { return false }
         return retrieval.route.needsCloudConsent || retrieval.desiredRoute?.needsCloudConsent == true
-    }
-
-    /// 一次点击选中的「笔记 + 落点」。
-    ///
-    /// `id` 里带上 anchor：§3.6 明确要求**再次进入同一条结果时重复 highlight**，
-    /// 而 `navigationDestination(item:)` 只在 `id` 变化时重建目标视图。
-    private struct Selection: Identifiable, Hashable {
-        let card: Card
-        let anchor: SearchAnchor
-        var id: String { SearchDestination(noteID: card.id.uuidString, anchor: anchor).id }
-
-        static func == (lhs: Selection, rhs: Selection) -> Bool { lhs.id == rhs.id }
-        func hash(into hasher: inout Hasher) { hasher.combine(id) }
     }
 
     @ViewBuilder
@@ -143,7 +127,7 @@ struct SearchView: View {
             ForEach(viewModel.rows) { row in
                 if let card = viewModel.card(for: row.noteID) {
                     // anchor 由检索层给出，UI 不猜（§3.1）。
-                    Button { selection = Selection(card: card, anchor: row.anchor) } label: {
+                    Button { router.push(.note(card: card, anchor: row.anchor)) } label: {
                         SearchResultRow(row: row, card: card)
                     }
                     .buttonStyle(.plain)

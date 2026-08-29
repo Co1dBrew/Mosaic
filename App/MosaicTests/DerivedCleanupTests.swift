@@ -124,7 +124,7 @@ final class DerivedCleanupTests: XCTestCase {
         await stack.service.indexAll()
         XCTAssertEqual(stack.derived.embeddingNoteIDs().count, 6)
 
-        // 生产代码在 FolderListView.delete(_:) 里做的两步：**先收集 id，再删**。
+        // 生产代码在 FolderManageView.delete(_:) 里做的两步：**先收集 id，再删**。
         let noteIDs = (folder.cards ?? []).map { $0.id.uuidString }
         XCTAssertEqual(noteIDs.count, 5)
         stack.context.delete(folder)
@@ -250,8 +250,18 @@ final class DerivedCleanupTests: XCTestCase {
         let cleanNotes = clean.results.map { $0.ref.noteID }
         XCTAssertTrue(Set(cleanNotes).isDisjoint(with: deleted), "清理后 topK 里没有已删除的笔记")
         XCTAssertEqual(Set(cleanNotes).count, 5, "五个名额全部给了还活着的笔记")
-        XCTAssertEqual(dirtyNotes, Set(cleanNotes),
-                       "清理前后返回的是同一批笔记 —— 清理修的是索引卫生，不是结果内容")
+
+        // **清理前后返回的不一定是同一批笔记，这是对的。**
+        //
+        // 第一版这里断言了「两批相同」，实测不成立。原因：孤儿不只占 topK 名额，
+        // 它同样占**候选**名额 —— vector 路只取 candidateK 条，孤儿在里面就意味着
+        // 少了 3 条活着的候选进入融合。清理之后那 3 个位置让给了更深的活笔记，
+        // 融合排名因此变化。
+        //
+        // 结论是「跳过陈旧项」只能保证不少给结果，**保证不了排名与干净索引一致**。
+        // 所以清理必须真的做，不能靠检索侧兜底。这条注释就是那个理由。
+        XCTAssertTrue(Set(cleanNotes).isSubset(of: Set(cards.map { $0.id.uuidString })),
+                      "两次返回的都是语料里真实存在的笔记")
     }
 
     // MARK: 6 · 重启：历史孤儿在启动时被清掉

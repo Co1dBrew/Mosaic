@@ -59,7 +59,7 @@ final class RetrievalFoundationTests: XCTestCase {
         try ctx.save()
         let originalIDs = made.map(\.id)
 
-        // Reorder exactly the way CardEditorView.moveBlocks does: rewrite `order`.
+        // Reorder exactly the way NoteDetailView.moveBlocks does: rewrite `order`.
         let reordered = Array(card.orderedBlocks.reversed())
         for (i, b) in reordered.enumerated() { b.order = i }
         try ctx.save()
@@ -109,7 +109,7 @@ final class RetrievalFoundationTests: XCTestCase {
         let job = await coordinator.submit(key12) { try await provider.embed(text) }
 
         // The user edits while the embedding is in flight. This runs on @MainActor,
-        // exactly as CardEditorView does.
+        // exactly as NoteDetailView does.
         block.text = "v13 内容（已修改）"
         card.touch()
         try ctx.save()

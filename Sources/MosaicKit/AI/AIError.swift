@@ -52,6 +52,21 @@ public enum AIError: Error, Equatable, Sendable {
         }
     }
 
+    /// 这条错误要不要给「去设置」。
+    ///
+    /// 判断从 `SummaryStickerView` 里搬上来：它原本是 View 里的一个 `switch`，
+    /// 而「哪些错误是配置问题」是错误自身的性质 —— 放在 View 里意味着每个消费它的
+    /// 界面都要再写一遍，两处迟早会不一致（v2 的笔记页就是第二处）。
+    public var isConfiguration: Bool {
+        switch self {
+        case .missingAPIKey, .missingModel, .invalidBaseURL, .unauthorized:
+            return true
+        case .offline, .rateLimited, .serverError, .emptyContent, .changeTooSmall,
+             .invalidJSON, .visionUnsupported, .requestFailed, .timedOut, .cancelled:
+            return false
+        }
+    }
+
     /// Whether offering a "retry" action makes sense for this error.
     public var isRetryable: Bool {
         switch self {

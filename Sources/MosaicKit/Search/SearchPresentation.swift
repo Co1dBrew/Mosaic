@@ -79,7 +79,7 @@ private extension Character {
 /// 导航载荷的落点（`SEARCH_CONTRACT.md` §3.1）。
 ///
 /// **由检索层给出，不由 UI 猜。** 定不下来就退化为 `.top`，不报错。
-public enum SearchAnchor: Sendable, Equatable {
+public enum SearchAnchor: Sendable, Equatable, Hashable {
     case top
     /// text / image(OCR) / document / link 四类
     case block(String)

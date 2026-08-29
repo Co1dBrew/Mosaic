@@ -57,11 +57,16 @@ extension BlockKind {
 
 enum Format {
     /// Relative "last modified" string (PRD §4.4 最后修改时间).
-    static func relative(_ date: Date) -> String {
+    ///
+    /// **一分钟以内直接说「刚刚」。** `RelativeDateTimeFormatter` 在时间差极小时
+    /// 会把符号判到未来一侧，输出「0秒后」——「后」是未来时态，用在「最后修改时间」
+    /// 上是错的，而且刚保存完的笔记恰恰全都落在这一档（在模拟器上一眼可见）。
+    static func relative(_ date: Date, now: Date = Date()) -> String {
+        if abs(now.timeIntervalSince(date)) < 60 { return "刚刚" }
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.unitsStyle = .short
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return formatter.localizedString(for: date, relativeTo: now)
     }
 
     static func dateTime(_ date: Date) -> String {

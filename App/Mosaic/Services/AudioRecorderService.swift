@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import Observation
+import MosaicKit
 
 /// Records audio to the sandbox using AVFoundation (PRD §4.3.2): start / pause /
 /// resume / stop, with elapsed time and a simple waveform from metering.
@@ -27,6 +28,17 @@ final class AudioRecorderService {
     var isPaused: Bool { state == .paused }
     var isActive: Bool { state != .idle }
 
+    /// 当前的麦克风权限。**不发起请求**，只读系统的记录 ——
+    /// 界面要在弹窗之前就知道该显示「允许访问」还是「去设置」。
+    var microphonePermission: PermissionStatus {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:       return .granted
+        case .denied:        return .denied
+        case .undetermined:  return .notDetermined
+        @unknown default:    return .notDetermined
+        }
+    }
+
     /// Requests microphone permission (PRD privacy / Info.plist usage string).
     func requestPermission() async -> Bool {
         await withCheckedContinuation { continuation in
@@ -34,6 +46,12 @@ final class AudioRecorderService {
                 continuation.resume(returning: granted)
             }
         }
+    }
+
+    /// 用户可能刚从系统设置里改过权限。重新读一次并清掉旧的拒绝标记 ——
+    /// 界面停在「权限已关闭」会让人以为设置没生效。
+    func refreshPermissionState() {
+        permissionDenied = (microphonePermission == .denied)
     }
 
     func start() async throws {

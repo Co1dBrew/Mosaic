@@ -1,0 +1,755 @@
+import SwiftUI
+import UIKit
+import SwiftData
+import PhotosUI
+import MosaicKit
+
+/// # 笔记页（`UI_REDESIGN.md` v2 §3）
+///
+/// v2 把原来的「卡片列表行里展开 AI 摘要」+「编辑器」两页合成一页。
+/// 摘要与内容此前分居两处、永不同框；现在摘要是页面顶部一条 44pt 的横条。
+///
+/// ## 与旧 `CardEditorView` 的差别
+///
+/// | | 旧 | v2 |
+/// |---|---|---|
+/// | 摘要 | 列表行里展开 | 页面顶部横条，原地展开 |
+/// | 低频动作 | 散落在 5 处 | 全部收进 `⋯` |
+/// | 插入内容 | 「＋ 添加内容」菜单 | 底部常驻工具条，一次点击 |
+/// | 文字块 | 每块一个「编辑/预览」按钮 | 零按钮，聚焦即源码 |
+/// | 块的删除/排序 | swipe / EditButton / 无长按 | 长按菜单 + 拖拽 |
+/// | 生成时机 | `onAppear` 生成 base、退出生成 update | **只有退出这一条规则** |
+/// | 文件夹 | 改不了 | 导航栏 `📁 ▾` |
+///
+/// ## 保留不动的
+///
+/// 搜索落点（`SEARCH_CONTRACT.md` §3：滚动 · 高亮 · 可中断 · 转写先展开）
+/// 原样搬过来。Goal 1 的 UI 行为**不允许因为换壳而回退**。
+struct NoteDetailView: View {
+    @Bindable var card: Card
+    /// 从搜索结果进来时的落点。平时是 `nil` —— 那时既不滚动也不高亮。
+    var landing: SearchAnchor?
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.summaryService) private var summaryService
+    @Environment(\.transcriptionService) private var transcriptionService
+    @Environment(SettingsStore.self) private var settings
+    @Environment(RetrievalEnvironment.self) private var retrieval: RetrievalEnvironment?
+    @Query(sort: [SortDescriptor(\Folder.sortOrder), SortDescriptor(\Folder.createdAt)])
+    private var folders: [Folder]
+
+    @State private var player = AudioPlayerService()
+
+    // 插入入口
+    @State private var showRecorder = false
+    @State private var showCamera = false
+    @State private var showDocumentPicker = false
+    @State private var showLinkPrompt = false
+    @State private var linkText = ""
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var showPhotosPicker = false
+    @State private var pasteBanner: String?
+    @State private var showNewFolderSheet = false
+    @State private var showSettings = false
+
+    // 摘要
+    @State private var summaryExpanded = false
+    @State private var isGeneratingSummary = false
+    @State private var summaryError: String?
+    @State private var summaryErrorIsConfig = false
+    @State private var showPrivacyGate = false
+    @State private var pendingPrivacyAction: (() -> Void)?
+    @State private var showRegenerateConfirm = false
+    @State private var showClearConfirm = false
+    @State private var showDeleteConfirm = false
+
+    // 转写
+    @State private var transcribingBlockIDs: Set<UUID> = []
+    @State private var transcriptionErrors: [UUID: String] = [:]
+    @State private var showAudioUploadConsent = false
+    @State private var pendingTranscribeBlockID: UUID?
+
+    // 编辑
+    @State private var focusedBlockID: UUID?
+    @State private var showTagEditor = false
+    @State private var banner: String?
+    @State private var autosaveTask: Task<Void, Never>?
+    @State private var shareItems: [Any] = []
+    @State private var showShare = false
+    @State private var didDelete = false
+
+    // 落点
+    @State private var landingController = SearchLandingController()
+    @State private var landingBlockHeight: CGFloat = 0
+    @State private var viewportHeight: CGFloat = 0
+
+    @Environment(\.dismiss) private var dismiss
+
+    // MARK: 布局
+
+    var body: some View {
+        GeometryReader { geo in
+            ScrollViewReader { proxy in
+                VStack(spacing: 0) {
+                    NoteSummaryBarView(state: summaryBarState,
+                                       isExpanded: $summaryExpanded,
+                                       summary: card.summary,
+                                       onRetry: { gate { generateBase() } },
+                                       onAddTopicAsTag: addTopicAsTag,
+                                       onOpenSettings: { showSettings = true })
+                    Divider()
+                    blockList(proxy: proxy)
+                }
+                .onAppear { viewportHeight = geo.size.height }
+                .onChange(of: geo.size.height) { _, new in viewportHeight = new }
+            }
+        }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { toolbarContent }
+        .navigationDestination(isPresented: $showSettings) { SettingsView() }
+        .safeAreaInset(edge: .bottom) { insertToolbar }
+        .modifier(NoteDetailSheets(
+            card: card,
+            showRecorder: $showRecorder, showCamera: $showCamera,
+            showDocumentPicker: $showDocumentPicker, showPhotosPicker: $showPhotosPicker,
+            photoItems: $photoItems, showShare: $showShare, shareItems: $shareItems,
+            showTagEditor: $showTagEditor, showNewFolderSheet: $showNewFolderSheet,
+            onAudio: addAudio, onImage: { addImage($0, source: .camera) },
+            onDocument: addDocument, onPhotos: importPhotos,
+            onTagChange: commitNow, onCreateFolder: createFolder))
+        .modifier(NoteDetailDialogs(
+            linkText: $linkText, showLinkPrompt: $showLinkPrompt,
+            banner: $banner, pasteBanner: $pasteBanner,
+            showPrivacyGate: $showPrivacyGate,
+            showAudioUploadConsent: $showAudioUploadConsent,
+            showRegenerateConfirm: $showRegenerateConfirm,
+            showClearConfirm: $showClearConfirm,
+            showDeleteConfirm: $showDeleteConfirm,
+            onAddLink: addLink,
+            onAcceptPrivacy: acceptPrivacy,
+            onAcceptAudioUpload: acceptAudioUpload,
+            onRegenerate: { gate { regenerate() } },
+            onClear: clearSummary,
+            onDelete: deleteNote))
+        // §3.3「可中断」：用户滚动 / 点击 → 立即淡出高亮。
+        .simultaneousGesture(DragGesture(minimumDistance: 4).onChanged { _ in
+            landingController.interrupt()
+        })
+        .simultaneousGesture(TapGesture().onEnded { landingController.interrupt() })
+        .onAppear(perform: markUpdatesRead)
+        .onDisappear(perform: handleExit)
+    }
+
+    private func blockList(proxy: ScrollViewProxy) -> some View {
+        List {
+            Section {
+                TextField("标题（可留空，由 AI 生成）", text: $card.userTitle)
+                    .font(.title3.bold())
+                    .onChange(of: card.userTitle) { _, _ in scheduleAutosave() }
+                    .accessibilityIdentifier("note.title")
+                    .listRowSeparator(.hidden)
+
+                // 标签：有才显示，点击展开编辑（§3.7）。无标签时靠底部 `#` 召唤。
+                if !card.tags.isEmpty {
+                    FlowLayout(spacing: AppSpacing.xs) {
+                        ForEach(card.tags, id: \.self) { TagChip(text: $0) }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { showTagEditor = true }
+                    .listRowSeparator(.hidden)
+                }
+            }
+
+            Section {
+                ForEach(card.orderedBlocks) { block in
+                    blockRow(block)
+                        .listRowSeparator(.hidden)
+                        // IG-3：稳定唯一 id 是 Result → Note 的硬前置。
+                        .id(block.id.uuidString)
+                        .landingHighlight(isActive: landingController.isHighlighted(block.id.uuidString),
+                                          opacity: landingController.highlightOpacity)
+                        .background(landingMeasurement(for: block))
+                        // §3.9：块的删除与排序统一为「长按菜单 + 拖拽」两条路径。
+                        // 顶部的 EditButton 模式已删除。
+                        .contextMenu { blockMenu(block) }
+                }
+                .onMove(perform: moveBlocks)
+            }
+        }
+        .listStyle(.plain)
+        .accessibilityIdentifier("note.blocks")
+        .onAppear {
+            ensureTrailingTextBlock(focusIfEmpty: true)
+            performLanding(proxy: proxy)
+        }
+    }
+
+    // MARK: 导航栏
+
+    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
+        // 中间：文件夹选择器（§3.2）。也是「移动到文件夹」的第二个入口 ——
+        // 用户在写的过程中随手归类，而不是被迫在新建前就决定。
+        ToolbarItem(placement: .principal) {
+            Menu {
+                Button { move(to: nil) } label: {
+                    Label("未归类", systemImage: card.folder == nil ? "checkmark" : "tray")
+                }
+                ForEach(folders) { folder in
+                    Button { move(to: folder) } label: {
+                        Label(folder.name,
+                              systemImage: card.folder?.id == folder.id ? "checkmark" : folder.iconName)
+                    }
+                }
+                Divider()
+                Button { showNewFolderSheet = true } label: { Label("新建文件夹…", systemImage: "folder.badge.plus") }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: card.folder?.iconName ?? "tray")
+                        .font(.caption)
+                    Text(card.folder?.name ?? "未归类")
+                        .font(.subheadline)
+                    Image(systemName: "chevron.down").font(.caption2)
+                }
+                .foregroundStyle(.primary)
+            }
+            .accessibilityIdentifier("note.folderPicker")
+        }
+        // 右：`⋯` —— 所有低频动作的唯一收口（§3.3）。
+        // 之前它们散落在 5 处：pin 按钮、EditButton、底部 share 菜单、
+        // 摘要贴纸里的三个按钮、两个 confirmationDialog。
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button {
+                    card.isPinned.toggle()
+                    try? modelContext.save()
+                } label: {
+                    Label(card.isPinned ? "取消置顶" : "置顶",
+                          systemImage: card.isPinned ? "pin.slash" : "pin")
+                }
+                Divider()
+                Button { gate { updateNow() } } label: { Label("立即更新总结", systemImage: "arrow.clockwise") }
+                Button { showRegenerateConfirm = true } label: { Label("重新生成完整总结", systemImage: "sparkles") }
+                if card.summary?.hasBase == true {
+                    Button { showClearConfirm = true } label: { Label("清除 AI 摘要", systemImage: "eraser") }
+                }
+                Divider()
+                ForEach(CardExportFormat.allCases, id: \.self) { format in
+                    Button("导出为 \(format.displayName)") { export(format) }
+                }
+                Divider()
+                Button(role: .destructive) { showDeleteConfirm = true } label: {
+                    Label("删除笔记", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .accessibilityLabel("更多操作")
+            .accessibilityIdentifier("note.more")
+        }
+    }
+
+    // MARK: 底部工具条（§3.6）
+
+    /// 取代旧的「＋ 添加内容」菜单。四个插入图标一次点击到位，
+    /// 相机是唯一保留二级菜单的（真有两个来源）。
+    private var insertToolbar: some View {
+        VStack(spacing: 0) {
+            if let pasteBanner {
+                Text(pasteBanner)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, AppSpacing.lg)
+                    .padding(.vertical, AppSpacing.xs)
+            }
+            Divider()
+            HStack(spacing: 0) {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Menu {
+                        Button { showCamera = true } label: { Label("拍照", systemImage: "camera") }
+                        Button { showPhotosPicker = true } label: { Label("从相册选", systemImage: "photo.on.rectangle") }
+                    } label: {
+                        toolbarIcon("camera")
+                    }
+                    .accessibilityLabel("插入图片")
+                    .accessibilityIdentifier("note.insert.image")
+                } else {
+                    // 相机不可用时直接进相册，不弹一个只有一项的菜单。
+                    Button { showPhotosPicker = true } label: { toolbarIcon("camera") }
+                        .accessibilityLabel("插入图片")
+                        .accessibilityIdentifier("note.insert.image")
+                }
+                Button { showRecorder = true } label: { toolbarIcon("mic") }
+                    .accessibilityLabel("录音")
+                    .accessibilityIdentifier("note.insert.audio")
+                Button { showDocumentPicker = true } label: { toolbarIcon("doc") }
+                    .accessibilityLabel("插入文档")
+                    .accessibilityIdentifier("note.insert.file")
+                Button { insertLinkFromPasteboardOrPrompt() } label: { toolbarIcon("link") }
+                    .accessibilityLabel("插入链接")
+                    .accessibilityIdentifier("note.insert.link")
+                Spacer()
+                Button { showTagEditor = true } label: { toolbarIcon("number") }
+                    .accessibilityLabel("编辑标签")
+                    .accessibilityIdentifier("note.insert.tag")
+            }
+            .padding(.horizontal, AppSpacing.md)
+            .frame(height: 48)
+            .background(.bar)
+        }
+    }
+
+    private func toolbarIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 19))
+            .frame(width: AppMetrics.minTapTarget, height: AppMetrics.minTapTarget)
+            .contentShape(Rectangle())
+    }
+
+    // MARK: 摘要
+
+    private var summaryBarState: NoteSummaryBarState {
+        NoteSummaryPresentation.barState(
+            hasBase: card.summary?.hasBase ?? false,
+            oneLiner: card.summary?.baseOneLiner ?? "",
+            noteIsEmpty: NoteListPresentation.isEmptyNote(card.blockContents()),
+            isGenerating: isGeneratingSummary,
+            errorMessage: summaryError,
+            errorIsConfiguration: summaryErrorIsConfig,
+            hasUnreadUpdates: (card.summary?.updateLogs ?? []).contains { !$0.isRead })
+    }
+
+    /// 进入笔记页即把更新记录标记为已读 —— 首页那个红点表达的是「有你没看过的更新」，
+    /// 而人已经看到了。
+    private func markUpdatesRead() {
+        guard let logs = card.summary?.updateLogs, logs.contains(where: { !$0.isRead }) else { return }
+        for log in logs where !log.isRead { log.isRead = true }
+        try? modelContext.save()
+    }
+
+    private func addTopicAsTag(_ topic: String) {
+        card.addTag(topic)
+        try? modelContext.save()
+    }
+
+    // MARK: 块
+
+    @ViewBuilder
+    private func blockRow(_ block: Block) -> some View {
+        switch block.kind {
+        case .text:
+            TextBlockView(block: block, onEdit: scheduleAutosave, focusedBlockID: $focusedBlockID)
+        case .image:
+            ImageBlockView(block: block, onEdit: scheduleAutosave)
+        case .audio:
+            AudioBlockView(
+                block: block,
+                player: player,
+                isTranscribing: transcribingBlockIDs.contains(block.id),
+                transcriptionError: transcriptionErrors[block.id],
+                expandsTranscript: landingController.expandsTranscript(block.id.uuidString),
+                onEdit: scheduleAutosave,
+                onRetranscribe: { transcribe(block) }
+            )
+        case .file:
+            FileBlockView(block: block)
+        case .link:
+            LinkBlockView(block: block, onEdit: scheduleAutosave)
+        }
+    }
+
+    @ViewBuilder
+    private func blockMenu(_ block: Block) -> some View {
+        Button { moveBlock(block, by: -1) } label: { Label("上移", systemImage: "arrow.up") }
+            .disabled(block.order == 0)
+        Button { moveBlock(block, by: 1) } label: { Label("下移", systemImage: "arrow.down") }
+            .disabled(block.order == card.orderedBlocks.count - 1)
+        Divider()
+        Button(role: .destructive) { deleteBlock(block) } label: { Label("删除", systemImage: "trash") }
+    }
+
+    // MARK: 落点（原样保留 SEARCH_CONTRACT §3）
+
+    @ViewBuilder
+    private func landingMeasurement(for block: Block) -> some View {
+        if landing?.blockID == block.id.uuidString {
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { landingBlockHeight = geo.size.height }
+                    .onChange(of: geo.size.height) { _, new in landingBlockHeight = new }
+            }
+        }
+    }
+
+    private func performLanding(proxy: ScrollViewProxy) {
+        guard let landing else { return }
+        let existing = Set(card.orderedBlocks.map { $0.id.uuidString })
+        landingController.land(anchor: landing, existingBlockIDs: existing) { blockID in
+            switch SearchLanding.scrollTarget(blockHeight: Double(landingBlockHeight),
+                                              viewportHeight: Double(viewportHeight)) {
+            case .center:
+                proxy.scrollTo(blockID, anchor: .center)
+            case let .top(unitY):
+                proxy.scrollTo(blockID, anchor: UnitPoint(x: 0.5, y: unitY))
+            }
+        }
+    }
+
+    // MARK: 编辑动作
+
+    /// §3.5：**末尾永远有一个可写文字块**。删掉最后一个块时自动补一个空块，
+    /// 因此「添加文字」这个动作在概念上被移除了。
+    ///
+    /// - Parameter focusIfEmpty: 卡片为空时把光标放进去（「进入即可写」）。
+    ///   卡片非空时**不自动聚焦** —— 避免误改已有内容。
+    private func ensureTrailingTextBlock(focusIfEmpty: Bool = false) {
+        let blocks = card.orderedBlocks
+        let wasEmpty = blocks.isEmpty
+        if blocks.last?.kind != .text {
+            let block = Block(kind: .text, order: card.nextBlockOrder)
+            modelContext.insert(block)
+            block.card = card
+            if card.blocks == nil { card.blocks = [] }
+            card.blocks?.append(block)
+            try? modelContext.save()
+            if focusIfEmpty && wasEmpty { focusedBlockID = block.id }
+        }
+    }
+
+    /// 插入位置 = 当前光标所在块之后；无焦点时追加到末尾。
+    /// 插入后自动在其下方补一个空文字块并聚焦 → 「插图 → 继续写」不中断。
+    @discardableResult
+    private func insertBlock(_ kind: BlockKind, configure: (Block) -> Void) -> Block {
+        let anchorOrder = focusedBlockID.flatMap { id in
+            card.orderedBlocks.first { $0.id == id }?.order
+        } ?? (card.orderedBlocks.last?.order ?? -1)
+
+        let block = Block(kind: kind, order: anchorOrder + 1)
+        configure(block)
+        modelContext.insert(block)
+        block.card = card
+        if card.blocks == nil { card.blocks = [] }
+        card.blocks?.append(block)
+
+        // 给后面的块让位。
+        for other in card.orderedBlocks where other.id != block.id && other.order > anchorOrder {
+            other.order += 1
+        }
+        block.order = anchorOrder + 1
+
+        let follower = Block(kind: .text, order: block.order + 1)
+        modelContext.insert(follower)
+        follower.card = card
+        card.blocks?.append(follower)
+        for other in card.orderedBlocks where other.id != follower.id && other.order > block.order {
+            other.order += 1
+        }
+        follower.order = block.order + 1
+
+        commitNow()
+        focusedBlockID = follower.id
+        return block
+    }
+
+    private func moveBlock(_ block: Block, by offset: Int) {
+        var ordered = card.orderedBlocks
+        guard let index = ordered.firstIndex(where: { $0.id == block.id }) else { return }
+        let target = index + offset
+        guard ordered.indices.contains(target) else { return }
+        ordered.swapAt(index, target)
+        for (i, b) in ordered.enumerated() { b.order = i }
+        commitNow()
+    }
+
+    private func moveBlocks(from source: IndexSet, to destination: Int) {
+        var ordered = card.orderedBlocks
+        ordered.move(fromOffsets: source, toOffset: destination)
+        for (index, block) in ordered.enumerated() { block.order = index }
+        commitNow()
+    }
+
+    private func deleteBlock(_ block: Block) {
+        if focusedBlockID == block.id { focusedBlockID = nil }
+        MediaStore.shared.deleteMedia(for: block)
+        modelContext.delete(block)
+        for (index, b) in card.orderedBlocks.enumerated() { b.order = index }
+        commitNow()
+        ensureTrailingTextBlock()
+    }
+
+    private func move(to folder: Folder?) {
+        card.folder = folder
+        card.touch()
+        try? modelContext.save()
+    }
+
+    private func createFolder(_ result: FolderEditSheet.Result) {
+        let folder = Folder(name: result.name, colorHex: result.colorHex,
+                            iconName: result.iconName, sortOrder: result.sortOrder)
+        modelContext.insert(folder)
+        move(to: folder)
+    }
+
+    // MARK: 插入内容
+
+    private func addImage(_ image: UIImage, source: ImageSource) {
+        let pipeline = ImagePipeline()
+        Task { @MainActor in
+            let result = await Task.detached(priority: .userInitiated) {
+                try? pipeline.importImage(image)
+            }.value
+            guard let result else { banner = "图片处理失败，请重试。"; return }
+            insertBlock(.image) { block in
+                block.imageRelativePath = result.imageRelativePath
+                block.thumbnailRelativePath = result.thumbnailRelativePath
+                block.imageSourceRaw = source.rawValue
+            }
+        }
+    }
+
+    private func importPhotos(_ items: [PhotosPickerItem]) {
+        let captured = items
+        photoItems = []
+        Task { @MainActor in
+            for item in captured {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    addImage(image, source: .library)
+                }
+            }
+        }
+    }
+
+    private func addAudio(_ recording: AudioRecorderService.Recording) {
+        let block = insertBlock(.audio) { block in
+            block.audioRelativePath = recording.relativePath
+            block.durationSec = recording.duration
+            block.waveformSamples = recording.waveform
+        }
+        transcribe(block)
+    }
+
+    private func addDocument(_ url: URL) {
+        let importer = DocumentImporter()
+        Task { @MainActor in
+            let result = await Task.detached(priority: .userInitiated) {
+                try? importer.importDocument(from: url)
+            }.value
+            guard let result else { banner = "导入文档失败，请重试。"; return }
+            insertBlock(.file) { block in
+                block.fileRelativePath = result.relativePath
+                block.fileName = result.fileName
+                block.fileType = result.fileType
+                block.extractedText = result.extractedText
+                block.extractionUnavailable = result.extractionUnavailable
+            }
+        }
+    }
+
+    /// §3.6：**剪贴板是 URL 时直接插入**并显示「已粘贴 example.com」，否则弹输入框。
+    /// 大多数链接就是刚复制的那一个 —— 让用户再粘贴一次是多余的一步。
+    private func insertLinkFromPasteboardOrPrompt() {
+        if let url = UIPasteboard.general.url ?? pasteboardURL() {
+            insertBlock(.link) { $0.url = url.absoluteString }
+            pasteBanner = "已粘贴 \(url.host() ?? url.absoluteString)"
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                pasteBanner = nil
+            }
+        } else {
+            showLinkPrompt = true
+        }
+    }
+
+    private func pasteboardURL() -> URL? {
+        guard let text = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+              text.lowercased().hasPrefix("http://") || text.lowercased().hasPrefix("https://"),
+              let url = URL(string: text) else { return nil }
+        return url
+    }
+
+    private func addLink(_ raw: String) {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        insertBlock(.link) { $0.url = trimmed }
+    }
+
+    // MARK: 转写
+
+    private func transcribe(_ block: Block) {
+        guard !block.audioRelativePath.isEmpty, let service = transcriptionService else { return }
+        if service.needsAudioUploadConsent {
+            pendingTranscribeBlockID = block.id
+            showAudioUploadConsent = true
+            return
+        }
+        runTranscription(block)
+    }
+
+    private func acceptAudioUpload() {
+        settings.hasAcceptedAudioUploadNotice = true
+        if let id = pendingTranscribeBlockID,
+           let block = card.orderedBlocks.first(where: { $0.id == id }) {
+            runTranscription(block)
+        }
+        pendingTranscribeBlockID = nil
+    }
+
+    private func runTranscription(_ block: Block) {
+        guard let service = transcriptionService else { return }
+        transcribingBlockIDs.insert(block.id)
+        transcriptionErrors[block.id] = nil
+        let path = block.audioRelativePath
+        Task { @MainActor in
+            defer { transcribingBlockIDs.remove(block.id) }
+            do {
+                let text = try await service.transcribe(relativePath: path)
+                block.transcript = text
+                commitNow()
+            } catch let error as TranscriptionError {
+                transcriptionErrors[block.id] = error.userMessage
+            } catch {
+                transcriptionErrors[block.id] = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: 摘要动作
+
+    /// 首次 AI 隐私同意的闸门。**内容不能在同意之前离开设备。**
+    private func gate(_ action: @escaping () -> Void) {
+        if settings.hasAcceptedAIPrivacyNotice { action() }
+        else { pendingPrivacyAction = action; showPrivacyGate = true }
+    }
+
+    private func acceptPrivacy() {
+        settings.hasAcceptedAIPrivacyNotice = true
+        let action = pendingPrivacyAction
+        pendingPrivacyAction = nil
+        action?()
+    }
+
+    private func generateBase() {
+        runSummary { try await summaryService?.generateBaseSummary(for: card) }
+    }
+
+    private func updateNow() {
+        runSummary { _ = try await summaryService?.generateUpdateSummary(for: card, force: true) }
+    }
+
+    private func regenerate() {
+        runSummary { try await summaryService?.regenerateFullSummary(for: card) }
+    }
+
+    private func clearSummary() {
+        summaryService?.clearSummary(for: card)
+        summaryError = nil
+    }
+
+    private func runSummary(_ work: @escaping () async throws -> Void) {
+        commitNow()
+        isGeneratingSummary = true
+        summaryError = nil
+        Task { @MainActor in
+            defer { isGeneratingSummary = false }
+            do { try await work() }
+            catch let error as AIError {
+                summaryError = error.userMessage
+                summaryErrorIsConfig = error.isConfiguration
+            }
+            catch { summaryError = error.localizedDescription; summaryErrorIsConfig = false }
+        }
+    }
+
+    // MARK: 导出 / 删除
+
+    private func export(_ format: CardExportFormat) {
+        commitNow()
+        do {
+            shareItems = [try CardExportService.writeTempFile(for: card, format: format)]
+            showShare = true
+        } catch {
+            banner = "导出失败，请重试。"
+        }
+    }
+
+    private func deleteNote() {
+        let noteID = card.id.uuidString
+        for block in card.blocks ?? [] { MediaStore.shared.deleteMedia(for: block) }
+        modelContext.delete(card)
+        try? modelContext.save()
+        // derived 数据在另一个 container 里，没有 cascade 能到达它。
+        if let retrieval {
+            Task { await retrieval.noteWasDeleted(noteID) }
+        }
+        // 标记之后 `handleExit` 不再对一个已删除的对象做任何事。
+        didDelete = true
+        dismiss()
+    }
+
+    // MARK: 持久化 / 退出
+
+    private func scheduleAutosave() {
+        landingController.interrupt()
+        autosaveTask?.cancel()
+        autosaveTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            guard !Task.isCancelled else { return }
+            commitNow()
+        }
+    }
+
+    private func commitNow() {
+        guard !didDelete else { return }
+        card.touch()
+        try? modelContext.save()
+        // 保存之后才通知索引 —— 索引读的是 SwiftData 里的权威内容。
+        retrieval?.noteDidChange(card.id.uuidString)
+    }
+
+    /// 退出（§3.10）：flush → 清理空块 → 按**一条规则**决定生成什么。
+    ///
+    /// 判定在内核 `SummaryOnExit.action(...)`，因为它是产品规则不是 UI 细节：
+    /// 「写完退出，AI 就会总结」。旧版有两套机制（首次展开小三角生成初始总结 /
+    /// 退出时生成更新记录），用户要理解两条规则才知道什么时候会花钱。
+    private func handleExit() {
+        guard !didDelete else { return }
+        autosaveTask?.cancel()
+        cleanupEmptyBlocks()
+        commitNow()
+
+        let action = SummaryOnExit.action(
+            autoUpdateEnabled: settings.autoUpdateSummary,
+            privacyAccepted: settings.hasAcceptedAIPrivacyNotice,
+            hasBase: card.summary?.hasBase ?? false,
+            hasContent: !NoteListPresentation.isEmptyNote(card.blockContents()),
+            hasPendingChanges: summaryService?.hasPendingChanges(for: card) ?? false)
+
+        guard let summaryService else { return }
+        switch action {
+        case .none:
+            break
+        case .generateBase:
+            Task { @MainActor in try? await summaryService.generateBaseSummary(for: card) }
+        case .appendUpdate:
+            Task { @MainActor in _ = try? await summaryService.generateUpdateSummary(for: card, force: false) }
+        }
+    }
+
+    /// 空文字块在退出时清理，不留脏数据。**保留最后一个** —— 下次进来时
+    /// 「末尾永远有一个可写文字块」还得靠它，而且笔记完全为空时也需要它。
+    private func cleanupEmptyBlocks() {
+        let ordered = card.orderedBlocks
+        let empties = ordered.filter { $0.isEffectivelyEmpty }
+        guard !empties.isEmpty else { return }
+        // 全空 → 一个都不删（这是一条空笔记，用户可能马上回来写）。
+        let keepLast = empties.count == ordered.count
+        for (i, block) in empties.enumerated() {
+            if keepLast && i == empties.count - 1 { continue }
+            MediaStore.shared.deleteMedia(for: block)
+            modelContext.delete(block)
+        }
+        for (index, block) in card.orderedBlocks.enumerated() { block.order = index }
+    }
+}

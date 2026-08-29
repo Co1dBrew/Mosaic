@@ -2,13 +2,28 @@ import SwiftUI
 import SwiftData
 import MosaicKit
 
-/// Root navigation (PRD §3 stack-based navigation): Folders → Cards → Editor,
-/// with Settings reachable from the folder list.
+/// 根导航（`UI_REDESIGN.md` v2 §1.1）。
+///
+/// v2 的信息架构是 **2 级**：笔记流 → 笔记页。
+/// 文件夹不再是首页，它降级为首页顶部的一行筛选 chip，管理页在 chip 行末尾的 `⋯`。
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
+    /// 唯一的导航路径。目的地也只声明一处 —— 见 `AppRouter` 里记的那次实测。
+    @State private var router = AppRouter()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $router.path) {
+            // `navigationDestination` 必须挂在**栈内容里**，挂在 `NavigationStack`
+            // 自己身上不会被这个栈注册（同样没有任何警告）。
+            rootContent
+                .navigationDestination(for: AppRoute.self) { route in
+                    destination(route)
+                }
+        }
+        .environment(router)
+    }
+
+    @ViewBuilder private var rootContent: some View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--ui-gallery") {
                 DebugGalleryView()
@@ -34,11 +49,21 @@ struct RootView: View {
                 }
                 .navigationTitle("Markdown 预览")
             } else {
-                FolderListView()
+                NoteListView()
             }
             #else
-            FolderListView()
+            NoteListView()
             #endif
+    }
+
+    @ViewBuilder
+    private func destination(_ route: AppRoute) -> some View {
+        switch route {
+        case let .note(card, anchor):  NoteDetailView(card: card, landing: anchor)
+        case .search:                  SearchView()
+        case .settings:                SettingsView()
+        case .advancedSettings:        AdvancedSettingsView()
+        case .folders:                 FolderManageView()
         }
     }
 }

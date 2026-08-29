@@ -79,25 +79,42 @@ struct AudioBlockView: View {
                 }
             }
 
-            DisclosureGroup(isExpanded: $showTranscript) {
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    TextField("转写文字(可编辑)", text: $block.transcript, axis: .vertical)
-                        .font(.caption)
-                        .lineLimit(1...10)
-                        .onChange(of: block.transcript) { _, _ in onEdit() }
-                    SecondaryActionButton(title: "重新转写", systemImage: "arrow.clockwise") { onRetranscribe() }
-                        .disabled(isTranscribing)
+            // v2 §3.8：转写稿**直接显示在下方**，不再默认藏在 DisclosureGroup 里。
+            // 录音块最有用的内容就是它说了什么 —— 把它折叠起来等于让用户每次
+            // 多点一下才能读到自己的笔记。超过 3 行折叠为「展开」。
+            if !block.transcript.isEmpty {
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    if showTranscript {
+                        TextField("转写文字(可编辑)", text: $block.transcript, axis: .vertical)
+                            .font(.caption)
+                            .lineLimit(1...20)
+                            .onChange(of: block.transcript) { _, _ in onEdit() }
+                    } else {
+                        Text(block.transcript)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .contentShape(Rectangle())
+                            .onTapGesture { showTranscript = true }
+                    }
+                    Button(showTranscript ? "收起" : "展开") { showTranscript.toggle() }
+                        .font(.caption2)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
                 }
-                .padding(.top, AppSpacing.xs)
-            } label: {
-                Label(block.transcript.isEmpty ? "转写稿(空)" : "转写稿", systemImage: "text.quote")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .accessibilityIdentifier("block.audio.transcript.\(block.id.uuidString)")
             }
         }
         .padding(AppSpacing.md)
         .background(Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
+        // 「重新转写」是低频动作，移进长按菜单（v2 §3.8）——
+        // 之前它常驻在展开区，而错误行下面还有第二个「重试」，两个按钮做同一件事。
+        .contextMenu {
+            Button { onRetranscribe() } label: { Label("重新转写", systemImage: "arrow.clockwise") }
+                .disabled(isTranscribing)
+        }
         .onAppear { if expandsTranscript { showTranscript = true } }
         .onChange(of: expandsTranscript) { _, expand in if expand { showTranscript = true } }
     }

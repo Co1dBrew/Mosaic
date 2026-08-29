@@ -110,14 +110,24 @@ enum KeywordLatencyBreakdown {
             let cache = NormalizedTextCache()
             let hays = warm(cache, chunks)
 
+            // **取三轮里最快的一轮**，不是平均。
+            //
+            // 这是一个性能**下界**断言（「缓存版更快」），而机器上的其它负载只会让
+            // 某一轮变慢，不会让它变快 —— 所以 min 是这类断言的正确统计量，
+            // 平均值会把一次调度抖动混进结论。曾经在与 `xcodebuild` 并行跑时
+            // 见过一次单条断言失败且无法复现，这一改把那类噪声挡在断言之外。
             func time(_ normalized: [[Character]]?) -> Double {
                 _ = KeywordRetriever.retrieve(query: "预热", chunks: chunks, topK: 50, normalized: normalized)
-                let t = DispatchTime.now().uptimeNanoseconds
-                for i in 0..<25 {
-                    _ = KeywordRetriever.retrieve(query: queries[i % queries.count],
-                                                  chunks: chunks, topK: 50, normalized: normalized)
+                var best = Double.greatestFiniteMagnitude
+                for _ in 0..<3 {
+                    let t = DispatchTime.now().uptimeNanoseconds
+                    for i in 0..<25 {
+                        _ = KeywordRetriever.retrieve(query: queries[i % queries.count],
+                                                      chunks: chunks, topK: 50, normalized: normalized)
+                    }
+                    best = min(best, ms(since: t) / 25)
                 }
-                return ms(since: t) / 25
+                return best
             }
             let before = time(nil), after = time(hays)
             let mb = Double(bytes(cache)) / 1_048_576
@@ -132,7 +142,8 @@ enum KeywordLatencyBreakdown {
 
         // 断言：分段口径成立，**不断言具体占比**（那是要用来做决策的实测值，会变）
         r.expect(speedups.allSatisfy { $0.1 > 1.0 },
-                 "预归一化在每一档上都更快 —— 若某一档反而更慢，说明缓存查找本身成了开销")
+                 "预归一化在每一档上都更快（三轮取最快，见 `time` 上的注释）—— "
+                 + "若某一档反而更慢，说明缓存查找本身成了开销")
         r.expect(shares.count == 3, "三档都产出分段数字")
         r.expect(shares.allSatisfy { $0.1 > 0 }, "normalize 段确实存在且被计时")
         if let big = shares.first(where: { $0.0 == 20_000 }) {

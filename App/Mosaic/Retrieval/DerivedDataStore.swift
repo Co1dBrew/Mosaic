@@ -7,7 +7,7 @@ import MosaicKit
 /// ## The finding
 ///
 /// Authoritative note content lives in SwiftData's **main context**, and every user
-/// edit happens on `@MainActor` (SwiftUI views, `CardEditorView.commitNow()`).
+/// edit happens on `@MainActor` (SwiftUI views, `NoteDetailView.commitNow()`).
 /// Stale protection requires that no edit interleave between *"read the current
 /// content hash"* and *"write the derived record"*.
 ///
