@@ -63,6 +63,42 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: MosaicBench
+        excludes:
+          # 凭据文件**不进 sources**。放进去的话，工程一旦在它存在时生成过，
+          # 删掉它就构建不了（`No such file or directory`），而它恰恰是「跑完就该删」
+          # 的东西 —— 那个报错会把人引到完全错误的方向。改由下面的脚本可选拷贝。
+          - "CloudCredentials.json"
+      # Golden Set fixture —— **引用仓库里那唯一一份**，不在 bench 目录下复制副本。
+      # 复制会漂移：两份 JSON 各自演进，而「真机与 Mac 跑的是同一个评测集」
+      # 恰恰是 §23.7 那次判定能成立的前提。解析逻辑同理只有一份
+      # （已搬进 MosaicKit.GoldenSetFixture）。
+      - path: ../Sources/MosaicKitChecks/Fixtures/HumanLikeGoldenSet.json
+        group: MosaicBench/Fixtures
+    postBuildScripts:
+      # 真机云端基准（test5）的凭据。设备上的测试进程读不到 Mac 的环境变量，
+      # 所以凭据必须**进 bundle**；但它是 gitignored 且用完就删的，
+      # 因此这里做成「有就带上，没有就算了」——**两种情况都要能构建成功**。
+      - name: Embed cloud benchmark credentials (optional)
+        basedOnDependencyAnalysis: false
+        script: |
+          # `set -e` 是必需的：**「有凭据却没带上」不能是静默的。**
+          # 第一版把 echo 放在 cp 后面当最后一条命令，于是 cp 失败被吞掉，
+          # 构建成功、脚本还打印「已带上」，而测试跑起来判 skip —— 最坏的一种失败。
+          set -euo pipefail
+          SRC="$SRCROOT/MosaicBench/CloudCredentials.json"
+          # 用 TARGET_BUILD_DIR 而不是 BUILT_PRODUCTS_DIR：app-hosted 的测试 bundle
+          # 落在 <app>.app/PlugIns/ 里，BUILT_PRODUCTS_DIR 指的是上一层，路径不存在。
+          DST_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          DST="$DST_DIR/CloudCredentials.json"
+          if [ -f "$SRC" ]; then
+            mkdir -p "$DST_DIR"
+            cp -f "$SRC" "$DST"
+            test -f "$DST"
+            echo "note: 已带上云端凭据 → $DST"
+          else
+            rm -f "$DST"
+            echo "note: 没有 CloudCredentials.json —— test5 会 skip（结论是「待验证」）"
+          fi
     settings:
       base:
         GENERATE_INFOPLIST_FILE: "YES"

@@ -34,13 +34,21 @@ enum RetrievalProviderBenchmark {
         let metrics: EvalMetrics
     }
 
-    static func cloudProvider() -> (any EmbeddingProvider)? {
+    static func cloudProvider(latency: EmbeddingLatencyRecorder? = nil) -> (any EmbeddingProvider)? {
         let env = ProcessInfo.processInfo.environment
         guard let base = env["MOSAIC_LIVE_EMBEDDING_BASE"], !base.isEmpty,
               let key = env["MOSAIC_LIVE_EMBEDDING_KEY"], !key.isEmpty else { return nil }
         let model = env["MOSAIC_LIVE_EMBEDDING_MODEL"] ?? "BAAI/bge-m3"
         let dim = Int(env["MOSAIC_LIVE_EMBEDDING_DIM"] ?? "1024") ?? 1024
-        return CloudEmbeddingProvider(baseURL: base, apiKey: key, model: model, dimension: dim)
+        return CloudEmbeddingProvider(baseURL: base, apiKey: key, model: model, dimension: dim,
+                                      latency: latency)
+    }
+
+    /// 云端服务的区域标签。**延迟是地理量**，不带 region 的云端延迟数字不可比，
+    /// 所以它跟着跑批一起进 `RunEnvironment`，而不是写在文档的脚注里。
+    static var cloudRegion: String? {
+        let raw = ProcessInfo.processInfo.environment["MOSAIC_LIVE_EMBEDDING_REGION"]
+        return (raw?.isEmpty == false) ? raw : nil
     }
 
     /// 批量建索引。**批量不是优化，是成本要求** —— 云端按请求计费。
@@ -89,11 +97,17 @@ enum RetrievalProviderBenchmark {
             Arm(name: "local-hybrid", mode: .hybrid, provider: local, store: localIndex.store)
         ]
 
-        var cloudBuild: (ms: Double, chars: Int)? = nil
-        if let cloud = cloudProvider() {
+        // 云端建索引的耗时与 token 都要采下来 —— backlog 6.1 的三项里，
+        // **成本**一直是空的（「本地测不出来」），缺的就是服务端回报的 token 数。
+        let cloudLatency = EmbeddingLatencyRecorder()
+        var cloudBuild: (ms: Double, chars: Int, tokens: Int, unreported: Int)? = nil
+        if let cloud = cloudProvider(latency: cloudLatency) {
             do {
                 let built = try await buildIndex(chunks, provider: cloud)
-                cloudBuild = (built.ms, built.chars)
+                // **建索引之后、跑批之前**读 token —— 跑批的 query embedding 也走同一个
+                // recorder，混进来就不再是「索引一次要多少钱」了。
+                let usage = await cloudLatency.promptTokenTotal()
+                cloudBuild = (built.ms, built.chars, usage.tokens, usage.unreportedCalls)
                 arms += [
                     Arm(name: "cloud-vector", mode: .vector, provider: cloud, store: built.store),
                     Arm(name: "cloud-hybrid", mode: .hybrid, provider: cloud, store: built.store)
@@ -136,12 +150,34 @@ enum RetrievalProviderBenchmark {
             print(String(format: "    %-13@ %6.1f%%          %6.1f%%", arm as NSString,
                          m.noResultAccuracy * 100, m.falsePositiveRate * 100))
         }
+        // ── 成本对照（backlog 6.1 的第三项）──
+        //
+        // 质量与延迟一直有数，**成本一栏是空的**。空在哪很具体：本地那一路的
+        // 「代价」是墙上时间和电，云端那一路的代价是 token 和钱，两者没有共同单位。
+        // 所以这里不合成一个「成本分」，而是把两种代价并排摆出来，各自标口径。
+        print("\n    ── 成本对照（同一份语料 \(chunks.count) chunks / \(localIndex.chars) 字符）──")
+        print(String(format: "    local  · %@  建索引 %.0f ms（%.1f ms per chunk）· 计费 0 —— 代价是设备时间与电",
+                     local.modelInfo.identifier as NSString,
+                     localIndex.ms, localIndex.ms / Double(chunks.count)))
         if let cloudBuild {
-            print(String(format: "\n    云端建索引 measured: %d chunks / %d 字符 / %.0f ms（%.1f ms per chunk）",
-                         chunks.count, cloudBuild.chars, cloudBuild.ms, cloudBuild.ms / Double(chunks.count)))
-            print("    ⚠️ 20k chunk 的耗时是 linear extrapolation，**不是 measured**，不得当正式 benchmark")
+            print(String(format: "    cloud  · 建索引 %.0f ms（%.1f ms per chunk）· prompt_tokens %d（服务端回报，measured）",
+                         cloudBuild.ms, cloudBuild.ms / Double(chunks.count), cloudBuild.tokens))
+            if cloudBuild.tokens > 0 {
+                print(String(format: "             %.2f token/字符 · %.1f token/chunk —— 换算率**实测**，不再用 3.7 字符/token 外推",
+                             Double(cloudBuild.tokens) / Double(max(cloudBuild.chars, 1)),
+                             Double(cloudBuild.tokens) / Double(chunks.count)))
+            }
+            if cloudBuild.unreported > 0 {
+                print("             ⚠️ 有 \(cloudBuild.unreported) 次调用服务端没回报 usage —— token 合计是下限，不是全量")
+            }
+            print(String(format: "    倍率   · 本次云端建索引比本地慢 %.1f 倍 —— ⚠️ **这个倍率不稳定**，",
+                         cloudBuild.ms / max(localIndex.ms, 0.001)))
+            print("             同一份语料多次跑批的单 chunk 耗时落在 24–345 ms，差 **14 倍**。")
+            print("             云端建索引是网络量，**不是算力量**：本地那一侧 16–19 ms/chunk 稳定，")
+            print("             变的全在网络。要引用就引 token（每次都一样），不要引墙上时间。")
+            print("    ⚠️ 20k chunk 的耗时与 token 都是 linear extrapolation，**不是 measured**，不得当正式 benchmark")
         } else {
-            print("\n    ⚠️ 云端两路：**待验证**（需要 MOSAIC_LIVE_EMBEDDING_BASE / _KEY / _MODEL / _DIM）")
+            print("    cloud  · **待验证**（需要 MOSAIC_LIVE_EMBEDDING_BASE / _KEY / _MODEL / _DIM）")
         }
         print("")
 
@@ -164,8 +200,19 @@ enum RetrievalProviderBenchmark {
         }
         // ── Release Gate 判定：cloud-hybrid 作为候选，local-hybrid 作为 baseline ──
         //
-        // Gate 只读 in-scope（§B），四项 allSatisfy。这里跑的是**真实**判定，
-        // 不是手算 —— 结论好不好看都要照报。
+        // Gate 只读 in-scope（§B）。这里跑的是**真实**判定，不是手算 ——
+        // 结论好不好看都要照报。
+        //
+        // **这一段在分层 SLO（perf-v2）落地后改过口径。** 旧版断言的是
+        // 「四项产出 · P95 一项否决 · blocked」，那是 perf-v1 用**一个** 250 ms
+        // 判所有层时的结论。perf-v2 之后两件事同时变了：
+        //
+        // 1. 云端语义是 Metric B-cloud，policy 明确「记录但不判定」——
+        //    再拿 250 ms 去否决它，等于把一次跨洲网络往返和一次本机余弦当成同一件事。
+        // 2. 这批数字跑在 Mac 上，**根本没有资格参与判定** → STALE。
+        //
+        // 所以现在断言的是 STALE，而不是 blocked。**这不是把红灯改绿**：
+        // 判定更严了 —— 以前 Mac 数字还能进 Gate 挨一顿判，现在直接不予受理。
         if let candidate = metric("cloud-hybrid", "in-scope"),
            let baseline = metric("local-hybrid", "in-scope") {
             func run(_ m: EvalMetrics, _ version: String) -> EvalRun {
@@ -173,21 +220,60 @@ enum RetrievalProviderBenchmark {
                         metrics: m, goldenMetrics: m, regressionMetrics: .zero,
                         failures: [], inScopeMetrics: m)
             }
+            // 真实环境，**不伪造**：这台机器、这个构建、这一层、这个区域。
+            let actual = RunEnvironment.capture(layer: .semanticCloud, providerRegion: cloudRegion)
             let decision = ReleaseGate.evaluate(configVersion: "cloud-hybrid-v1",
                                                 current: run(candidate, "cloud-hybrid-v1"),
-                                                baseline: run(baseline, "cloud-hybrid-v1"))
+                                                baseline: run(baseline, "cloud-hybrid-v1"),
+                                                thresholds: GateThresholds(performance: .v2),
+                                                environment: actual)
             print("\n    ── Release Gate（candidate = cloud-hybrid · baseline = local-hybrid · 只看 in-scope）──")
-            print("    判定：\(decision.headline)")
+            print("    环境：\(actual.deviceClass.rawValue) / \(actual.buildConfiguration) / "
+                  + "layer \(actual.measuredLayer.rawValue) / region \(actual.providerRegion ?? "未记录")")
+            print("    perf-v2 判定：\(decision.headline)")
+            for reason in decision.blockingReasons { print("      · \(reason)") }
             for c in decision.checks {
-                print(String(format: "      %@ %-12@ %-22@ 要求 %@", c.passed ? "✅" : "❌",
+                print(String(format: "      %@ %-22@ %-26@ 要求 %@", c.passed ? "✅" : "❌",
                              c.kind.label as NSString, c.actualText as NSString, c.conditionText))
             }
-            r.expect(decision.checks.count == 4, "Gate 四项检查全部产出")
-            let p95Check = decision.checks.first { $0.kind == .p95 }
-            r.expect(p95Check?.passed == false,
-                     "云端 P95 超 250ms 预算 → Gate 阻断。**质量再好也不能靠加权换放行**（D-UI-DEV-008）")
-            r.expect(decision.status == .blocked,
-                     "cloud-hybrid 当前**不能**进生产：质量三项全过，P95 一项否决")
+
+            r.expect(decision.status == .stale,
+                     "Mac 上跑出来的云端质量数字 **不予受理**（perf-v2 要求真机 release）—— "
+                     + "Gate 在正常工作，不是失败")
+            r.expect(decision.checks.isEmpty,
+                     "STALE 时不列四项 —— 环境不合格时那些数字没有解释意义")
+
+            // 同一份数字换 perf-v1（单一 250 ms、允许 Mac）→ 才会真正判四项。
+            // 保留它是为了**对照**：D-UI-DEV-008 的「质量再好也不能靠加权换放行」
+            // 是在这个口径下被证明的，不能因为换了 policy 就当没发生过。
+            let underV1 = ReleaseGate.evaluate(configVersion: "cloud-hybrid-v1",
+                                               current: run(candidate, "cloud-hybrid-v1"),
+                                               baseline: run(baseline, "cloud-hybrid-v1"),
+                                               thresholds: GateThresholds(performance: .v1),
+                                               environment: actual)
+            print("    perf-v1 判定（单一 250ms · 允许 Mac）：\(underV1.headline)")
+            for c in underV1.checks {
+                print(String(format: "      %@ %-22@ %-26@ 要求 %@", c.passed ? "✅" : "❌",
+                             c.kind.label as NSString, c.actualText as NSString, c.conditionText))
+            }
+            if underV1.status == .stale {
+                // debug 构建下 perf-v1 同样不予受理（它只放宽机型，不放宽构建配置）。
+                r.expect(buildMode == "debug",
+                         "perf-v1 判 STALE 只该发生在 debug 构建（实际 \(buildMode)）")
+            } else {
+                r.expect(underV1.checks.count == 4, "perf-v1 下四项检查全部产出")
+                let latency = underV1.checks.first { $0.kind == .semanticLatency }
+                r.expect(latency?.passed == false,
+                         "perf-v1 下云端语义 P95 超 250ms → 阻断。"
+                         + "**质量再好也不能靠加权换放行**（D-UI-DEV-008）")
+                r.expect(underV1.status == .blocked,
+                         "perf-v1 下 cloud-hybrid 被延迟一项否决 —— 质量三项全过也不放行")
+            }
+
+            // **现在挡住云端上线的到底是什么** —— 这一句必须写清楚，
+            // 否则「以前是延迟挡的」会被当成现在仍然如此。
+            print("    ↳ perf-v2 下延迟不再是否决项（Metric B-cloud 记录不判定）；"
+                  + "当前的阻断来自**测量环境**，以及评测集仍是 synthetic。")
         }
 
         // RRF 是否仍有价值：Cloud Vector vs Cloud Hybrid
