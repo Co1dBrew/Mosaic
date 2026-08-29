@@ -99,10 +99,11 @@ enum RetrievalWeek5Checks {
     /// 不是检索质量，用真实检索反而会让阈值边界不可控。
     static func run(version: String,
                     recall5: Double, mrr: Double, p95: Double,
+                    recall1: Double = 0.7,
                     caseCount: Int = 40,
                     regressionCases: Int = 40, regressionRecall5: Double = 1.0) -> EvalRun {
         EvalRun(configVersion: version, embeddingVersion: "e1",
-                metrics: EvalMetrics(caseCount: caseCount, recallAt1: 0.7, recallAt3: 0.8,
+                metrics: EvalMetrics(caseCount: caseCount, recallAt1: recall1, recallAt3: 0.8,
                                      recallAt5: recall5, mrr: mrr, p50Ms: p95 / 2, p95Ms: p95),
                 goldenMetrics: .zero,
                 regressionMetrics: EvalMetrics(caseCount: regressionCases, recallAt1: 0, recallAt3: 0,
@@ -134,7 +135,7 @@ enum RetrievalWeek5Checks {
                                         environment: qualifyingEnvironment)
         r.expect(slow.status == .blocked, "P95 310ms > 250ms → BLOCKED")
         r.expect(slow.blockingChecks.map(\.kind) == [.firstResultLatency], "只有 Metric A 那一行是阻断行")
-        r.expect(slow.checks.first { $0.kind == .recallAt5 }?.passed == true,
+        r.expect(slow.checks.first { $0.kind == .recall }?.passed == true,
                  "其余三项照常通过 —— 不做加权，「大部分指标都很好」不能换来放行")
         r.expect(slow.checks.first { $0.kind == .firstResultLatency }?.actualText == "P50 155 ms · P95 310 ms",
                  "P50 与 P95 在同一行里给出（\(slow.checks.first { $0.kind == .firstResultLatency }?.actualText ?? "—")）")
@@ -181,7 +182,7 @@ enum RetrievalWeek5Checks {
                                                baseline: baseline,
                                         thresholds: qualifyingThresholds,
                                         environment: qualifyingEnvironment)
-        r.expect(recallEqual.checks.first { $0.kind == .recallAt5 }?.passed == true, "与 baseline 相等算通过")
+        r.expect(recallEqual.checks.first { $0.kind == .recall }?.passed == true, "与 baseline 相等算通过")
 
         // 阈值可配。
         let loose = ReleaseGate.evaluate(configVersion: "retrieval-v2",
@@ -216,8 +217,59 @@ enum RetrievalWeek5Checks {
                                         thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         r.expect(scopedDecision.status == .pass,
                  "Gate 只看 in-scope 正例；cross-language 与负例只作诊断")
-        r.expect(scopedDecision.checks.first { $0.kind == .recallAt5 }?.actualText == "0.950",
+        r.expect(scopedDecision.checks.first { $0.kind == .recall }?.actualText.contains("R@5 0.950") == true,
                  "Gate 展示的是 in-scope 实测值，不是 overall 0.350")
+    }
+
+    /// R@1 是主判定指标 —— **它倒退必须阻断**。
+    ///
+    /// 这一组用的是真机实测的真实形状（§23.7）：local-hybrid 相对 keyword
+    /// 「找得更多、排得更差」——R@5 涨 21.9%，R@1 掉 21.6%。
+    /// 在 R@1 进 Gate 之前，这个形状是判 PASS 的。
+    static func checkRecallAtOneGate(_ r: CheckRunner) {
+        r.suite("Gate · R@1 是主指标 —— 「找得更多、排得更差」必须被拦住")
+
+        let env = RunEnvironment(deviceClass: .physicalDevice, deviceModel: "iPhone18,4",
+                                 osVersion: "27.0.0", buildConfiguration: "release",
+                                 thermalState: "nominal", lowPowerMode: false,
+                                 measuredLayer: .semanticLocal)
+        let thresholds = GateThresholds()
+
+        // 真机实测形状：baseline keyword R@1 0.343 / R@5 0.343
+        //              candidate local-hybrid R@1 0.269 / R@5 0.418
+        let baseline = run(version: "v", recall5: 0.343, mrr: 0.343, p95: 20, recall1: 0.343)
+        let candidate = run(version: "v", recall5: 0.418, mrr: 0.341, p95: 20, recall1: 0.269)
+        let decision = ReleaseGate.evaluate(configVersion: "v", current: candidate,
+                                            baseline: baseline, thresholds: thresholds,
+                                            environment: env)
+        let recall = decision.checks.first { $0.kind == .recall }
+
+        r.expect(decision.status == .blocked,
+                 "R@1 0.343 → 0.269（−21.6%）必须阻断 —— 这正是 R@1 进 Gate 之前放行过的形状")
+        r.expect(recall?.passed == false, "Recall 那一行判失败")
+        r.expect(recall?.detail?.contains("主指标") == true,
+                 "失败原因要点明是**主指标**倒退，而不是笼统的「Recall 不过」")
+        r.expect(recall?.detail?.contains("找得更多、排得更差") == true,
+                 "R@5 达标而 R@1 倒退时，必须把这个组合说出来 —— "
+                 + "否则看到「Recall 不过」的人会去查 R@5，而 R@5 是涨的（\(recall?.detail ?? "—")）")
+        r.expect(decision.checks.count == 4,
+                 "仍然是四行 —— R@1 与 R@5 合成一行，不改 DEVTOOLS §4.7 的版式")
+        r.expect(recall?.actualText.contains("R@1") == true && recall?.actualText.contains("R@5") == true,
+                 "一行里同时给出两个点（\(recall?.actualText ?? "—")）")
+
+        // 反面：R@1 涨、R@5 涨 → 照常通过。阻断的是倒退，不是「有 R@1 这一项」。
+        let better = run(version: "v", recall5: 1.000, mrr: 0.938, p95: 20, recall1: 0.866)
+        let up = ReleaseGate.evaluate(configVersion: "v", current: better, baseline: baseline,
+                                      thresholds: thresholds, environment: env)
+        r.expect(up.status == .pass, "两个点都涨 → PASS（真机上的 cloud-hybrid 就是这个形状）")
+
+        // 反面：R@5 倒退而 R@1 持平 → 也要拦。safety-net 仍然是硬的。
+        let fewer = run(version: "v", recall5: 0.300, mrr: 0.343, p95: 20, recall1: 0.343)
+        let down5 = ReleaseGate.evaluate(configVersion: "v", current: fewer, baseline: baseline,
+                                         thresholds: thresholds, environment: env)
+        r.expect(down5.status == .blocked, "R@5 倒退同样阻断 —— 降级成 safety-net 不等于取消")
+        r.expect(down5.checks.first { $0.kind == .recall }?.detail?.contains("safety-net") == true,
+                 "这一次要指向 R@5，不能还说是主指标倒退")
     }
 
     static func checkGateEdges(_ r: CheckRunner) {
@@ -243,7 +295,7 @@ enum RetrievalWeek5Checks {
         let noBaseline = ReleaseGate.evaluate(configVersion: "retrieval-v2", current: current, baseline: nil,
                                                 thresholds: qualifyingThresholds, environment: qualifyingEnvironment)
         r.expect(noBaseline.status == .blocked, "没有 baseline 时不能默认放行")
-        r.expect(noBaseline.checks.first { $0.kind == .recallAt5 }?.detail?.contains("baseline") == true,
+        r.expect(noBaseline.checks.first { $0.kind == .recall }?.detail?.contains("baseline") == true,
                  "说明是「还没跑 baseline」而不是「质量下降」—— 补救动作完全不同")
         r.expect(noBaseline.checks.first { $0.kind == .firstResultLatency }?.passed == true,
                  "P95 是绝对预算，没有 baseline 也能判")
@@ -255,7 +307,7 @@ enum RetrievalWeek5Checks {
                                                 thresholds: qualifyingThresholds,
                                                 environment: qualifyingEnvironment)
         r.expect(incomparable.status == .blocked, "两次跑批用例数不同 → 不放行")
-        r.expect(incomparable.checks.first { $0.kind == .recallAt5 }?.detail?.contains("用例数不同") == true,
+        r.expect(incomparable.checks.first { $0.kind == .recall }?.detail?.contains("用例数不同") == true,
                  "点明分母变了 —— 否则会有人在这里开始调 topK")
 
         // 回归集为空：恒过，并说明理由。
@@ -619,6 +671,7 @@ enum RetrievalWeek5Checks {
     static func run(_ r: CheckRunner) async {
         checkRegistry(r)
         checkGate(r)
+        checkRecallAtOneGate(r)
         checkGateEdges(r)
         checkPromote(r)
         checkLanding(r)

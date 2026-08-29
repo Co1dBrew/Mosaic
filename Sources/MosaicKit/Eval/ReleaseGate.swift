@@ -10,9 +10,24 @@ import Foundation
 /// > 不用动判定逻辑。
 public struct GateThresholds: Sendable, Equatable, Codable {
 
+    /// Recall@1 相对 baseline 允许的最小 delta。**默认 0：不允许质量下降。**
+    ///
+    /// **它是主判定指标**（`HUMANLIKE_GOLDEN_SET.md`：v3 之后 R@1 / MRR 为主，
+    /// R@5 降为 safety-net）。此前 Gate 里**根本没有这一项** —— 查的是被降级的 R@5，
+    /// 于是真机实测中 local-hybrid 的 R@1 比 keyword 低 21.6% 仍判 PASS（§23.7）。
+    ///
+    /// 为什么零容差而不像 MRR 那样留 0.010：MRR 的容差是给**配置之间**的名次抖动留的，
+    /// 而 R@1 现在是主指标 —— 给主指标留容差、却让 safety-net 零容差，是反过来的。
+    ///
+    /// ⚠️ **粒度提醒**：in-scope 67 条时一条用例翻面 = 0.0149。零容差意味着
+    /// **任何一条用例的第一名掉下去都会阻断**。这是**初值**，PRD 定值时要一起决定。
+    public var recallAt1MinDelta: Double
     /// Recall@5 相对 baseline 允许的最小 delta。**默认 0：不允许质量下降。**
     /// 给 Recall 留负容差等于允许「质量掉一点点但换来别的好处」，
     /// 而 Gate 的四项检查里没有任何一项能表达那个「好处」—— 那是 D6 Compare 的事。
+    ///
+    /// 它现在是 **safety-net**：R@1 管「排得准不准」，R@5 管「找没找到」，
+    /// 两项合成判定区的**同一行**（见 `GateCheck.Kind.recall`）。
     public var recallAt5MinDelta: Double
     /// MRR 相对 baseline 的容差。MRR 对**单条**用例的名次变化非常敏感
     /// （第 1 名掉到第 2 名，这一条就从 1.0 掉到 0.5），在几十条的集合上
@@ -27,12 +42,14 @@ public struct GateThresholds: Sendable, Equatable, Codable {
     /// **新判定读这里** —— 一个数字判不了 keyword 快通道和跨洲网络两件事。
     public var performance: PerformanceGatePolicy
 
-    public init(recallAt5MinDelta: Double = 0,
+    public init(recallAt1MinDelta: Double = 0,
+                recallAt5MinDelta: Double = 0,
                 mrrTolerance: Double = 0.010,
                 p95BudgetMs: Double = 250,
                 regressionPassRateMin: Double = 0.98,
                 performance: PerformanceGatePolicy = .v2) {
         self.performance = performance
+        self.recallAt1MinDelta = recallAt1MinDelta
         self.recallAt5MinDelta = recallAt5MinDelta
         self.mrrTolerance = mrrTolerance
         self.p95BudgetMs = p95BudgetMs
@@ -47,7 +64,12 @@ public struct GateThresholds: Sendable, Equatable, Codable {
 public struct GateCheck: Sendable, Equatable, Identifiable {
 
     public enum Kind: String, Sendable, Equatable, Codable, CaseIterable {
-        case recallAt5
+        /// R@1 与 R@5 **合成一行**。
+        ///
+        /// 它俩是同一条 recall 曲线上的两个点，和 P50/P95 是同一个道理 ——
+        /// 拆成两行是改 `DEVTOOLS.md` §4.7 的四行版式，而不是多给了信息。
+        /// **任一不过即阻断**，不做加权。
+        case recall
         case mrr
         /// 分层之前的单一延迟检查（`perf-v1`）。保留以便对照旧结论。
         case p95
@@ -59,7 +81,7 @@ public struct GateCheck: Sendable, Equatable, Identifiable {
 
         public var label: String {
             switch self {
-            case .recallAt5:          return "Recall@5"
+            case .recall:             return "Recall @1/@5"
             case .mrr:                return "MRR"
             case .p95:                return "P95"
             case .firstResultLatency: return "Metric A · First Result"
@@ -94,7 +116,7 @@ public struct GateCheck: Sendable, Equatable, Identifiable {
     /// 「为什么」只需一次点击）。只有质量类检查有失败用例可看 ——
     /// P95 超预算不对应任何一条 case。
     public var opensFailures: Bool {
-        !passed && (kind == .regression || kind == .recallAt5 || kind == .mrr)
+        !passed && (kind == .regression || kind == .recall || kind == .mrr)
     }
 }
 
@@ -209,18 +231,27 @@ public enum ReleaseGate {
 
         var checks: [GateCheck] = []
 
-        // ── 1 · Recall@5 ≥ baseline − tolerance ──
+        // ── 1 · Recall：R@1（主）与 R@5（safety-net）合成一行，任一不过即阻断 ──
         if let baseline, comparability == nil {
-            let floor = baseline.inScopeMetrics.recallAt5 + thresholds.recallAt5MinDelta
+            let floor1 = baseline.inScopeMetrics.recallAt1 + thresholds.recallAt1MinDelta
+            let floor5 = baseline.inScopeMetrics.recallAt5 + thresholds.recallAt5MinDelta
+            let ok1 = current.inScopeMetrics.recallAt1 >= floor1 - epsilon
+            let ok5 = current.inScopeMetrics.recallAt5 >= floor5 - epsilon
             checks.append(GateCheck(
-                kind: .recallAt5,
-                passed: current.inScopeMetrics.recallAt5 >= floor - epsilon,
-                conditionText: "≥ \(fixed(floor))",
-                actualText: fixed(current.inScopeMetrics.recallAt5)))
+                kind: .recall,
+                passed: ok1 && ok5,
+                conditionText: "R@1 ≥ \(fixed(floor1)) · R@5 ≥ \(fixed(floor5))",
+                actualText: "R@1 \(fixed(current.inScopeMetrics.recallAt1)) · R@5 \(fixed(current.inScopeMetrics.recallAt5))",
+                // 两项都在一行里，失败时必须说清是**哪一个**掉了 ——
+                // 否则「Recall 不过」会让人去看 R@5，而真正掉的是 R@1。
+                detail: (ok1 && ok5) ? nil
+                    : (ok1 ? "R@5 低于 baseline —— 召回量倒退了（safety-net）"
+                           : "R@1 低于 baseline —— **主指标**倒退：第一名的命中率下降"
+                             + (ok5 ? "。注意 R@5 仍然达标，即「找得更多、排得更差」" : "，且 R@5 也倒退"))))
         } else {
-            checks.append(GateCheck(kind: .recallAt5, passed: false,
-                                    conditionText: "≥ baseline",
-                                    actualText: fixed(current.inScopeMetrics.recallAt5),
+            checks.append(GateCheck(kind: .recall, passed: false,
+                                    conditionText: "R@1 · R@5 ≥ baseline",
+                                    actualText: "R@1 \(fixed(current.inScopeMetrics.recallAt1)) · R@5 \(fixed(current.inScopeMetrics.recallAt5))",
                                     detail: comparability))
         }
 

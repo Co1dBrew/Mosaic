@@ -116,7 +116,7 @@ final class RetrievalWeek5Tests: XCTestCase {
                        "参数与生产记录一致时，版本号取记录的 —— 否则 Gate 永远 STALE")
         // 只有 current 没有 baseline：质量类检查无法成立，不能默认放行。
         XCTAssertEqual(release.decision.status, .blocked)
-        let recallCheck = try XCTUnwrap(release.decision.checks.first { $0.kind == .recallAt5 })
+        let recallCheck = try XCTUnwrap(release.decision.checks.first { $0.kind == .recall })
         XCTAssertFalse(recallCheck.passed)
         XCTAssertTrue(recallCheck.detail?.contains("baseline") == true,
                       "说明是「还没跑 baseline」而不是「质量下降」")
