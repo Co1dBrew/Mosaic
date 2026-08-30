@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  隐私清单（Privacy Manifest）。
+
+  ## 编写方式
+
+  **按实际代码逐项核对写出来的，不是照模板抄的。**
+  核对方式是在 `App/Mosaic` 与 `Sources/MosaicKit` 全量 grep Apple
+  「Required Reason API」清单里的每一类符号：
+
+    UserDefaults              → 命中（SettingsStore / AdvancedSettingsView）
+    文件时间戳                → 未命中（无 contentModificationDate / attributesOfItem）
+    磁盘可用空间              → 未命中（无 volumeAvailableCapacity / attributesOfFileSystem）
+    系统启动时间              → 命中（DispatchTime.now().uptimeNanoseconds，18 处）
+    活跃键盘                  → 未命中（无 activeInputModes）
+
+  **没用到的一律不声明。** 凭空声明一个 reason 不是「更安全」，
+  它是一句关于本 App 行为的错误陈述。
+
+  ## 第三方 SDK
+
+  没有。`Package.swift` 只有本仓库的 `MosaicKit`，没有任何外部依赖。
+
+  ## 关于数据收集
+
+  `NSPrivacyCollectedDataTypes` 为空，因为**开发者不收集任何数据**：
+  这个 App 没有任何我方服务器，笔记与索引全部留在设备上。
+
+  用户可以在设置里自行配置**第三方** AI / 转写 / embedding 服务（自带 Base URL
+  与 API Key），此时笔记文字（以及在明确同意后的音频）会由设备直接发往
+  那个第三方。那是用户与该服务商之间的关系，且每一类外发都有一次性同意弹窗：
+
+    - 笔记文字 + 图片 → AI 总结      （首次弹窗，SettingsStore.hasAcceptedAIPrivacyNotice）
+    - 录音音频       → 云端转写      （首次弹窗，hasAcceptedAudioUploadNotice）
+    - 笔记文字       → 云端智能搜索  （默认关闭，hasAcceptedCloudEmbeddingNotice）
+
+  三个开关默认全部关闭，关闭时**零请求**（有断言守着）。
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- CA92.1：只读写本 App 自己的偏好，不跨 App 共享。 -->
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!--
+				  35F9.1：测量 App 内部事件之间的经过时间。
+				  用途是检索延迟埋点（`RetrievalTrace` 的分段计时与 SLO 采集），
+				  数值只进内存环形缓冲，App 退出即丢，不落盘也不外发。
+				-->
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
