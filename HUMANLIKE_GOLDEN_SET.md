@@ -1,3 +1,9 @@
+> **SUPERSEDED** —— 描述的是 v3 评测集。当前评测集是 `scenario-v5`，方法学见 `EVAL_SPEC.md`。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # Mosaic Human-like Golden Set · synthetic-human-v3
 
 > **这是仿真人场景的工程候选集，不是真实用户标注数据。**

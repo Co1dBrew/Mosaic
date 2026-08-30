@@ -1,3 +1,9 @@
+> **SUPERSEDED** —— 旧版 Notes App PRD。最高权威是用户持有的 **PRD v1.0**（不在仓库）。这一份只能用来确认既有行为，**不能当需求依据**。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # 「万象记 / Mosaic」AI 多媒体笔记 App · 产品需求文档(PRD)
 
 > 产品名:**万象记(Mosaic)**。本版已整合首轮确认的核心设计决策。

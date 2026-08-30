@@ -1,3 +1,9 @@
+> **ARCHIVED** —— Figma 与实现的一次性对照，产出已并入 `SEARCH_CONTRACT.md` 与 `DEVTOOLS.md`。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](../docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # Mosaic / 万象记 — Figma Design Audit（Goal 1 Retrieval Quality System 视角）
 
 > ⚠️ **本文件是 2026-08-07 的首次审计快照，已被后续工作取代，仅作历史记录保留。**

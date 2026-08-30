@@ -1,3 +1,9 @@
+> **ARCHIVED** —— 旧 UI 的覆盖对照。UI v2 已整体替换旧 UI，见 `UI_REDESIGN.md`。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](../docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # Goal 1 — UI Coverage Matrix
 
 > 生成日期：2026-08-07

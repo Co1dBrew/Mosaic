@@ -1,3 +1,9 @@
+> **ARCHIVED** —— Week 1–6 的完整交接。现状请读 `PROJECT_STATUS.md`，下一步请读 `HANDOFF_NEXT.md`。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # Mosaic / 万象记 — 项目交接说明
 
 > 复制这份内容到新对话，即可让新窗口快速接手。

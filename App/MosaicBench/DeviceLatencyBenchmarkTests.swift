@@ -452,8 +452,16 @@ final class DeviceLatencyBenchmarkTests: XCTestCase {
             throw XCTSkip("本机没有句向量模型，语义路在这台设备上不存在（TD-9）")
         }
         let chunks = dataset.chunks
-        let cases = dataset.evalCases
-        let negatives = dataset.negativeEvalCases
+        // **发布判定读 holdout。** 用全集判定等于把调过参的那一半也算进去
+        // （`EVAL_SPEC.md` §5）。holdout 63 条，仍然远超延迟分位数所需的 25 个样本，
+        // 所以质量与延迟仍然出自同一次跑批。
+        let cases = dataset.evalCases(split: .holdout).filter {
+            if case .relevant = $0.expectation { return true }
+            return false
+        }
+        let negatives = dataset.evalCases(split: .holdout).filter {
+            $0.expectation == .noRelevantResult
+        }
 
         print("""
 
@@ -572,7 +580,9 @@ final class DeviceLatencyBenchmarkTests: XCTestCase {
                 // 不需要改写。Gate 只核对 current 的版本号，baseline 的不核。
                 current: candidate.run,
                 baseline: baseline.run,
-                thresholds: GateThresholds(performance: .v2),
+                // `gate-v1`：baseline 相对 + 统计置信 + 绝对下限（`GATE_POLICY.md`）。
+                // 延迟层仍然用 perf-v2 —— 真机 release 正是它要求的环境。
+                thresholds: GateThresholds.v1,
                 environment: env)
 
             print("""
@@ -593,7 +603,10 @@ final class DeviceLatencyBenchmarkTests: XCTestCase {
             XCTAssertNotEqual(decision.status, .stale,
                               "\(candidate.arm)：这是真机跑批，不该判 STALE —— "
                               + "STALE 说明环境或版本号对不上，那是配置问题不是质量问题")
-            XCTAssertEqual(decision.checks.count, 4, "\(candidate.arm)：四项检查全部产出")
+            // gate-v1 比 gate-v0 多一行「绝对下限」。
+            XCTAssertEqual(decision.checks.count, 5, "\(candidate.arm)：五项检查全部产出")
+            XCTAssertTrue(decision.checks.contains { $0.kind == .absoluteFloor },
+                          "\(candidate.arm)：绝对下限那一行必须在 —— 它是 gate-v1 的三件套之一")
         }
 
         print("""

@@ -1,3 +1,9 @@
+> **ARCHIVED** —— 手工 QA 清单。核心流程已自动化到 `App/MosaicUITests`。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](../docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # Mosaic — SwiftUI 实现阶段验证清单
 
 > 本文件收录**在 Figma 中无法验证、必须在 SwiftUI 实现阶段完成**的检查项。

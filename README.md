@@ -1,168 +1,180 @@
 # 万象记 / Mosaic
 
-An iOS multimedia note app. Each note card mixes **text, images, audio, documents, and links**; the app generates an AI **base summary** of the whole card and, after edits, **incremental update summaries** that describe only what changed. Built with SwiftUI + SwiftData, prepared for CloudKit sync. See [`prd.md`](prd.md) for the full product spec.
+一个 iOS 多媒体笔记 App，外加一套**可以用数据判断该不该上线**的检索质量平台。
 
-## Architecture
+- **笔记**：一条笔记里混装文字、图片、录音、文档、链接；AI 生成一句话概述与
+  完整总结，之后每次实质修改追加一条「这次变了什么」。
+- **搜索**：词法 + 语义混合检索，用户侧没有任何模式开关。
+- **质量平台**：场景化评测集 · 分级标注 · development / holdout · 统计置信的发布判定 ·
+  真机延迟基准 · 内部开发者工具。
 
-The codebase is split into two layers so the bug-prone logic can be unit-tested even without Xcode:
+> **当前发布结论：不可上线（BLOCKED）。** 判定链路是闭合的，但候选配置在
+> development 上没有达到质量下限，云端臂缺凭据未跑。详见
+> [`GATE_POLICY.md`](GATE_POLICY.md) §5 与 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)。
+
+---
+
+## Source of Truth
+
+冲突时按这个顺序：
+
+| 文件 | 讲什么 |
+|---|---|
+| **PRD v1.0**（用户持有，不在仓库） | 最高权威。缺精确数值时**不要编** |
+| [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | **现在到底是什么状态** —— 先读这份 |
+| [`UI_REDESIGN.md`](UI_REDESIGN.md) | 生产设计（v2，已冻结、已实现） |
+| [`design/SEARCH_CONTRACT.md`](design/SEARCH_CONTRACT.md) | 生产搜索契约（已冻结） |
+| [`EVAL_SPEC.md`](EVAL_SPEC.md) | 评测方法：数据怎么来、指标怎么算 |
+| [`GATE_POLICY.md`](GATE_POLICY.md) | 发布标准：达到什么条件才允许上线 |
+| [`RETRIEVAL_ARCHITECTURE.md`](RETRIEVAL_ARCHITECTURE.md) | 工程决策记录（长，按 § 查） |
+| [`design/DECISION_LOG.md`](design/DECISION_LOG.md) | 产品决策 |
+| [`HANDOFF_NEXT.md`](HANDOFF_NEXT.md) | 下一步做什么 |
+
+已归档、**不要据此判断现状**的文档见 [`docs/ARCHIVED.md`](docs/ARCHIVED.md)。
+
+---
+
+## 架构
+
+分两层，让易错的逻辑在没有 Xcode 的环境里也能跑起来测。
 
 ```
 Mosaic/
-├── Package.swift                 # MosaicKit (library) + mosaic-checks (test runner)
-├── Sources/MosaicKit/            # PURE Swift core — no SwiftData, no UIKit
-│   ├── Provider/                 # AIProvider, ProviderConfig (URL/temperature/validation)
-│   ├── AI/                       # Prompts, DTOs, request builder, response parser, AIClient, errors
-│   ├── Aggregation/              # CardContent value types, content aggregator (+ truncation)
-│   ├── Diff/                     # ContentHasher, SummarySnapshot, SnapshotDiffer (change detection)
-│   └── Security/                 # KeychainService (+ in-memory variant)
-├── Sources/MosaicKitChecks/      # Runnable test suite (assertion harness) — `swift run mosaic-checks`
+├── Package.swift                 # MosaicKit（库）+ mosaic-checks（断言跑批）
+├── Sources/MosaicKit/            # 纯 Swift 内核 —— 不引 SwiftData、不引 UIKit
+│   ├── Provider/ AI/             # 服务商配置 · 提示词 · 请求构造 · 响应解析
+│   ├── Aggregation/ Diff/        # 内容聚合 · 内容哈希 · 快照 diff
+│   ├── Retrieval/                # 分块 · 词法 · 向量 · 融合 · 索引状态 · 一致性对账
+│   ├── Search/                   # 匹配 · 结果呈现 · Result→Note 落点
+│   ├── Notes/                    # 列表取值规则 · 摘要条状态 · 权限文案
+│   ├── Eval/                     # 评测集 · Runner · 指标 · 发布判定 · 配对 bootstrap
+│   └── Sync/ Security/           # 同步状态口径 · Keychain
+├── Sources/MosaicKitChecks/      # 断言跑批（3600+ 条），含评测集与基线评测
+├── tools/                        # 评测集生成 · 图标生成 · 发布前核对
 └── App/
-    ├── project.yml               # XcodeGen spec (generates Mosaic.xcodeproj)
-    └── Mosaic/
-        ├── App/                  # MosaicApp, RootView, ModelContainerFactory (SwiftData+CloudKit)
-        ├── Persistence/          # @Model: Folder, Card, Block, AISummaryEntity, UpdateLogEntity
-        ├── Services/             # MediaStore, AudioRecorder/Player, SpeechTranscriber,
-        │                         #   ImagePipeline, DocumentImporter, SummaryService
-        ├── Settings/             # SettingsStore (UserDefaults + Keychain), SettingsView
-        ├── Features/             # Folders / Cards (collapsed bar + summary sticker) / Editor (blocks)
-        └── Components/           # Design system, UIKit bridges, flow layout
+    ├── project.yml               # XcodeGen 规格（生成 Mosaic.xcodeproj）
+    ├── Mosaic/
+    │   ├── App/                  # 入口 · 根导航 · 路由 · 容器工厂
+    │   ├── Persistence/          # @Model：Folder / Card / Block / 摘要 / 更新记录
+    │   ├── Features/Notes/       # 首页笔记流 · 笔记页 · 摘要条（UI v2）
+    │   ├── Features/Search/      # 生产搜索
+    │   ├── Features/Editor/      # 五类内容块
+    │   ├── Retrieval/            # 索引服务 · derived store · 检索栈持有者
+    │   ├── Settings/             # 设置（两层）
+    │   └── DeveloperTools/       # **只在 DEBUG / INTERNAL_BUILD 编译**
+    ├── MosaicTests/              # XCTest（93 条）
+    ├── MosaicUITests/            # XCUITest 核心流程（6 条）
+    └── MosaicBench/              # 真机性能基准（独立 scheme）
 ```
 
-**Boundary:** `MosaicKit` never imports SwiftData or UIKit. The app adapts its SwiftData `Block` models into `MosaicKit.CardBlockContent` value types (`Block.toContent()`), so all hashing/diffing/aggregation/AI logic is platform-agnostic and testable.
+**边界**：`MosaicKit` 从不 import SwiftData 或 UIKit。App 在边界上把 SwiftData
+模型适配成 `MosaicKit` 的值类型，所以哈希 / diff / 聚合 / 检索 / 评测全部平台无关、可测。
 
-## Building & running
+---
 
-### Core logic (works with just the Swift toolchain / Command Line Tools)
+## 构建与测试
+
+### 内核（只要 Swift 工具链）
 
 ```bash
-swift build                 # builds MosaicKit
-swift run mosaic-checks     # runs the core test suite (exits non-zero on failure)
+swift run mosaic-checks
 ```
 
-`mosaic-checks` is the unit-test suite (117+ assertions covering provider config, JSON parsing robustness, defensive DTO decoding, content hashing, snapshot diff, aggregation/truncation, request building incl. vision on/off, full HTTP/transport error mapping via a stubbed URLSession, and Keychain logic). It is used in place of XCTest/Swift Testing, which are **not** bundled with the Command Line Tools toolchain.
+3600+ 条断言，覆盖服务商配置、JSON 解析健壮性、内容哈希、快照 diff、检索管线、
+评测集质量、发布判定口径、UI 取值规则。失败时非零退出，可直接当 CI 闸门。
 
-### iOS app (requires full Xcode)
+### iOS App（需要完整 Xcode）
 
 ```bash
-brew install xcodegen        # if needed
-cd App && xcodegen generate  # regenerates Mosaic.xcodeproj from project.yml
-open App/Mosaic.xcodeproj
+cd App && xcodegen generate
 ```
 
-Then set your signing team and an iCloud container identifier, and run on a device/simulator.
+```bash
+xcodebuild test -scheme Mosaic -project App/Mosaic.xcodeproj -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+```
 
-## Configuration
+### 发布前核对
 
-1. **Settings → AI 服务商**: choose Kimi / DeepSeek / Custom.
-2. Enter your **API Key** (stored in the Keychain only) and, for Custom, a Base URL + model name.
-3. Tap **测试连接** to verify.
-4. On first summary generation you'll see a one-time **privacy notice** before any content is sent.
+```bash
+./tools/verify_release.sh
+```
 
-Model defaults (verify against providers' latest docs): Kimi `kimi-k2.6` (vision), DeepSeek `deepseek-v4-flash` / `deepseek-v4-pro` (vision off by default until verified).
+检查 Release **产物**：内部工具是否真的不在包里、隐私清单与图标是否打包、
+权限说明是否与实际用途一致、CloudKit 标记是否与 entitlements 一致。
 
-## Speech-to-text: two modes (privacy)
+### 真机性能基准（需要连真机）
 
-Transcription is switchable in **Settings → 语音转写**:
+```bash
+xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration Release -destination 'platform=iOS,id=<设备 UDID>' -allowProvisioningUpdates
+```
 
-- **Apple 本地转写 (default)** — `SpeechTranscriber` via the Speech framework with
-  `requiresOnDeviceRecognition = true`. Runs entirely on-device; **the original
-  audio never leaves the device**. Works offline. Privacy-friendly; accuracy
-  depends on the on-device model.
-- **API 云端转写** — `URLSessionCloudTranscriber` uploads the recorded audio file
-  to an OpenAI-compatible `/audio/transcriptions` endpoint (e.g. Whisper). By
-  default it reuses the AI provider's API key / base URL, with optional **STT
-  Base URL** and **STT API Key** overrides so STT can use a *different* provider
-  than chat. **This uploads the audio to a third party**, so the app shows a
-  one-time audio-upload consent dialog before the first cloud transcription and
-  refuses to upload without it. "Test connection" never uploads user audio.
-  - Note: not every chat provider offers STT. **Moonshot/Kimi and DeepSeek do
-    NOT currently expose `/audio/transcriptions`** (verified: 404), so for cloud
-    STT point the STT Base URL/Key at an OpenAI-compatible Whisper service (e.g.
-    OpenAI `whisper-1`). A 404 surfaces as "服务商不支持语音转写".
+**延迟结论只在真机 release 上成立。** Mac / 模拟器的数字不冒充真机数字。
 
-Language preference (自动 / 中文 / English) maps to the Apple locale
-(`zh-CN` / `en-US` / system) or the API `language` hint (`zh` / `en` / omitted).
-Either way the resulting transcript is stored on the audio block and feeds the AI
-summary. Transcription orchestration lives in `TranscriptionService`; the cloud
-request building/parsing is in `MosaicKit/Transcription` (unit-tested).
+---
 
-## Search (P1)
+## 检索与评测（Goal 1）
 
-Global card search from the folder-list toolbar (🔍). Matching is a pure,
-unit-tested `SearchMatcher` in MosaicKit (multi-term AND, case- &
-diacritic-insensitive, tag-aware). The app builds a per-card "haystack" from the
-title, text blocks, audio transcripts, document `extractedText`, link
-URL/title/description, image captions, the AI base summary, and update logs
-(`CardSearchText.haystack`). Filtering goes through a reserved `SearchScope`
-(global / folder / tag / pinned) — Phase 1 uses the unconstrained (global) scope;
-later filters slot in without changing call sites. The search field is debounced
-(~250ms). Tags are wired into search but empty until the Tags phase adds
-`Card.tags`. A DEBUG `--search-demo` launch arg seeds sample data and opens
-search prefilled, for QA.
+### 生产搜索
 
-## Tags (P1)
+隐式混合检索，用户侧没有 mode 开关（`design/SEARCH_CONTRACT.md` §1.1）。
+结果行三槽位：标题 · **命中片段** · 文件夹与时间。命中片段的唯一职责是回答
+「为什么这条与我搜的有关」，它不是笔记摘要。
 
-Cards carry `tags: [String]` (defaulted — safe SwiftData lightweight migration,
-CloudKit-compatible, old cards → `[]`). Normalization/de-dup is the pure,
-unit-tested `TagUtilities` in MosaicKit: trims/collapses whitespace, de-dups
-case- & diacritic-insensitively (so "Work" == "work"; Chinese preserved with
-original casing). Edit tags as chips in the card editor; tap **把主题加为标签**
-in the summary sticker to turn AI topics into tags; the folder card list shows a
-tag filter bar; tags feed search (`CardSearchText.tags`). `--cards-demo` (DEBUG)
-seeds tagged sample cards for QA.
+中文 query 走 **CJK 二元组切分**：在此之前一句没有空格的中文是一个 token，
+匹配要求整句原样出现在笔记里，于是长口语 query 在词法路上**全灭**
+（`QuerySegmentation` 里记着那次实测）。
 
-## Pinning (P1)
+### 评测集
 
-Cards can be pinned (existing `Card.isPinned`, no schema change). Folder lists
-sort **pinned first, then `updatedAt` descending** via the pure, unit-tested
-`CardSorting` in MosaicKit. Toggle from the card list (leading swipe) or the
-editor toolbar (📌); pinned cards show a pin badge on the collapsed bar. Toggling
-pin does not change `updatedAt`, so pinned cards keep their recency order.
+`scenario-v5`：242 篇合成语料 + **207 条 agent 编写的场景化 query**，
+九类检索能力、分级相关性、硬负例、development / holdout。
 
-## Lightweight rich text (P1)
+> **不是真实用户数据。** provenance 一律 `agent_authored_realistic`。
+> 它能证明评测管线闭合与两套配置可比较，**不能**支持任何关于真实用户
+> Recall 的绝对结论。详见 [`EVAL_SPEC.md`](EVAL_SPEC.md) §1。
 
-Text blocks support **MVP-level Markdown-like rich text** (not a full WYSIWYG
-editor): headings, bold, italic, bullet/numbered lists, and dividers. The source
-Markdown is stored in the existing `Block.text` string — **no schema change**, and
-plain-text blocks keep working (Markdown is a superset). Editing uses
-`RichMarkdownEditor` (UITextView + a Markdown keyboard toolbar with real
-selection handling); a per-block toggle switches to a rendered `MarkdownBlockView`
-preview. Pure `MarkdownText` (MosaicKit, unit-tested) extracts **plain text** for
-AI summaries and search (so `#`/`*`/`-`/`---` don't pollute them) and parses
-lines for rendering. `--markdown-demo` (DEBUG) shows the renderer.
+### 发布判定
 
-## Export / Share (P1)
+`gate-v1` = baseline 相对（配对 bootstrap 置信区间）+ **绝对下限** + 分层延迟预算 +
+回归通过率。任一项 FAIL 即阻断，不做加权、不算总分。
+详见 [`GATE_POLICY.md`](GATE_POLICY.md)。
 
-Export a single card as **Markdown** or **plain text** via the editor's bottom
-share menu → iOS share sheet (a temp file is written so it can be saved to Files).
-The pure, unit-tested `CardExportFormatter` (MosaicKit) renders, in block order:
-title, folder, created/updated time, tags, all blocks (text as Markdown / plain,
-transcripts, image captions, document name + extracted-text excerpt, links), the
-AI base summary, and update logs. Works with no summary and no tags. Nothing is
-uploaded. PDF export is a deliberate future enhancement (not in this MVP).
+### 开发者工具
 
-## Design system
+Retrieval Lab / Compare / Trace / Eval Center / Release Gate。
+**只在 DEBUG 或显式 `INTERNAL_BUILD` 的构建里编译** —— 正式 Release 里这些类型
+根本不存在（`tools/verify_release.sh` 核对符号）。
 
-Shared UI lives in `App/Mosaic/Components/AppStyles.swift`: `AppSpacing`,
-`AppRadius`, `AppMetrics` (44pt min tap target), the `PrimaryActionButtonStyle` /
-`SecondaryActionButtonStyle` / `DestructiveActionButtonStyle` button styles and
-their `PrimaryActionButton` / `SecondaryActionButton` / `DestructiveActionButton`
-wrappers, plus `appCard()`. All primary actions use these (centered labels,
-≥44pt, Dynamic Type via `minimumScaleFactor`, dark-mode-safe system colors). A
-DEBUG-only `--ui-gallery` launch argument renders a component gallery for QA.
+---
 
-## Known limitations / environment blockers
+## 配置
 
-This project was built in an environment **without full Xcode** (Command Line Tools only). Consequences:
+1. **设置 → AI 服务商**：选 Kimi / DeepSeek / 自定义。
+2. 填 **API Key**（只存 Keychain）；自定义服务商时 Base URL 与模型名会提升到第一屏。
+3. 点 **测试连接**（只发一个无内容的 ping，不走内容同意闸门）。
+4. 首次生成总结前会有一次性隐私弹窗，同意后内容才会外发。
 
-- **The iOS app target was not compiled here** — no iOS SDK / simulator available. The pure-Swift `MosaicKit` core *is* compiled and tested. The app layer was written to Apple's APIs and reviewed by static analysis; please build it in full Xcode.
-- **Media-file CloudKit sync is a follow-up.** Media (audio/images/documents) is stored as files in the app sandbox (`MediaStore`); SwiftData metadata syncs via CloudKit, but binary media does not yet sync as CloudKit assets. This is the documented sequencing in PRD §10.1 and the seam is isolated in `MediaStore`.
-- **CloudKit requires setup**: a real iCloud container id (replace `iCloud.com.mosaic.app` in `App/Mosaic/Mosaic.entitlements`) and a signed-in iCloud account. The container falls back to a local store if CloudKit is unavailable, so the app still runs offline.
-- **Deployment target is iOS 17** (SwiftData / `@Observable` requirement), slightly above the PRD's suggested iOS 16 floor.
+**三类内容外发各有独立同意，默认全部关闭，关闭时零请求**（有断言守着）：
 
-## Figma URl
+| 外发 | 开关 |
+|---|---|
+| 笔记文字 + 图片 → AI 总结 | 首次弹窗 |
+| 录音音频 → 云端转写 | 首次弹窗（Apple 本地转写不上传音频，是默认值） |
+| 笔记文字 → 云端智能搜索 | 设置 → 高级，默认关闭 |
+
+---
+
+## 明确的非功能与限制
+
+| | 状态 |
+|---|---|
+| **iCloud 同步** | **此版本不提供**。entitlements 里没有 CloudKit 容器，设置页据实显示「此版本不提供」而不是给一个必然失败的开关 |
+| **语义弃答（abstention）** | **EXPERIMENTAL，未接入生产**。TD-10 未解决（余量 0.0002）。有断言守着它不出现在生产路径里 |
+| **App 图标** | **临时品牌资产**，由 `tools/branding/make_app_icon.py` 生成，等最终品牌设计替换 |
+| **媒体文件同步** | 未实现。媒体存在 App 沙盒（`MediaStore`），元数据可同步、二进制不同步 |
+| **PDF 导出** | 未实现。当前支持 Markdown / 纯文本导出 |
+| **部署目标** | iOS 17（SwiftData / `@Observable`） |
+
+## Figma
+
 https://www.figma.com/design/vUc6N3SJ01327qX27lFeug/Mosaic?m=auto&t=srI2bH5QHDjrubSL-6
-
-## PRD coverage (MVP / P0)
-
-Folders (CRUD, color/icon, count, delete-confirm) · Cards (CRUD, sort by updatedAt, AI title fallback) · Block editor (text/image/audio/file/link, add/delete/reorder, autosave, offline) · On-device audio transcription · Image compression + vision · PDF text extraction · Link open/in-app browser · Collapsed bar + AI summary sticker (base + reverse-chron update logs) · Incremental update via block-level snapshot diff (base preserved) · Strict-JSON prompts + defensive parsing · Settings (Keychain key, test connection, auto-update toggle, privacy notice) · CloudKit-ready schema.

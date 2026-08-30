@@ -44,6 +44,7 @@ struct Checks {
         await FusionSweep.run(r)
         await CloudEmbeddingResilienceChecks.run(r)
         await AbstentionChecks.run(r)
+        AbstentionChecks.checkNotWiredToProduction(r)
         await EvalChecks.run(r)
         await HumanLikeGoldenChecks.run(r)
         await SearchPresentationChecks.run(r)

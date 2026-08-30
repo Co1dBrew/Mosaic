@@ -1,3 +1,9 @@
+> **ARCHIVED** —— 当时手工核对 Xcode 工程的清单。现在核对是自动的：`./tools/verify_release.sh`。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # 万象记 / Mosaic — Xcode 手动验收清单 / Manual Verification Checklist
 
 > ## ✅ 已自动验证 / Already verified (Xcode 26 + iOS 26 模拟器)

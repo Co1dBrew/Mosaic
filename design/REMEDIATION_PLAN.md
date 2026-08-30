@@ -1,3 +1,9 @@
+> **ARCHIVED** —— 早期整改计划，条目已全部落地或被后续决策取代。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](../docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # 万象记 / Mosaic — Figma 设计补全与整改计划
 
 > 基线：Figma 文件 `Untitled`（3 页 · 16 组件 · 24 屏 · 7 条原型连线），2026-08-06 经 Dev Mode MCP 实读确认。

@@ -1,3 +1,9 @@
+> **ARCHIVED** —— 实现计划，已实现。当前形态见 `design/DEVTOOLS.md`。
+>
+> 归档清单见 [`docs/ARCHIVED.md`](../docs/ARCHIVED.md)。**不要据本文件判断现状。**
+
+---
+
 # Developer Tools — SwiftUI Implementation Plan
 
 > 只做**职责拆分**与控件建议。不写完整代码，不重构 App architecture。

@@ -225,3 +225,51 @@ enum AbstentionChecks {
         await calibrateCloud(r)
     }
 }
+
+// MARK: - 状态守卫：abstention 不得进入生产路径
+
+extension AbstentionChecks {
+
+    /// `DECISION_CONFIG: ABSTENTION = EXPERIMENT_ONLY_NOT_PRODUCTION`
+    ///
+    /// 这条断言防的是「实验代码悄悄变成产品行为」。它读的是**源码**而不是
+    /// 运行时行为 —— 运行时只能证明「这一次没走到」，读源码能证明「没有路径走到」。
+    ///
+    /// 一旦 TD-10 真的解决、要正式接入生产，这条会失败，那正是它该做的：
+    /// **接入是一次产品决策，不该悄悄发生。**
+    static func checkNotWiredToProduction(_ r: CheckRunner) {
+        r.suite("Abstention · EXPERIMENT_ONLY —— 生产路径不得引用")
+
+        // 生产检索路径的三个文件。它们都在 App target 里，checks 读不到编译结果，
+        // 所以直接读文件文本 —— 这一层要的就是「源码里有没有出现这个名字」。
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // MosaicKitChecks
+            .deletingLastPathComponent()   // Sources
+            .deletingLastPathComponent()   // 仓库根
+        let productionPaths = [
+            "Sources/MosaicKit/Retrieval/RetrievalService.swift",
+            "App/Mosaic/Features/Search/SearchViewModel.swift",
+            "App/Mosaic/Features/Search/SearchView.swift",
+            "App/Mosaic/Features/Notes/NoteDetailView.swift",
+            "App/Mosaic/Features/Notes/NoteListView.swift"
+        ]
+        var checked = 0
+        for relative in productionPaths {
+            let url = root.appendingPathComponent(relative)
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                r.expect(false, "读不到 \(relative) —— 路径变了就该更新这条守卫")
+                continue
+            }
+            checked += 1
+            for symbol in ["AbstentionPolicy", "AbstentionJudge", "RetrievalConfidence"] {
+                r.expect(!text.contains(symbol),
+                         "\(relative) 不引用 \(symbol)（abstention 是 EXPERIMENT_ONLY）")
+            }
+        }
+        r.expect(checked == productionPaths.count, "全部生产路径文件都被检查过")
+
+        // 默认值必须是「从不弃答」—— 换了默认值就等于悄悄上线了。
+        r.expectEqual(AbstentionPolicy.neverAbstains, AbstentionPolicy(),
+                      "默认策略就是 neverAbstains，产品行为与接入前逐位一致")
+    }
+}
