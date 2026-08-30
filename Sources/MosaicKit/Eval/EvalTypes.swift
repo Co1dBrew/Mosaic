@@ -273,13 +273,17 @@ public struct EvalRun: Sendable, Equatable {
     /// Regression 中支持边界内的正例；负例与跨语言 case 暂不进入 Gate。
     public let inScopeRegressionMetrics: EvalMetrics
     public let failures: [EvalFailure]
+    /// 逐用例结果。**统计显著性必须逐条配对才能算** —— 汇总数字里
+    /// 「低 0.015」既可能是真的退化，也可能是一条用例翻了面。
+    public let outcomes: [EvalCaseOutcome]
 
     public init(configVersion: String, embeddingVersion: String, startedAt: Date = Date(),
                 metrics: EvalMetrics, goldenMetrics: EvalMetrics,
                 regressionMetrics: EvalMetrics, failures: [EvalFailure],
                 inScopeMetrics: EvalMetrics? = nil,
                 crossLanguageMetrics: EvalMetrics = .zero,
-                inScopeRegressionMetrics: EvalMetrics? = nil) {
+                inScopeRegressionMetrics: EvalMetrics? = nil,
+                outcomes: [EvalCaseOutcome] = []) {
         self.configVersion = configVersion
         self.embeddingVersion = embeddingVersion
         self.startedAt = startedAt
@@ -290,6 +294,7 @@ public struct EvalRun: Sendable, Equatable {
         self.regressionMetrics = regressionMetrics
         self.inScopeRegressionMetrics = inScopeRegressionMetrics ?? regressionMetrics
         self.failures = failures
+        self.outcomes = outcomes
     }
 
     /// Regression 通过率 —— Release Gate 的第四项检查。

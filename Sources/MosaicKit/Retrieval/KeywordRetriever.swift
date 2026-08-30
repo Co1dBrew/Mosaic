@@ -46,20 +46,26 @@ public enum KeywordRetriever {
     public static func retrieve(query: String,
                                 chunks: [NoteChunk],
                                 topK: Int,
-                                normalized: [[Character]]? = nil) -> [KeywordHit] {
-        let tokens = SearchMatcher.tokens(from: query)
-        guard !tokens.isEmpty, topK > 0 else { return [] }
+                                normalized: [[Character]]? = nil,
+                                segmentation: QuerySegmentation = .default,
+                                cjkPolicy: CJKMatchPolicy = .default) -> [KeywordHit] {
+        let groups = segmentation.groups(from: query, policy: cjkPolicy)
+        guard !groups.isEmpty, topK > 0 else { return [] }
         let hays = (normalized?.count == chunks.count) ? normalized : nil
 
         var hits: [KeywordHit] = []
         for (i, chunk) in chunks.enumerated() {
-            let located = hays.map { TextMatcher.locate(tokens: tokens, inNormalized: $0[i]) }
-                ?? TextMatcher.locate(tokens: tokens, in: chunk.text)
-            guard let (ranges, counts) = located else { continue }
+            let hay = hays.map { $0[i] } ?? Array(TextMatcher.normalizedForOffsets(chunk.text))
+            guard let (ranges, counts, coverage) = TextMatcher.locate(groups: groups,
+                                                                     inNormalized: hay) else { continue }
             let length = max(1, chunk.text.count)
             let norm = Double(length).squareRoot()
             var score = 0.0
             for c in counts { score += Double(min(c, 3)) / norm }
+            // **覆盖率参与打分，不只是当闸门。** 两篇都过了 0.5 的门槛时，
+            // 覆盖 90% 的那篇明显更相关；只当闸门的话它们只靠词频区分，
+            // 而词频更偏向长文本。
+            score *= coverage
             score *= weight(for: chunk.source)
 
             hits.append(KeywordHit(chunkID: chunk.id, ref: chunk.ref, source: chunk.source,

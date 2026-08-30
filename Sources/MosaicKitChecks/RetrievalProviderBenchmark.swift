@@ -187,8 +187,25 @@ enum RetrievalProviderBenchmark {
                  "R@1 ≤ R@3（单调）")
         r.expect(results.allSatisfy { $0.metrics.recallAt3 <= $0.metrics.recallAt5 + 1e-9 },
                  "R@3 ≤ R@5（单调）")
-        r.expect(negativeRows.first { $0.0 == "keyword" }?.1.noResultAccuracy == 1.0,
-                 "keyword 对无答案 query 返回空 —— 它是 no-result 的唯一现有保障")
+        // ── 这条断言的**阈值**在 v5 被修正过，理由必须写清楚 ──
+        //
+        // 原文要求 keyword 对无答案 query 的正确率**恰好 100%**，并称它是
+        // no-result 的唯一保障。100% 这个水平其实是 CJK 分词缺陷的**副产品**：
+        // 一个从不匹配中文自然句的词法路，对中文无答案 query 当然永远返回空。
+        // 换句话说，它测到的不是「系统会克制」，而是「系统查不动中文」。
+        //
+        // 修好切分之后（`QuerySegmentation`），中文 query 真的会去匹配语料，
+        // 于是少数无答案 query 也会撞上一些相邻字对。development 上实测
+        // 100% → 90%，换来 in-scope R@1 **+67%**（0.175 → 0.292）。
+        //
+        // 阈值取 **0.85**：保留「keyword 路显著克制」这个可证伪的主张，
+        // 同时不再把一个缺陷的副产品当成质量标准。
+        // 真正解决误报要靠相关性下限（TD-10，abstention 目前 EXPERIMENT_ONLY），
+        // 不是靠一个查不动中文的分词器。
+        let keywordNoResult = negativeRows.first { $0.0 == "keyword" }?.1.noResultAccuracy ?? 0
+        r.expect(keywordNoResult >= 0.85,
+                 String(format: "keyword 对无答案 query 的克制率 %.0f%% ≥ 85%%（它仍是 no-result 的主要保障）",
+                        keywordNoResult * 100))
 
         func metric(_ arm: String, _ group: String) -> EvalMetrics? {
             results.first { $0.arm == arm && $0.group == group }?.metrics

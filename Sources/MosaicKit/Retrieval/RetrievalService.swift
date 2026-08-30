@@ -85,14 +85,23 @@ public actor RetrievalService {
     /// `nil` = 不缓存，每次查询重新折叠全库正文（旧行为，逐位一致但慢 3 倍）。
     private let normalizedText: NormalizedTextCache?
 
+    /// query 切分策略。中文长 query 在 `.whitespace` 下会退化成一个 token，
+    /// 于是 keyword 路整条不命中（见 `QuerySegmentation` 的文档）。
+    private let segmentation: QuerySegmentation
+    private let cjkPolicy: CJKMatchPolicy
+
     public init(provider: (any EmbeddingProvider)?,
                 vectors: InMemoryVectorStore,
                 recorder: RetrievalTraceRecorder? = nil,
-                normalizedText: NormalizedTextCache? = NormalizedTextCache()) {
+                normalizedText: NormalizedTextCache? = NormalizedTextCache(),
+                segmentation: QuerySegmentation = .default,
+                cjkPolicy: CJKMatchPolicy = .default) {
         self.provider = provider
         self.vectors = vectors
         self.recorder = recorder
         self.normalizedText = normalizedText
+        self.segmentation = segmentation
+        self.cjkPolicy = cjkPolicy
     }
 
     /// 执行一次检索。
@@ -145,7 +154,9 @@ public actor RetrievalService {
             // keyword 耗时，且**不改任何检索语义**（缓存与非缓存走同一个 locate 实现）。
             let hays = await normalizedText?.normalized(for: chunks)
             keywordHits = KeywordRetriever.retrieve(query: trimmed, chunks: chunks,
-                                                    topK: config.candidateK, normalized: hays)
+                                                    topK: config.candidateK, normalized: hays,
+                                                    segmentation: segmentation,
+                                                    cjkPolicy: cjkPolicy)
             keywordMs = ms(since: t)
         }
 

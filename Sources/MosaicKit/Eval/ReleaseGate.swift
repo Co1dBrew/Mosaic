@@ -42,21 +42,104 @@ public struct GateThresholds: Sendable, Equatable, Codable {
     /// **新判定读这里** —— 一个数字判不了 keyword 快通道和跨洲网络两件事。
     public var performance: PerformanceGatePolicy
 
+    // MARK: Gate Policy v1 —— 绝对下限 + 统计置信
+
+    /// # 绝对下限（`HARD_MINIMUM_FLOOR`）
+    ///
+    /// 只做「不比 baseline 差」是不够的：**baseline 自己可以很差**。
+    /// 两个都拿 0.20 的配置之间没有回归，但那个产品不该发出去。
+    ///
+    /// 下限的取值必须**来自实测的生产 baseline**，不是拍脑袋 ——
+    /// 具体依据写在 `GATE_POLICY.md`，改这些数字要连同依据一起改。
+    /// `nil` = 这一项不设绝对下限（拿到 PRD 定值之前的过渡状态）。
+    public var recallAt1Floor: Double?
+    public var recallAt5Floor: Double?
+    public var mrrFloor: Double?
+
+    /// # 统计置信（`STATISTICAL_CONFIDENCE`）
+    ///
+    /// 打开后，**只有统计上有意义的退化才阻断**：配对 bootstrap 的
+    /// 置信区间整体落在 0 以下。区间跨过 0 时数据分不清「退化」与「抖动」，
+    /// 那时阻断发布是在惩罚噪声。
+    ///
+    /// 为什么需要它：in-scope 67 条时**一条用例翻面 = 0.0149**，
+    /// 零容差意味着任何一条边缘用例的排名波动都会阻断发布。而给点估计留一个
+    /// 固定容差同样是错的 —— 容差该多大取决于样本量与用例间方差，不是常数。
+    ///
+    /// 关掉它（`false`）时退回纯点估计比较，即 `perf-v1` 时代的行为。
+    public var usesStatisticalConfidence: Bool
+    public var confidenceLevel: Double
+    public var bootstrapIterations: Int
+
     public init(recallAt1MinDelta: Double = 0,
                 recallAt5MinDelta: Double = 0,
                 mrrTolerance: Double = 0.010,
                 p95BudgetMs: Double = 250,
                 regressionPassRateMin: Double = 0.98,
-                performance: PerformanceGatePolicy = .v2) {
+                performance: PerformanceGatePolicy = .v2,
+                recallAt1Floor: Double? = nil,
+                recallAt5Floor: Double? = nil,
+                mrrFloor: Double? = nil,
+                usesStatisticalConfidence: Bool = false,
+                confidenceLevel: Double = 0.95,
+                bootstrapIterations: Int = 2_000) {
         self.performance = performance
         self.recallAt1MinDelta = recallAt1MinDelta
         self.recallAt5MinDelta = recallAt5MinDelta
         self.mrrTolerance = mrrTolerance
         self.p95BudgetMs = p95BudgetMs
         self.regressionPassRateMin = regressionPassRateMin
+        self.recallAt1Floor = recallAt1Floor
+        self.recallAt5Floor = recallAt5Floor
+        self.mrrFloor = mrrFloor
+        self.usesStatisticalConfidence = usesStatisticalConfidence
+        self.confidenceLevel = confidenceLevel
+        self.bootstrapIterations = bootstrapIterations
     }
 
+    /// `gate-v0`：只有 baseline 相对比较，零容差。保留以便复现旧判定。
     public static let `default` = GateThresholds()
+
+    /// # `gate-v1` —— DECISION_CONFIG 要求的三件套
+    ///
+    /// ```
+    /// BASELINE_RELATIVE + STATISTICAL_CONFIDENCE + HARD_MINIMUM_FLOOR
+    /// ```
+    ///
+    /// 三项的分工：
+    ///
+    /// | | 拦住什么 | 拦不住什么 |
+    /// |---|---|---|
+    /// | baseline 相对 | 「新配置把老配置弄坏了」 | baseline 自己很差 |
+    /// | 绝对下限 | 「两个都很差」 | 小幅但真实的退化 |
+    /// | 统计置信 | 「把抖动当成退化」 | 样本量不够时什么都判不出 |
+    ///
+    /// ## 绝对下限的取值依据
+    ///
+    /// 在 `scenario-v5` 的 holdout 上实测，生产 baseline（keyword 单路）拿到
+    /// **R@1 0.173 · R@5 0.192 · MRR 0.192**，P50 2.1 ms。
+    ///
+    /// 下限取 **keyword baseline 的两倍**：`R@1 ≥ 0.35 · R@5 ≥ 0.40 · MRR ≥ 0.38`。
+    ///
+    /// 理由是一句可以被反驳的产品判断：**隐式 hybrid 比纯 keyword 多付约 17 倍延迟**
+    /// （36 ms vs 2.1 ms，Mac debug），中文库还要付云端上传的隐私成本。
+    /// 如果它不能把「第一条就对」的命中率至少翻一倍，这些代价不划算 ——
+    /// 那时正确的产品决定是**只发 keyword**，而不是发一个更慢的同等质量。
+    ///
+    /// 这个倍数是产品判断，不是自然律。PRD 给出定值时改这里，并同步
+    /// `GATE_POLICY.md` 的依据段落。**不允许因为候选没过就下调它。**
+    public static let v1 = GateThresholds(
+        recallAt1MinDelta: 0,
+        recallAt5MinDelta: 0,
+        mrrTolerance: 0,
+        regressionPassRateMin: 0.98,
+        performance: .v2,
+        recallAt1Floor: 0.35,
+        recallAt5Floor: 0.40,
+        mrrFloor: 0.38,
+        usesStatisticalConfidence: true)
+
+    public var version: String { usesStatisticalConfidence ? "gate-v1" : "gate-v0" }
 }
 
 /// 一行检查。**条件与实测值分开存**，因为 D7/D8 要在同一行里把两者都摆出来 ——
@@ -78,6 +161,10 @@ public struct GateCheck: Sendable, Equatable, Identifiable {
         /// Metric B —— 语义升级。cloud 层可配为「记录但不判定」。
         case semanticLatency
         case regression
+        /// 绝对下限。**与 baseline 相对比较分开一行** —— 两者的补救动作不同：
+        /// 一个是「新配置弄坏了什么」，一个是「这个产品还不够好」。
+        /// 混进同一行会让失败原因说不清。
+        case absoluteFloor
 
         public var label: String {
             switch self {
@@ -87,6 +174,7 @@ public struct GateCheck: Sendable, Equatable, Identifiable {
             case .firstResultLatency: return "Metric A · First Result"
             case .semanticLatency:    return "Metric B · Semantic"
             case .regression:         return "Regression"
+            case .absoluteFloor:      return "Absolute Floor"
             }
         }
     }
@@ -116,7 +204,8 @@ public struct GateCheck: Sendable, Equatable, Identifiable {
     /// 「为什么」只需一次点击）。只有质量类检查有失败用例可看 ——
     /// P95 超预算不对应任何一条 case。
     public var opensFailures: Bool {
-        !passed && (kind == .regression || kind == .recall || kind == .mrr)
+        !passed && (kind == .regression || kind == .recall || kind == .mrr
+                    || kind == .absoluteFloor)
     }
 }
 
@@ -233,21 +322,7 @@ public enum ReleaseGate {
 
         // ── 1 · Recall：R@1（主）与 R@5（safety-net）合成一行，任一不过即阻断 ──
         if let baseline, comparability == nil {
-            let floor1 = baseline.inScopeMetrics.recallAt1 + thresholds.recallAt1MinDelta
-            let floor5 = baseline.inScopeMetrics.recallAt5 + thresholds.recallAt5MinDelta
-            let ok1 = current.inScopeMetrics.recallAt1 >= floor1 - epsilon
-            let ok5 = current.inScopeMetrics.recallAt5 >= floor5 - epsilon
-            checks.append(GateCheck(
-                kind: .recall,
-                passed: ok1 && ok5,
-                conditionText: "R@1 ≥ \(fixed(floor1)) · R@5 ≥ \(fixed(floor5))",
-                actualText: "R@1 \(fixed(current.inScopeMetrics.recallAt1)) · R@5 \(fixed(current.inScopeMetrics.recallAt5))",
-                // 两项都在一行里，失败时必须说清是**哪一个**掉了 ——
-                // 否则「Recall 不过」会让人去看 R@5，而真正掉的是 R@1。
-                detail: (ok1 && ok5) ? nil
-                    : (ok1 ? "R@5 低于 baseline —— 召回量倒退了（safety-net）"
-                           : "R@1 低于 baseline —— **主指标**倒退：第一名的命中率下降"
-                             + (ok5 ? "。注意 R@5 仍然达标，即「找得更多、排得更差」" : "，且 R@5 也倒退"))))
+            checks.append(recallCheck(current: current, baseline: baseline, thresholds: thresholds))
         } else {
             checks.append(GateCheck(kind: .recall, passed: false,
                                     conditionText: "R@1 · R@5 ≥ baseline",
@@ -255,19 +330,22 @@ public enum ReleaseGate {
                                     detail: comparability))
         }
 
-        // ── 2 · MRR ≥ baseline − tolerance ──
+        // ── 2 · MRR ──
         if let baseline, comparability == nil {
-            let floor = baseline.inScopeMetrics.mrr - thresholds.mrrTolerance
-            checks.append(GateCheck(
-                kind: .mrr,
-                passed: current.inScopeMetrics.mrr >= floor - epsilon,
-                conditionText: "≥ \(fixed(floor))（baseline \(fixed(baseline.inScopeMetrics.mrr)) − 容差 \(fixed(thresholds.mrrTolerance)))",
-                actualText: fixed(current.inScopeMetrics.mrr)))
+            checks.append(mrrCheck(current: current, baseline: baseline, thresholds: thresholds))
         } else {
             checks.append(GateCheck(kind: .mrr, passed: false,
                                     conditionText: "≥ baseline − \(fixed(thresholds.mrrTolerance))",
                                     actualText: fixed(current.inScopeMetrics.mrr),
                                     detail: comparability))
+        }
+
+        // ── 2.5 · 绝对下限 ──（不需要 baseline：下限是绝对值）
+        //
+        // 只做「不比 baseline 差」是不够的：**baseline 自己可以很差**。
+        // 两个都拿 0.20 的配置之间没有回归，但那个产品不该发出去。
+        if let floorCheck = absoluteFloorCheck(current: current, thresholds: thresholds) {
+            checks.append(floorCheck)
         }
 
         // ── 3 · 分层延迟 ──（不需要 baseline：预算是绝对值）
@@ -278,7 +356,10 @@ public enum ReleaseGate {
         let kind: GateCheck.Kind = layer == .firstResult ? .firstResultLatency : .semanticLatency
         let p50 = current.inScopeMetrics.p50Ms
         let p95 = current.inScopeMetrics.p95Ms
-        if let p95Budget = thresholds.performance.p95Budget(for: layer) {
+        if !thresholds.performance.judgesLatency {
+            // `perf-none`：这一行整个不出。放一行「记录但不判定」会让人以为
+            // 延迟被看过了 —— 而延迟只在真机 release 上有结论。
+        } else if let p95Budget = thresholds.performance.p95Budget(for: layer) {
             let p50Budget = thresholds.performance.p50Budget(for: layer)
             let p50OK = p50Budget.map { p50 <= $0 + epsilon } ?? true
             let p95OK = p95 <= p95Budget + epsilon
@@ -318,6 +399,127 @@ public enum ReleaseGate {
                             configVersion: configVersion,
                             evaluatedAt: now,
                             checks: checks)
+    }
+
+    // MARK: 三项质量检查
+
+    /// R@1（主）与 R@5（safety-net）合成一行。
+    ///
+    /// `gate-v1` 下先看统计置信：**只有区间整体在 0 以下才算真的退化**。
+    /// 点估计仍然打印出来，因为「掉了多少」是要拿去做决策的信息 ——
+    /// 只是它不再单独决定阻断。
+    private static func recallCheck(current: EvalRun, baseline: EvalRun,
+                                    thresholds: GateThresholds) -> GateCheck {
+        let cur = current.inScopeMetrics, base = baseline.inScopeMetrics
+        let floor1 = base.recallAt1 + thresholds.recallAt1MinDelta
+        let floor5 = base.recallAt5 + thresholds.recallAt5MinDelta
+        let actual = "R@1 \(fixed(cur.recallAt1)) · R@5 \(fixed(cur.recallAt5))"
+
+        guard thresholds.usesStatisticalConfidence else {
+            let ok1 = cur.recallAt1 >= floor1 - epsilon
+            let ok5 = cur.recallAt5 >= floor5 - epsilon
+            return GateCheck(
+                kind: .recall, passed: ok1 && ok5,
+                conditionText: "R@1 ≥ \(fixed(floor1)) · R@5 ≥ \(fixed(floor5))",
+                actualText: actual,
+                // 两项都在一行里，失败时必须说清是**哪一个**掉了 ——
+                // 否则「Recall 不过」会让人去看 R@5，而真正掉的是 R@1。
+                detail: (ok1 && ok5) ? nil
+                    : (ok1 ? "R@5 低于 baseline —— 召回量倒退了（safety-net）"
+                           : "R@1 低于 baseline —— **主指标**倒退：第一名的命中率下降"
+                             + (ok5 ? "。注意 R@5 仍然达标，即「找得更多、排得更差」" : "，且 R@5 也倒退")))
+        }
+
+        let ci1 = interval(.recallAt1, current: current, baseline: baseline, thresholds: thresholds)
+        let ci5 = interval(.recallAt5, current: current, baseline: baseline, thresholds: thresholds)
+        // 逐用例结果缺席（旧跑批、或从磁盘读回的历史记录）→ 退回点估计比较。
+        // **不能因为算不了置信区间就放行**：那会把一个数据缺口变成一次通过。
+        guard let ci1, let ci5 else {
+            let ok = cur.recallAt1 >= floor1 - epsilon && cur.recallAt5 >= floor5 - epsilon
+            return GateCheck(kind: .recall, passed: ok,
+                             conditionText: "R@1 ≥ \(fixed(floor1)) · R@5 ≥ \(fixed(floor5))",
+                             actualText: actual,
+                             detail: "两次跑批缺少逐用例结果，无法做配对检验 —— 已退回点估计比较。"
+                                 + "重跑评测即可恢复统计判定。")
+        }
+        let regressed1 = ci1.isMeaningfulRegression
+        let regressed5 = ci5.isMeaningfulRegression
+        return GateCheck(
+            kind: .recall, passed: !(regressed1 || regressed5),
+            conditionText: "R@1 / R@5 无统计显著退化（\(percent(thresholds.confidenceLevel)) CI 上界 ≥ 0）",
+            actualText: actual + "  |  R@1 \(ci1.summary) · R@5 \(ci5.summary)",
+            detail: (regressed1 || regressed5)
+                ? (regressed1
+                    ? "R@1 **主指标**统计显著退化：\(ci1.summary)"
+                        + (regressed5 ? "；R@5 同样退化：\(ci5.summary)" : "。R@5 未见显著退化，即「找得到但排得更差」")
+                    : "R@5 统计显著退化（safety-net）：\(ci5.summary)")
+                : (cur.recallAt1 < floor1 - epsilon || cur.recallAt5 < floor5 - epsilon
+                    ? "点估计低于 baseline，但置信区间跨过 0 —— 数据分不清退化与抖动，不据此阻断。"
+                        + "样本量不足时应先扩充评测集，而不是调阈值。"
+                    : nil))
+    }
+
+    private static func mrrCheck(current: EvalRun, baseline: EvalRun,
+                                 thresholds: GateThresholds) -> GateCheck {
+        let cur = current.inScopeMetrics, base = baseline.inScopeMetrics
+        let floor = base.mrr - thresholds.mrrTolerance
+
+        guard thresholds.usesStatisticalConfidence else {
+            return GateCheck(
+                kind: .mrr, passed: cur.mrr >= floor - epsilon,
+                conditionText: "≥ \(fixed(floor))（baseline \(fixed(base.mrr)) − 容差 \(fixed(thresholds.mrrTolerance)))",
+                actualText: fixed(cur.mrr))
+        }
+        guard let ci = interval(.mrr, current: current, baseline: baseline, thresholds: thresholds) else {
+            return GateCheck(kind: .mrr, passed: cur.mrr >= floor - epsilon,
+                             conditionText: "≥ \(fixed(floor))",
+                             actualText: fixed(cur.mrr),
+                             detail: "缺少逐用例结果，已退回点估计比较。")
+        }
+        return GateCheck(
+            kind: .mrr, passed: !ci.isMeaningfulRegression,
+            conditionText: "无统计显著退化（\(percent(thresholds.confidenceLevel)) CI 上界 ≥ 0）",
+            actualText: "\(fixed(cur.mrr))  |  \(ci.summary)",
+            detail: ci.isMeaningfulRegression ? "MRR 统计显著退化：\(ci.summary)" : nil)
+    }
+
+    /// 绝对下限。三项里任意一项设了下限就出这一行；都没设时不出
+    /// （拿到 PRD 定值之前的过渡状态，**如实缺席**好过放一行恒过的检查）。
+    private static func absoluteFloorCheck(current: EvalRun,
+                                           thresholds: GateThresholds) -> GateCheck? {
+        let m = current.inScopeMetrics
+        var conditions: [String] = []
+        var actuals: [String] = []
+        var failures: [String] = []
+        func check(_ label: String, _ value: Double, _ floor: Double?) {
+            guard let floor else { return }
+            conditions.append("\(label) ≥ \(fixed(floor))")
+            actuals.append("\(label) \(fixed(value))")
+            if value < floor - epsilon {
+                failures.append("\(label) \(fixed(value)) < \(fixed(floor))")
+            }
+        }
+        check("R@1", m.recallAt1, thresholds.recallAt1Floor)
+        check("R@5", m.recallAt5, thresholds.recallAt5Floor)
+        check("MRR", m.mrr, thresholds.mrrFloor)
+        guard !conditions.isEmpty else { return nil }
+        return GateCheck(
+            kind: .absoluteFloor, passed: failures.isEmpty,
+            conditionText: conditions.joined(separator: " · "),
+            actualText: actuals.joined(separator: " · "),
+            detail: failures.isEmpty ? nil
+                : "低于绝对下限：\(failures.joined(separator: "；"))。"
+                    + "这一项与 baseline 无关 —— 它拦的是「两个配置都很差」。")
+    }
+
+    private static func interval(_ metric: PairedBootstrap.Metric,
+                                 current: EvalRun, baseline: EvalRun,
+                                 thresholds: GateThresholds) -> PairedBootstrap.Interval? {
+        PairedBootstrap.deltaInterval(current: current.outcomes,
+                                      baseline: baseline.outcomes,
+                                      metric: metric,
+                                      iterations: thresholds.bootstrapIterations,
+                                      confidence: thresholds.confidenceLevel)
     }
 
     // MARK: 格式化（判定文案要能直接摆进 D7/D8 那四行）

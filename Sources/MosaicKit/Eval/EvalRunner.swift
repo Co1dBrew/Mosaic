@@ -100,7 +100,20 @@ public actor EvalRunner {
             },
             inScopeMetrics: metrics(inScope),
             crossLanguageMetrics: metrics(crossLanguage),
-            inScopeRegressionMetrics: metrics(inScopeRegression)
+            inScopeRegressionMetrics: metrics(inScopeRegression),
+            outcomes: perCase.map { entry in
+                let expected = entry.evalCase.expectedNoteIDs
+                let positive = isRelevant(entry.evalCase.expectation)
+                return EvalCaseOutcome(
+                    caseID: entry.evalCase.id,
+                    scope: entry.evalCase.scope,
+                    isPositive: positive,
+                    hitAt1: positive && isHit(expected: expected, in: entry.returned, k: 1),
+                    hitAt3: positive && isHit(expected: expected, in: entry.returned, k: 3),
+                    hitAt5: positive && isHit(expected: expected, in: entry.returned, k: 5),
+                    reciprocalRank: positive ? (entry.rank.map { 1.0 / Double($0) } ?? 0) : 0,
+                    latencyMs: entry.latencyMs)
+            }
         )
     }
 

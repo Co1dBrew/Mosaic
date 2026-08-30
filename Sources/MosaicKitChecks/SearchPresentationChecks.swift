@@ -87,11 +87,28 @@ enum SearchPresentationChecks {
         r.expect(!SearchPresentation.needsSemanticOnlyNotice(keyword),
                  "有高亮就不显示说明行 —— 混合是正常状态，不需要解释")
 
-        // 自然语言 query：keyword 零命中，全靠语义路。这正是 24 屏要展示的状态。
+        // §2.6 那一屏的**触发条件没变**（整页零字面命中 → 显示说明行），
+        // 变的是什么 query 会落进去。
+        //
+        // 原来举的例子是「中文自然语言长句」，因为那时 keyword 路对中文长句
+        // 一律零命中 —— 而那是 `SearchMatcher.tokens` 只按空白切分的缺陷
+        // （见 `QuerySegmentation`），不是产品设计。修好之后中文长句会有高亮。
+        //
+        // 真正会落进这一屏的是**跨语言**：英文 query 查中文语料，词法路确实
+        // 一个词都对不上，只能靠语义路。这才是 24 屏该展示的状态。
+        let crossLanguage = SearchPresentation.rows(from: await makeOutcome(query: "graduation deadline"))
+        if !crossLanguage.isEmpty {
+            r.expect(crossLanguage.allSatisfy { !$0.hasKeywordHit }, "跨语言 query 整页无高亮")
+            r.expect(SearchPresentation.needsSemanticOnlyNotice(crossLanguage), "此时显示顶部说明行")
+        }
+
+        // 中文自然语言长句**现在**有高亮，因此不该再显示那一行说明。
         let natural = SearchPresentation.rows(from: await makeOutcome(query: "我之前问学校能不能晚一点毕业的事情"))
         if !natural.isEmpty {
-            r.expect(natural.allSatisfy { !$0.hasKeywordHit }, "自然语言 query 整页无高亮")
-            r.expect(SearchPresentation.needsSemanticOnlyNotice(natural), "此时显示顶部说明行")
+            r.expect(natural.contains { $0.hasKeywordHit },
+                     "中文自然语言 query 现在有字面命中（CJK 二元组切分）")
+            r.expect(!SearchPresentation.needsSemanticOnlyNotice(natural),
+                     "有高亮就不再显示说明行")
         }
 
         r.expect(!SearchPresentation.needsSemanticOnlyNotice([]), "零结果不显示说明行（那是空态的事）")

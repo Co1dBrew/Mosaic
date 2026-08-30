@@ -33,6 +33,8 @@ struct Checks {
         CloudSyncChecks.run(r)
         NotesUIChecks.run(r)
         ScenarioDatasetChecks.run(r)
+        await ScenarioBaselineEvaluation.run(r)
+        await QuerySegmentationSweep.run(r)
         await DerivedConsistencyChecks.runRetrieval(r)
         KeywordLatencyBreakdown.run(r)
         await KeywordLatencyBreakdown.checkCacheIsBitIdentical(r)

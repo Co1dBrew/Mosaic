@@ -98,9 +98,25 @@ enum RetrievalWeek3Checks {
         r.expect(KeywordRetriever.weight(for: .text) - KeywordRetriever.weight(for: .ocr) < 0.2,
                  "权重差距刻意保持很小 —— 目前没有数据支持更大的差距")
 
-        // 自然语言长句 keyword 零命中 —— 这是 24 屏的前提，不是缺陷。
+        // ── 这条断言在 v5 被推翻了，记录在此 ──
+        //
+        // 原文是「整句自然语言 query 在 keyword 路零命中（交给语义路）」，并把它
+        // 当成「24 屏整页零高亮」的**前提**。实际上它是 `SearchMatcher.tokens`
+        // 只按空白切分的**后果**：一句没有空格的中文是一个 token，而匹配要求
+        // 整个 token 作为子串出现 —— 等于要求整句原样出现在笔记里。
+        //
+        // `scenario-v5` 上这个缺陷的代价被量化出来了：near_duplicate /
+        // noisy_query / contextual_recall **整类 R@1 = 0.000**。
+        // 修复见 `QuerySegmentation`。
         let nl = KeywordRetriever.retrieve(query: "我之前问学校能不能晚一点毕业的事情", chunks: cs, topK: 10)
-        r.expect(nl.isEmpty, "整句自然语言 query 在 keyword 路零命中（交给语义路）")
+        r.expect(!nl.isEmpty, "整句自然语言中文 query **现在**能在 keyword 路命中（CJK 二元组切分）")
+        r.expect(nl.allSatisfy { !$0.ranges.isEmpty }, "命中带高亮区间 —— 用户能看到为什么这条相关")
+
+        // 零高亮那一屏仍然存在，只是来源换了：**纯语义命中**（keyword 一个词项都没中）。
+        let semanticOnly = KeywordRetriever.retrieve(query: "graduation paperwork deadline",
+                                                     chunks: cs, topK: 10)
+        r.expect(semanticOnly.isEmpty,
+                 "英文 query 查中文语料时 keyword 仍然零命中 —— 这才是「整页零高亮」的真实来源")
 
         // topK 截断 + 可复现。
         r.expect(KeywordRetriever.retrieve(query: "延期", chunks: cs, topK: 2).count == 2, "topK 截断")
@@ -204,11 +220,18 @@ enum RetrievalWeek3Checks {
         r.expect(cmp.bothCount + cmp.keywordOnly.count + cmp.vectorOnly.count == cmp.results.count,
                  "三组之和等于结果总数")
 
-        // ── 自然语言 query：keyword 零命中，vector 兜底 ──
+        // ── 自然语言中文 query：CJK 切分之后 keyword 路也参与了 ──
         let nl = await service.retrieve(query: "我之前问学校能不能晚一点毕业的事情", chunks: cs, config: config)
-        r.expect(!nl.results.isEmpty, "自然语言 query 仍有结果（语义路兜底）")
-        r.expect(nl.results.allSatisfy { $0.keywordRank == nil }, "自然语言 query 全是纯语义命中")
-        r.expect(nl.results.allSatisfy { $0.matchedRanges.isEmpty },
+        r.expect(!nl.results.isEmpty, "自然语言 query 有结果")
+        r.expect(nl.results.contains { $0.keywordRank != nil },
+                 "至少一条来自 keyword 路 —— 修复前这里是零，整屏只能靠语义路")
+
+        // 零高亮那一屏的真实来源：**跨语言**（英文 query 查中文语料）。
+        let crossLanguage = await service.retrieve(query: "graduation paperwork deadline",
+                                                   chunks: cs, config: config)
+        r.expect(crossLanguage.results.allSatisfy { $0.keywordRank == nil },
+                 "跨语言 query 全是纯语义命中")
+        r.expect(crossLanguage.results.allSatisfy { $0.matchedRanges.isEmpty },
                  "纯语义命中没有高亮区间 —— 24 屏「整页零高亮」的来源")
 
         // ── Progressive Enhancement：索引不可用时自动降级 ──

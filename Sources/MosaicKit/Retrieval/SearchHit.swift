@@ -122,6 +122,55 @@ public enum TextMatcher {
         return (merge(all), counts)
     }
 
+    /// 按**词项组**定位。拉丁组是 AND，CJK 二元组组按覆盖率。
+    ///
+    /// 返回的 `counts` 只包含真正命中的词项 —— 打分那一侧不需要知道
+    /// 「哪几个没中」，它只按命中的部分给分。`coverage` 是 CJK 组的加权平均
+    /// 覆盖率，给排序做区分：两篇都过了 0.5 的门槛时，覆盖 90% 的那篇更相关。
+    public static func locate(groups: [QueryTermGroup],
+                              inNormalized hayChars: [Character])
+        -> (ranges: [TextRange], counts: [Int], coverage: Double)? {
+        guard !groups.isEmpty, !hayChars.isEmpty else { return nil }
+
+        var all: [TextRange] = []
+        var counts: [Int] = []
+        var coverageSum = 0.0
+        var coverageGroups = 0
+
+        for group in groups {
+            var matchedTerms = 0
+            for term in group.terms {
+                let needle = Array(normalizedForOffsets(term))
+                guard !needle.isEmpty, needle.count <= hayChars.count else { continue }
+                var found = 0
+                var i = 0
+                while i + needle.count <= hayChars.count {
+                    if hayChars[i] == needle[0], Array(hayChars[i..<(i + needle.count)]) == needle {
+                        all.append(TextRange(start: i, end: i + needle.count))
+                        found += 1
+                        i += needle.count
+                    } else {
+                        i += 1
+                    }
+                }
+                guard found > 0 else { continue }
+                matchedTerms += 1
+                counts.append(found)
+            }
+            // 命中个数不足 → **整组不算命中**，进而整条 query 不命中。
+            // 拉丁组的 minMatched == terms.count，等价于原来的 AND 语义。
+            guard matchedTerms >= group.minMatched else { return nil }
+            let coverage = group.terms.isEmpty ? 0 : Double(matchedTerms) / Double(group.terms.count)
+            if group.isBigramGroup {
+                coverageSum += coverage
+                coverageGroups += 1
+            }
+        }
+        guard !counts.isEmpty else { return nil }
+        let coverage = coverageGroups == 0 ? 1.0 : coverageSum / Double(coverageGroups)
+        return (merge(all), counts, coverage)
+    }
+
     /// 合并重叠 / 相邻的区间，避免高亮时出现相互覆盖的片段。
     public static func merge(_ ranges: [TextRange]) -> [TextRange] {
         guard !ranges.isEmpty else { return [] }

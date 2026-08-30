@@ -76,6 +76,27 @@ public struct PerformanceGatePolicy: Sendable, Equatable, Codable {
 
     public static let v2 = PerformanceGatePolicy()
 
+    /// `perf-none` —— **只判质量，不判延迟**。
+    ///
+    /// 用在「同一份评测集上比较两套配置的检索质量」这一类跑批上。
+    ///
+    /// 为什么需要它：`perf-v2` 的环境闸门（release + 真机）是给**延迟结论**设的，
+    /// 而质量结论不受构建配置影响 —— v4 那一轮真机与 Mac 的质量数字**逐位相同**，
+    /// 差别只在延迟。用延迟的环境要求去卡质量比较，结果是每次质量跑批都判 STALE，
+    /// 于是没有人再看它，而这正是「一个总是被跳过的 Gate 等于没有 Gate」。
+    ///
+    /// 延迟判定仍然只在真机 release 上发生（`MosaicBench`），两者不互相替代：
+    /// **这个 policy 不能用来声称延迟达标**，它连延迟那一行都不出。
+    public static let qualityOnly = PerformanceGatePolicy(
+        version: "perf-none",
+        semanticCloudP95Ms: nil,
+        requiredDeviceClass: .mac,
+        requiredBuildConfiguration: "any")
+
+    /// 这套 policy 判不判延迟。`perf-none` 不判，Gate 因此不出延迟那一行 ——
+    /// 出一行「记录但不判定」会让人以为延迟被看过了。
+    public var judgesLatency: Bool { version != "perf-none" }
+
     /// 某一层的 P95 预算。`nil` = 记录但不判定。
     public func p95Budget(for layer: MeasuredLatencyLayer) -> Double? {
         switch layer {
@@ -90,7 +111,10 @@ public struct PerformanceGatePolicy: Sendable, Equatable, Codable {
     }
 
     /// 这批数字有没有资格参与判定。返回非 nil = 不合格的原因。
+    ///
+    /// `perf-none` 不检查环境：它本来就不给延迟结论，环境对质量结论没有影响。
     public func disqualification(_ environment: RunEnvironment?) -> String? {
+        if version == "perf-none" { return nil }
         guard let environment else {
             return "这批跑批没有记录测量环境 —— 不知道它跑在什么机器、什么构建上"
         }

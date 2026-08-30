@@ -93,10 +93,21 @@ enum EvalChecks {
         r.expect(run.failures.allSatisfy { !$0.isTriaged }, "新失败默认未归因 —— 等人工标注")
 
         // 严格口径：多个 expected 时必须**全部**命中。
-        let strict = EvalCase(query: "延期毕业", expectedNoteIDs: ["delay", "noodle"])
+        //
+        // 第二个 expected 用一个**语料里根本不存在**的 id，而不是「一篇大概搜不到的
+        // 笔记」。原来用的是后者，于是这条断言实际依赖「检索找不到 noodle」——
+        // CJK 切分改进之后 noodle 被找到了，断言随之失败，而它想测的
+        // **指标口径**其实一点没变。测口径就该把检索行为这个变量消掉。
+        let strict = EvalCase(query: "延期毕业", expectedNoteIDs: ["delay", "does-not-exist"])
         let strictRun = try? await runner.run(cases: [strict], config: config)
         r.expect(strictRun?.metrics.recallAt5 == 0,
                  "多个 expected 时必须全部命中才算通过 —— 宽松口径会让「找到一半」看起来和「全找到」一样好")
+
+        // 反向：两个 expected 都在语料里且都能被找到时，必须算通过。
+        // 只测「不通过」的一侧，一个恒返回 0 的实现也能过。
+        let bothFound = EvalCase(query: "延期", expectedNoteIDs: ["delay"])
+        let bothRun = try? await runner.run(cases: [bothFound], config: config)
+        r.expect(bothRun?.metrics.recallAt5 == 1, "单个 expected 命中时算通过")
 
         // 负例进入同一个 Runner，但不污染 Recall / MRR。严格口径是结果列表为空。
         let negative = EvalCase(id: "n1", query: "护照换发材料",
