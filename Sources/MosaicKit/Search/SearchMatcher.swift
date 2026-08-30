@@ -18,16 +18,21 @@ public enum SearchMatcher {
             .filter { !$0.isEmpty }
     }
 
-    /// Returns true when every query token is found in `haystack` or any `tag`.
-    /// An empty/whitespace query returns `false` (the UI shows a prompt instead).
-    public static func matches(query: String, haystack: String, tags: [String] = []) -> Bool {
-        let queryTokens = tokens(from: query)
-        guard !queryTokens.isEmpty else { return false }
-        let hay = normalize(haystack)
-        let normalizedTags = tags.map { normalize($0) }
-        return queryTokens.allSatisfy { token in
-            hay.contains(token) || normalizedTags.contains { $0.contains(token) }
-        }
+    /// 标题 / 标签的字面匹配。
+    ///
+    /// **与检索侧走同一套切分**（`QuerySegmentation`）。第一版这里是
+    /// 「按空白切 + 全部命中」，而检索侧改成了 CJK 二元组 + `minimum_should_match`
+    /// 之后，同一条中文长 query 在正文里能找到、在标题里找不到 ——
+    /// 快通道与完整通道各说各话，用户看到的是「搜索结果先出现一条又消失」。
+    ///
+    /// 空 query 返回 `false`（UI 显示引导而不是全部结果）。
+    public static func matches(query: String, haystack: String, tags: [String] = [],
+                               segmentation: QuerySegmentation = .default,
+                               cjkPolicy: CJKMatchPolicy = .default) -> Bool {
+        let groups = segmentation.groups(from: query, policy: cjkPolicy)
+        guard !groups.isEmpty else { return false }
+        let hay = Array(TextMatcher.normalizedForOffsets(haystack + " " + tags.joined(separator: " ")))
+        return TextMatcher.locate(groups: groups, inNormalized: hay) != nil
     }
 }
 

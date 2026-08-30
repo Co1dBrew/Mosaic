@@ -103,16 +103,28 @@ public struct NoteSearchResult: Sendable, Equatable, Identifiable {
     /// 这段 excerpt 的出处，决定行首的来源图标（§2.8）。
     public let source: RetrievalSource
     public let excerpt: Excerpt
+    /// 命中来自**标题或标签**。
+    ///
+    /// 这一类没有可高亮的片段（标题不进语料，excerpt 显示的是正文开头），
+    /// 但它**确确实实是字面命中** —— 用户搜的词就印在标题上。
+    ///
+    /// 不区分的话，「搜标题里的词」会让整页判成零字面命中，
+    /// 于是顶部出现一行「没有完全匹配的关键词」，而用户明明看到标题一模一样。
+    /// 这是在模拟器上搜一个标签时看到的。
+    public let matchedTitleOrTag: Bool
+
     /// 本条是否有字面命中。整页都没有时，列表顶部加一行说明（§2.6）。
-    public var hasKeywordHit: Bool { !excerpt.highlights.isEmpty }
+    public var hasKeywordHit: Bool { !excerpt.highlights.isEmpty || matchedTitleOrTag }
 
     public init(noteID: String, rank: Int, anchor: SearchAnchor,
-                source: RetrievalSource, excerpt: Excerpt) {
+                source: RetrievalSource, excerpt: Excerpt,
+                matchedTitleOrTag: Bool = false) {
         self.noteID = noteID
         self.rank = rank
         self.anchor = anchor
         self.source = source
         self.excerpt = excerpt
+        self.matchedTitleOrTag = matchedTitleOrTag
     }
 }
 
@@ -184,7 +196,8 @@ public enum SearchPresentation {
                                                           ranges: [],
                                                           firstBlockText: match.preview,
                                                           oneLiner: nil,
-                                                          budget: budget)
+                                                          budget: budget),
+                matchedTitleOrTag: true
             ))
         }
         return out

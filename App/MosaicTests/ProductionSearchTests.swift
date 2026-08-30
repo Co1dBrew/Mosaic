@@ -202,8 +202,17 @@ final class ProductionSearchTests: XCTestCase {
         // 标题命中：落点是笔记顶部，不滚动、不高亮（§3.2 / §2.4）。
         let titleRow = try XCTUnwrap(vm.rows.first { $0.noteID == byTitle.id.uuidString })
         XCTAssertEqual(titleRow.anchor, .top)
-        XCTAssertFalse(titleRow.hasKeywordHit)
+        XCTAssertTrue(titleRow.excerpt.highlights.isEmpty, "excerpt 里不做高亮")
         XCTAssertFalse(titleRow.excerpt.text.isEmpty, "excerpt 槽位仍有内容（fallback 第 2 级）")
+
+        // 但它**是**字面命中。
+        //
+        // 原来这里断言 `XCTAssertFalse(titleRow.hasKeywordHit)`，把「没有可高亮的
+        // 片段」与「这一页没有字面命中」混成了一件事。后果在模拟器上看到了：
+        // 搜一个标签，结果行标题一模一样，顶部却写着「没有完全匹配的关键词」。
+        XCTAssertTrue(titleRow.hasKeywordHit, "标题命中算字面命中 —— 用户搜的词就印在标题上")
+        XCTAssertFalse(vm.showsSemanticOnlyNotice,
+                       "所以整页不该显示「没有完全匹配的关键词」")
     }
 
     // MARK: 5 · 空态与清空

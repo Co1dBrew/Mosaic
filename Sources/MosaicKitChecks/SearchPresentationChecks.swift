@@ -112,6 +112,20 @@ enum SearchPresentationChecks {
         }
 
         r.expect(!SearchPresentation.needsSemanticOnlyNotice([]), "零结果不显示说明行（那是空态的事）")
+
+        // 标题 / 标签命中**是字面命中**，即使 excerpt 里没有可高亮的片段
+        // （标题不进语料，excerpt 显示的是正文开头）。
+        //
+        // 不区分的话，「搜标题里的词」会让整页判成零字面命中，顶部出现一行
+        // 「没有完全匹配的关键词」，而用户明明看到标题一模一样。
+        // 这是在模拟器上搜一个标签时看到的。
+        let titleOnly = SearchPresentation.appendingLexicalMatches(
+            [], lexical: [(noteID: "n1", preview: "今天讨论了下个版本的排期与分工")])
+        r.expectEqual(titleOnly.count, 1, "标题命中产出一行")
+        r.expect(titleOnly[0].excerpt.highlights.isEmpty, "它没有可高亮的片段")
+        r.expect(titleOnly[0].hasKeywordHit, "但它仍然算字面命中")
+        r.expect(!SearchPresentation.needsSemanticOnlyNotice(titleOnly),
+                 "所以整页不显示「没有完全匹配的关键词」")
     }
 
     // MARK: 3 · 标题 / 标签命中不能消失
@@ -128,7 +142,16 @@ enum SearchPresentationChecks {
         let appended = merged.last!
         r.expect(appended.noteID == "title-only", "补进来的正是那篇笔记")
         r.expect(appended.anchor == .top, "标题命中落点是笔记顶部，不滚动、不高亮（§3.2）")
-        r.expect(!appended.hasKeywordHit, "标题命中的 excerpt 不做高亮（§2.4 标题不高亮）")
+        // 原来这一条写的是 `!appended.hasKeywordHit`，把两件事混在了一起：
+        //
+        //   「excerpt 里没有可高亮的片段」  ← §2.4，标题不进语料，正确
+        //   「这一页没有字面命中」          ← §2.6 的输入，**错误**
+        //
+        // 混用的后果在模拟器上看到了：搜一个标签，结果行标题一模一样，
+        // 顶部却写着「没有完全匹配的关键词」。现在两件事分开断言。
+        r.expect(appended.excerpt.highlights.isEmpty, "标题命中的 excerpt 不做高亮（§2.4 标题不高亮）")
+        r.expect(appended.hasKeywordHit, "但它仍然算字面命中 —— 用户搜的词就印在标题上")
+        r.expect(appended.matchedTitleOrTag, "来源标记为标题 / 标签")
         r.expect(appended.excerpt.fallbackLevel == 2, "excerpt 走 fallback 第 2 级：笔记开头")
         r.expect(merged.map(\.rank) == Array(1...merged.count), "rank 仍然连续")
 
