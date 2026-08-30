@@ -90,6 +90,7 @@ enum ScenarioBaselineEvaluation {
         r.expect(devIDs.isDisjoint(with: holdIDs), "development 与 holdout 用例不重叠")
 
         printTable(runs, dataset: dataset)
+        printRegressionRoster(runs["local-hybrid"], dataset: dataset, r: r)
         await printSampleFailures(dataset: dataset, provider: provider, store: store,
                                   chunks: chunks, config: config(.hybrid, "local-hybrid"), r: r)
         printCategoryBreakdown(runs["local-hybrid"]?[.development], baseline: runs["keyword"]?[.development],
@@ -133,7 +134,9 @@ enum ScenarioBaselineEvaluation {
             dataset.cases.compactMap { c in c.category.map { (c.id, $0) } })
         func byCategory(_ run: EvalRun) -> [GoldenSetFixture.Category: (hit: Int, n: Int)] {
             var out: [GoldenSetFixture.Category: (hit: Int, n: Int)] = [:]
-            for o in run.outcomes where o.isPositive && o.scope == .inScope {
+            // 分母与 Recall@1 一致：多答案的用例在 Top-1 里不可满足，
+            // 算进来会让 `ambiguous` 恒为 0.000，看起来像能力缺失，其实是口径问题。
+            for o in run.outcomes where o.participates(in: .recallAt1) && o.scope == .inScope {
                 guard let cat = categoryOf[o.caseID] else { continue }
                 var entry = out[cat] ?? (0, 0)
                 entry.hit += o.hitAt1 ? 1 : 0
@@ -152,6 +155,40 @@ enum ScenarioBaselineEvaluation {
                          (cat.rawValue as NSString).utf8String!, c.n, br, cr, cr - br))
         }
         print("")
+    }
+
+    /// 回归集逐条点名。
+    ///
+    /// **回归集是一个棘轮**：它固定「现在有的、不许丢的」行为。
+    /// 把一条**当前就失败**的用例放进去，Gate 会因为一个不是回归的原因永久变红，
+    /// 而一个永远红的 Gate 会被忽略 —— 那正是「一个总是被跳过的 Gate 等于
+    /// 没有 Gate」。当前失败的用例属于 backlog，不属于回归集。
+    ///
+    /// 所以这里逐条打印通过情况：名单要按它来维护。
+    private static func printRegressionRoster(_ runs: [GoldenSetFixture.Split: EvalRun]?,
+                                              dataset: GoldenSetFixture.Dataset,
+                                              r: CheckRunner) {
+        guard let runs else { return }
+        var outcomes: [String: EvalCaseOutcome] = [:]
+        for (_, run) in runs {
+            for o in run.outcomes { outcomes[o.caseID] = o }
+        }
+        let regression = dataset.cases.filter { $0.isRegression == true }
+        guard !regression.isEmpty else { return }
+        print("    ── 回归集点名（local-hybrid · dev + holdout 合并）──")
+        var passing = 0
+        for c in regression.sorted(by: { $0.id < $1.id }) {
+            guard let o = outcomes[c.id] else { continue }
+            let mark = o.hitAt5 ? "✅" : "❌"
+            if o.hitAt5 { passing += 1 }
+            print("      \(mark) \(c.id)  \(c.category?.rawValue ?? "?")  \(c.query)")
+        }
+        print("      通过 \(passing)/\(regression.count)\n")
+        // 断言的是**名单的性质**，不是通过率：回归集里出现当前失败的用例，
+        // 说明名单该改，而不是说明系统坏了。
+        r.expect(passing == regression.count,
+                 "回归集里每一条都当前通过（实际 \(passing)/\(regression.count)）—— "
+                 + "不通过的属于 backlog，不属于棘轮")
     }
 
     /// 逐类抽一条失败用例，把**实际返回的前三条**打出来。

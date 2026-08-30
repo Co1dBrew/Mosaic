@@ -18,7 +18,7 @@ enum ScenarioDatasetChecks {
     /// 它故意写死而不是现算：现算的话任何改动都会自洽，指纹就只是个装饰。
     /// 改数据的正确流程是跑一遍 `tools/eval/build_scenario_set.py`，
     /// 把它打印的 checksum 抄到这里，并在提交信息里说明改了什么。
-    static let frozenChecksum = "sha256:324dc4c83643bbcd46bd89731dcedec56ef84bb066795daa3baf161751134e75"
+    static let frozenChecksum = "sha256:06d2f8c1d3b8dc0e2d0e15184dbf5834a96c953f395245daa38c6902c8fb3a00"
 
     /// 类别目标占比与容差。容差 ±3pp —— 分布是**设计目标**不是自然律，
     /// 卡到小数点后一位只会让每次增删用例都要重新配平。
@@ -225,6 +225,16 @@ enum ScenarioDatasetChecks {
         }
         r.expect(d.negativeQueries.contains { $0.split == .holdout },
                  "负例也分层进 holdout")
+
+        // 回归集：**不能是空的**。空集合会让 Gate 的第四行恒过，
+        // 而「一个总是通过的检查」与「没有这个检查」是同一件事。
+        let regression = d.cases.filter { $0.isRegression == true }
+        r.expect(regression.count >= 6,
+                 "回归集至少 6 条（实际 \(regression.count)）—— 空集合等于没有那一行 Gate")
+        r.expect(Set(regression.compactMap(\.category)).count >= 3,
+                 "回归集覆盖至少 3 个类别 —— 只盯一种失败模式的回归集保护不了别的")
+        r.expect(regression.allSatisfy { $0.evalCase.source == .regression },
+                 "标了 isRegression 的用例在 Runner 里确实归到 regression 分组")
     }
 
     // MARK: 7 · 泄漏

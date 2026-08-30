@@ -10,6 +10,9 @@ public struct EvalCaseOutcome: Sendable, Equatable, Codable {
     public let scope: EvalScope
     /// 是不是正例。负例不进 Recall / MRR 的分母，也不参与配对检验。
     public let isPositive: Bool
+    /// 这条用例有几个期望笔记。Recall@K 的分母只含 `expectedCount ≤ K` 的用例
+    /// （见 `EvalRunner` 的口径说明），配对检验必须用同一个分母。
+    public let expectedCount: Int
     public let hitAt1: Bool
     public let hitAt3: Bool
     public let hitAt5: Bool
@@ -18,11 +21,13 @@ public struct EvalCaseOutcome: Sendable, Equatable, Codable {
     public let latencyMs: Double
 
     public init(caseID: String, scope: EvalScope, isPositive: Bool,
+                expectedCount: Int = 1,
                 hitAt1: Bool, hitAt3: Bool, hitAt5: Bool,
                 reciprocalRank: Double, latencyMs: Double) {
         self.caseID = caseID
         self.scope = scope
         self.isPositive = isPositive
+        self.expectedCount = expectedCount
         self.hitAt1 = hitAt1
         self.hitAt3 = hitAt3
         self.hitAt5 = hitAt5
@@ -36,6 +41,17 @@ public struct EvalCaseOutcome: Sendable, Equatable, Codable {
         case .recallAt3: return hitAt3 ? 1 : 0
         case .recallAt5: return hitAt5 ? 1 : 0
         case .mrr:       return reciprocalRank
+        }
+    }
+
+    /// 这一条在指定指标的分母里吗。与 `EvalRunner.metrics` 的口径一一对应。
+    public func participates(in metric: PairedBootstrap.Metric) -> Bool {
+        guard isPositive else { return false }
+        switch metric {
+        case .recallAt1: return expectedCount <= 1
+        case .recallAt3: return expectedCount <= 3
+        case .recallAt5: return expectedCount <= 5
+        case .mrr:       return true
         }
     }
 }
@@ -126,7 +142,7 @@ public enum PairedBootstrap {
                                      seed: UInt64 = 0x5EED_1234) -> Interval? {
         func indexed(_ outcomes: [EvalCaseOutcome]) -> [String: EvalCaseOutcome] {
             var out: [String: EvalCaseOutcome] = [:]
-            for o in outcomes where o.isPositive && (scope == nil || o.scope == scope) {
+            for o in outcomes where o.participates(in: metric) && (scope == nil || o.scope == scope) {
                 out[o.caseID] = o
             }
             return out

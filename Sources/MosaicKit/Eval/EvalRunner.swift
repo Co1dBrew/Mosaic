@@ -13,6 +13,12 @@ import Foundation
 /// - **Recall@K**：`命中的正例数 / 正例总数`。多个 expected 时，
 ///   **全部**都要落在 Top K 才算通过 —— 宽松口径（命中任意一个即算）会让
 ///   「找到一半」看起来和「全找到」一样好。
+///
+///   **分母只包含 `expected.count ≤ K` 的用例。** 一条要求两篇笔记的用例，
+///   在 Top-1 的列表里**永远**不可能满足 —— 把它算成 miss，测到的是指标定义
+///   而不是系统表现。`scenario-v5` 的 10 条歧义用例各有两个答案，
+///   不排除的话它们会让每一条臂的 R@1 一律低约 0.05，而且**绝对下限那一行
+///   会因此判错**。K=3 / K=5 时它们仍然进分母（2 ≤ 3），严格口径不变。
 /// - **MRR**：第一个正确笔记的名次倒数；一条都没命中记 0。
 /// - **No-result accuracy**：负例中返回空列表的比例。当前严格以
 ///   `results.isEmpty` 判定；在 TD-10 相关性下限落地前，不做分数猜测。
@@ -108,6 +114,9 @@ public actor EvalRunner {
                     caseID: entry.evalCase.id,
                     scope: entry.evalCase.scope,
                     isPositive: positive,
+                    // `expectedCount` 让配对 bootstrap 能用与汇总指标**同一个分母**：
+                    // 两边分母不一致时，「置信区间」算的就不是那个点估计的区间。
+                    expectedCount: expected.count,
                     hitAt1: positive && isHit(expected: expected, in: entry.returned, k: 1),
                     hitAt3: positive && isHit(expected: expected, in: entry.returned, k: 3),
                     hitAt5: positive && isHit(expected: expected, in: entry.returned, k: 5),
@@ -171,11 +180,13 @@ public actor EvalRunner {
         }
         let negatives = entries.filter { $0.evalCase.expectation == .noRelevantResult }
         let positiveCount = Double(positives.count)
+        /// Recall@K。分母是**在 Top-K 里可满足**的那些正例（`expected.count ≤ K`）。
         func recall(_ k: Int) -> Double {
-            guard positiveCount > 0 else { return 0 }
-            return Double(positives.filter {
+            let satisfiable = positives.filter { $0.evalCase.expectedNoteIDs.count <= k }
+            guard !satisfiable.isEmpty else { return 0 }
+            return Double(satisfiable.filter {
                 isHit(expected: $0.evalCase.expectedNoteIDs, in: $0.returned, k: k)
-            }.count) / positiveCount
+            }.count) / Double(satisfiable.count)
         }
         let mrr = positiveCount == 0 ? 0 : positives.reduce(0.0) {
             $0 + ($1.rank.map { 1.0 / Double($0) } ?? 0)

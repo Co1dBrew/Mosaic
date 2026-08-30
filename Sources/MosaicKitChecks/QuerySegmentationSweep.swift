@@ -58,11 +58,27 @@ enum QuerySegmentationSweep {
         var arms: [(String, QuerySegmentation, CJKMatchPolicy)] = [
             ("whitespace（旧）", .whitespace, .default)
         ]
-        for ratio in [0.5, 0.34, 0.25, 0.15] {
+        for ratio in [0.34, 0.25, 0.15] {
             for floor in [1, 2, 3] {
                 arms.append((String(format: "bigram r=%.2f f=%d", ratio, floor),
                              .cjkBigram, CJKMatchPolicy(ratio: ratio, floor: floor)))
             }
+        }
+        // 中英混排：拉丁词命中后放宽 CJK 段。
+        for ratio in [0.25, 0.15] {
+            for floor in [2, 3] {
+                arms.append((String(format: "r=%.2f f=%d +latin", ratio, floor),
+                             .cjkBigram,
+                             CJKMatchPolicy(ratio: ratio, floor: floor, latinRelaxesCJK: true)))
+            }
+        }
+        // 拉丁词之间也放宽（噪声 query 这一类的直接目标：
+        // `wheres the midterm now, snell or richards` 在 AND 语义下整条不命中）。
+        for latin in [0.8, 0.67, 0.5] {
+            arms.append((String(format: "r=0.15 f=3 +latin L=%.2f", latin),
+                         .cjkBigram,
+                         CJKMatchPolicy(ratio: 0.15, floor: 3, latinRelaxesCJK: true,
+                                        latinRatio: latin)))
         }
 
         // 负例单独跑：**放宽命中门槛的代价在这里**。in-scope 的 R@1 涨了，

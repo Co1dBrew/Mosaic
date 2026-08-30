@@ -909,6 +909,52 @@ NEW_CASES += [
 ]
 
 # ---------------------------------------------------------------------------
+# 3.5 · 回归集
+#
+# 回归集不是另一批数据 —— 它是一个标记：**这几条曾经坏过，不许再坏**。
+# Gate 的第四行读它们的通过率；集合为空时那一行恒过，等于没有那一行。
+#
+# 这批是**本轮两个缺陷的直接证人**：
+#
+#   1. CJK 分词缺陷（中文长 query 在词法路全灭）
+#   2. 拉丁词 AND 语义（一个词没对上就整条不命中）
+#
+# 它们分布在四个类别上，所以「回归」不会退化成只盯着一种失败模式。
+# ---------------------------------------------------------------------------
+
+# **回归集是一个棘轮**：它固定「现在有的、不许丢的」行为。
+#
+# 第一版把 12 条「两个缺陷的证人」全放了进去，跑出来只有 7 条当前通过 ——
+# 于是 Gate 的第四行变成 42.9%，永久红。那不是回归，是**还没做到**。
+# 一个永远红的 Gate 会被忽略，而这正是「一个总是被跳过的 Gate 等于没有 Gate」。
+#
+# 所以名单只保留**当前通过**的那 7 条。剩下 5 条进 backlog
+# （`HANDOFF_NEXT.md` P1），它们是待办不是回归。
+#
+# 维护方式：`swift run mosaic-checks` 会打印「回归集点名」，逐条给出通过情况，
+# 并断言全部通过。有一条掉了就是真的回归，那时该查代码而不是改名单。
+REGRESSION_CASE_IDS = [
+    # ── CJK 分词修复的证人（修复前词法路零命中）──
+    "CR02",    # 「上次说小会议室是不是要提前订」
+    "ND01",    # 「期末那个项目最多几个人一组」
+    # ── 拉丁 minimum_should_match 修复的证人（修复前多一个词就整条不命中）──
+    "NQ09",    # 「wheres the midterm now, snell or richards」→ wheres 不在语料里
+    "NQ17",    # 「ta OH moved to thurs?」→ OH / thurs 是缩写
+    "NQ18",    # 「cpt how many bus days b4 start」→ b4 / bus days
+    "ND25",    # 「how long before the defense does the committee need the full draft」
+    "LT26",    # 「when is a model score actually useful」→ 长句，词都很普通
+]
+
+# 当前**做不到**的，进 backlog 不进棘轮：
+#
+#   HG041  搜索功能到底什么时候能给内部测试，为什么没上线   （两个来源都要召回）
+#   LT01   会议里说搜索这周不上线，那到底哪天发             （词面陷阱，最难的一类）
+#   CR01   上次老师说那个不能退课之前要先做什么             （query 与答案零词面重合）
+#   NQ04   南门停车费 一小时几块 上限多少                   （电报式，全是虚词）
+#   NQ11   whats my ded again for in network               （ded 是口语缩写）
+
+
+# ---------------------------------------------------------------------------
 # 4 · 构建
 # ---------------------------------------------------------------------------
 
@@ -1038,6 +1084,15 @@ def build():
             "hardNegativeNoteIDs": [], "provenance": PROV,
         })
 
+    # ---- 回归标记 ----
+    known = {c["id"] for c in cases}
+    for cid in REGRESSION_CASE_IDS:
+        assert cid in known, f"回归集引用了不存在的用例：{cid}"
+    regression = set(REGRESSION_CASE_IDS)
+    for c in cases:
+        if c["id"] in regression:
+            c["isRegression"] = True
+
     # ---- split ----
     split_for = assign_splits(cases, key=lambda c: c["category"])
     for c in cases:
@@ -1143,6 +1198,14 @@ def quality_report(ds):
     for t, diffs in sorted(by_type.items()):
         if diffs != {"easy", "medium", "hard"}:
             problems.append(f"语料类型 {t} 缺少难度档：有 {sorted(diffs)}")
+
+    head("Regression set")
+    reg = [c for c in cases if c.get("isRegression")]
+    lines.append(f"  {len(reg)} 条（曾经坏过、不许再坏）")
+    for cat, n in sorted(collections.Counter(c["category"] for c in reg).items()):
+        lines.append(f"    {cat:<20} {n}")
+    if not reg:
+        problems.append("回归集为空 —— Gate 的第四行会恒过，等于没有那一行")
 
     head("Split")
     split = collections.Counter([c["split"] for c in cases] + [n["split"] for n in negs])

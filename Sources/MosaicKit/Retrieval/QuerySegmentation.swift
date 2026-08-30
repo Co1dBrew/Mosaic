@@ -99,42 +99,83 @@ public struct CJKMatchPolicy: Sendable, Equatable, Codable {
     public var ratio: Double
     /// 绝对下限：至少要命中这么多个。防止「一个二元组碰巧撞上」就算命中。
     public var floor: Int
+    /// 中英混排的 query 里，**拉丁词命中之后 CJK 段要不要放宽**。
+    ///
+    /// 场景：`roialign 那个作业几号截至`。`roialign` 是极强的判别信号，
+    /// 而后面那半句全是口语虚词，凑不满 CJK 的门槛 —— 于是整条 query 不命中，
+    /// 一个本来一定能找到的答案被口语部分拖没了。
+    ///
+    /// 打开后，只要有拉丁组命中，CJK 组的门槛降到 1（仍参与打分与覆盖率）。
+    /// **默认关闭**：它是不是好，要用 development 扫描说话，不能拍。
+    public var latinRelaxesCJK: Bool
+    /// 拉丁词之间的 `minimum_should_match` 比例。`nil` = 全部必须命中（AND，旧行为）。
+    ///
+    /// 为什么需要它：`wheres the midterm now, snell or richards` —— 用户打字时
+    /// 少一个撇号、多两个词，AND 语义下**整条 query 不命中**。噪声 query 这一类
+    /// 在 development 上因此长期是 0.000。
+    ///
+    /// 只在拉丁词 ≥ `latinAndBelow` 个时生效：一两个词的 query 本来就该 AND，
+    /// 放宽它等于把「精确查两个词」也变成模糊搜索。
+    public var latinRatio: Double?
+    /// 少于等于这个数量的拉丁词仍然走 AND。
+    public var latinAndBelow: Int
 
-    public init(ratio: Double, floor: Int) {
+    public init(ratio: Double, floor: Int,
+                latinRelaxesCJK: Bool = false,
+                latinRatio: Double? = nil,
+                latinAndBelow: Int = 2) {
         self.ratio = ratio
         self.floor = floor
+        self.latinRelaxesCJK = latinRelaxesCJK
+        self.latinRatio = latinRatio
+        self.latinAndBelow = latinAndBelow
     }
 
     public func minMatched(termCount: Int) -> Int {
         max(floor, Int((ratio * Double(termCount)).rounded(.up)))
     }
 
-    /// # 生产默认：`ratio 0.15 · floor 3`
+    /// # 生产默认：`ratio 0.15 · floor 3 · latinRelaxesCJK`
     ///
     /// 取值来自 development 上的扫描（`QuerySegmentationSweep`，144 条）：
     ///
-    /// | policy | R@1 | 负例正确率 |
+    /// | policy | R@1 | 负例克制率 |
     /// |---|---:|---:|
-    /// | whitespace（旧） | 0.175 | 100% |
-    /// | r=0.34 f=1 | 0.250 | 100% |
-    /// | **r=0.15 f=3** | **0.292** | **90%** |
-    /// | r=0.25 f=1 | 0.317 | 80% |
-    /// | r=0.15 f=1 | 0.358 | 70% |
+    /// | whitespace（旧） | 0.186 | 100% |
+    /// | r=0.34 f=1 | 0.265 | 100% |
+    /// | r=0.15 f=3 | 0.310 | 90% |
+    /// | r=0.15 f=3 +latin | 0.354 | 90% |
+    /// | r=0.15 f=3 +latin L=0.67 | 0.389 | 90% |
+    /// | **r=0.15 f=3 +latin L=0.50（选中）** | **0.478** | **90%** |
+    /// | r=0.25 f=1 | 0.336 | 80% |
+    /// | r=0.15 f=2 +latin | 0.398 | 70% |
     ///
-    /// R@1 与负例正确率是**互相交换**的：门槛越松找得越准，但「本来就没有答案」
+    /// R@1 与负例克制率是**互相交换**的：门槛越松找得越准，但「本来就没有答案」
     /// 的 query 越容易返回点什么。只看 R@1 会把这个代价漏掉。
     ///
-    /// 选择的依据是一条明写的产品约束：**负例正确率相对当前生产（100%）
+    /// 选择依据是一条明写的产品约束：**负例克制率相对当前生产（100%）
     /// 下降不得超过 10pp**。理由是生产里没有相关性下限做兜底 ——
-    /// abstention 目前是 `EXPERIMENT_ONLY_NOT_PRODUCTION`（`TD-10` 未解决），
-    /// 所以「搜什么都有结果」没有第二道防线。
+    /// abstention 目前是 `EXPERIMENT_ONLY_NOT_PRODUCTION`（TD-10 未解决），
+    /// 「搜什么都有结果」没有第二道防线。
     ///
-    /// 在这条约束下取 R@1 最高的一格：`r=0.15 f=3`，R@1 **+67%**，负例 −10pp。
-    /// 更松的两格（0.317 / 0.358）留着 —— **等 abstention 能上生产再回来取**。
+    /// 在这条约束下取 R@1 最高的一格。三档放宽**都是同代价更优**，
+    /// 负例克制率一路都是 90%，R@1 从 0.310 一路到 0.478 ——
+    /// 它们不是拿更多误报换来的，而是修掉了「一个词没对上就整条不命中」。
     ///
-    /// `floor 3` 的含义是「至少三个相邻字对相同」。短 query（≤3 个二元组）由
-    /// `QueryTermGroup` 的 clamp 兜底，不会因为凑不满 3 个而永远不命中。
-    public static let `default` = CJKMatchPolicy(ratio: 0.15, floor: 3)
+    /// 更松的两格（0.336 / 0.398）代价是 80% / 70%，留着，
+    /// **等 abstention 能上生产再回来取**。
+    ///
+    /// 三个参数各自的含义：
+    ///
+    /// - `floor 3`：中文段至少三个相邻字对相同。短 query（≤3 个二元组）由
+    ///   `QueryTermGroup` 的 clamp 兜底，不会因为凑不满 3 个而永远不命中。
+    /// - `latinRelaxesCJK`：有强判别力的拉丁词命中时，后半句口语不再拖累整条。
+    /// - `latinRatio 0.5`：三个以上拉丁词时命中一半即可。它治的是
+    ///   `wheres the midterm now, snell or richards` 这类 —— 少一个撇号、
+    ///   多两个词，AND 语义下整条不命中。**两个词以内仍然是 AND**
+    ///   （`latinAndBelow`），否则「精确查两个词」也会变成模糊搜索。
+    public static let `default` = CJKMatchPolicy(ratio: 0.15, floor: 3,
+                                                 latinRelaxesCJK: true, latinRatio: 0.5)
 }
 
 public extension QuerySegmentation {
@@ -150,7 +191,14 @@ public extension QuerySegmentation {
                 .map { QueryTermGroup(terms: [$0], minMatched: 1, isBigramGroup: false) }
         }
 
+        // 先看这条 query 里有没有拉丁段。有的话 CJK 段的门槛可以按策略放宽 ——
+        // 判断要在建组**之前**做，因为门槛是建组时写进去的。
+        let hasLatinRun = policy.latinRelaxesCJK && rawTokens.contains { raw in
+            Self.runs(in: raw).contains { $0.kind == .latin && !SearchMatcher.normalize($0.text).isEmpty }
+        }
+
         var groups: [QueryTermGroup] = []
+        var latinTerms: [String] = []
         for raw in rawTokens {
             // 一个 token 内部可能中英混排（`CS5330作业`），所以要再按字符类别拆一次。
             for run in Self.runs(in: raw) {
@@ -158,8 +206,7 @@ public extension QuerySegmentation {
                 case .latin:
                     let normalized = SearchMatcher.normalize(run.text)
                     guard !normalized.isEmpty else { continue }
-                    groups.append(QueryTermGroup(terms: [normalized], minMatched: 1,
-                                                 isBigramGroup: false))
+                    latinTerms.append(normalized)
                 case .cjk:
                     let chars = Array(SearchMatcher.normalize(run.text))
                     guard chars.count >= 2 else {
@@ -178,11 +225,29 @@ public extension QuerySegmentation {
                     // 去重但保持顺序：重复的二元组会让覆盖率分母虚高。
                     var seen = Set<String>()
                     let unique = bigrams.filter { seen.insert($0).inserted }
-                    groups.append(QueryTermGroup(terms: unique,
-                                                 minMatched: policy.minMatched(termCount: unique.count),
-                                                 isBigramGroup: true))
+                    groups.append(QueryTermGroup(
+                        terms: unique,
+                        minMatched: hasLatinRun ? 1 : policy.minMatched(termCount: unique.count),
+                        isBigramGroup: true))
                 }
             }
+        }
+
+        // 拉丁词收成一组再统一定门槛。
+        //
+        // 逐词一组（每组 minMatched = 1）等价于 AND —— 任何一组不中，整条不中。
+        // 收成一组之后，`minMatched` 才有「几个里中几个」的表达力。
+        if !latinTerms.isEmpty {
+            var seen = Set<String>()
+            let unique = latinTerms.filter { seen.insert($0).inserted }
+            let required: Int
+            if let ratio = policy.latinRatio, unique.count > policy.latinAndBelow {
+                required = max(1, Int((ratio * Double(unique.count)).rounded(.up)))
+            } else {
+                required = unique.count   // AND，旧行为
+            }
+            groups.append(QueryTermGroup(terms: unique, minMatched: required,
+                                         isBigramGroup: false))
         }
         return groups
     }

@@ -184,6 +184,13 @@ public enum GoldenSetFixture {
         public var rationale: String?
         public var provenance: Provenance?
         public var split: Split?
+        /// 这条同时属于**回归集**。
+        ///
+        /// 回归集不是另一批数据（`DECISION_LOG` D-UI-DEV-009：Golden 与 Regression
+        /// 结构完全相同）。它是一个标记：**这几条曾经坏过，不许再坏**。
+        /// Gate 的第四行读的就是它们的通过率 —— 集合为空时那一行恒过，
+        /// 也就等于没有那一行。
+        public var isRegression: Bool?
 
         /// 分级 → binary 的映射：**≥2 算相关**。
         ///
@@ -196,7 +203,8 @@ public enum GoldenSetFixture {
 
         public var evalCase: EvalCase {
             EvalCase(id: id, query: query, expectedNoteIDs: expectedNoteIDs,
-                     source: .golden, addedAt: .distantPast,
+                     source: (isRegression ?? false) ? .regression : .golden,
+                     addedAt: .distantPast,
                      queryLanguage: queryLanguage, expectedLanguage: expectedLanguage,
                      scope: scope, note: "[\(style.rawValue)] \(note)")
         }
@@ -213,6 +221,13 @@ public enum GoldenSetFixture {
         public var hardNegativeNoteIDs: [String]?
         public var provenance: Provenance?
         public var split: Split?
+        /// 这条同时属于**回归集**。
+        ///
+        /// 回归集不是另一批数据（`DECISION_LOG` D-UI-DEV-009：Golden 与 Regression
+        /// 结构完全相同）。它是一个标记：**这几条曾经坏过，不许再坏**。
+        /// Gate 的第四行读的就是它们的通过率 —— 集合为空时那一行恒过，
+        /// 也就等于没有那一行。
+        public var isRegression: Bool?
 
         public var evalCase: EvalCase {
             EvalCase(id: id, query: query, expectation: .noRelevantResult,
