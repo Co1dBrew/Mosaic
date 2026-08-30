@@ -47,6 +47,7 @@ struct SearchView: View {
         .navigationTitle("搜索")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索全部笔记")
+        .accessibilityIdentifier("search.root")
         .onAppear {
             if viewModel == nil { viewModel = makeViewModel() }
             if query.isEmpty && !initialQuery.isEmpty { query = initialQuery }
@@ -162,6 +163,9 @@ struct SearchView: View {
                         SearchResultRow(row: row, card: card)
                     }
                     .buttonStyle(.plain)
+                    // UI 测试按 noteID 定位结果行 —— 标题会被 AI 改写，
+                    // 位置会随排序变化，只有 id 是稳定的。
+                    .accessibilityIdentifier("search.result.\(row.noteID)")
                 }
             }
         }

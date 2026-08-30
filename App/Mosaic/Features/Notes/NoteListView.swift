@@ -123,6 +123,8 @@ struct NoteListView: View {
                         NoteRowView(card: card)
                     }
                         .buttonStyle(.plain)
+                        // UI 测试按 noteID 定位 —— 标题会变，位置会随排序变，id 不会。
+                        .accessibilityIdentifier("notes.row.\(card.id.uuidString)")
                         .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                         .swipeActions(edge: .leading) {
                             Button { togglePin(card) } label: {
@@ -336,6 +338,15 @@ struct NoteRowView: View {
                     Text(card.displayTitle)
                         .font(.body.weight(.medium))
                         .lineLimit(1)
+                        // UI 测试点的是**这个**元素。
+                        //
+                        // 实测：`XCUIElement.tap()` 与坐标点击打在外层 `Button` 上
+                        // 都不触发导航（行上挂着两个 swipeActions 和一个 contextMenu，
+                        // 合成事件被手势识别器吃掉），而打在行内文字上正常。
+                        // 真手指点同一个位置也是正常的 —— 这是测试框架与 SwiftUI
+                        // 手势的交互问题，不是产品缺陷。给文字一个稳定 id，
+                        // 测试就不必去猜行的结构，也不必依赖可见文案。
+                        .accessibilityIdentifier("notes.rowTitle.\(card.id.uuidString)")
                     Spacer(minLength: AppSpacing.sm)
                     Text(Format.relative(card.updatedAt))
                         .font(.caption2)
@@ -356,7 +367,6 @@ struct NoteRowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 

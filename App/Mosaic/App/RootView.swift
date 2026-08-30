@@ -25,7 +25,10 @@ struct RootView: View {
 
     @ViewBuilder private var rootContent: some View {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--ui-gallery") {
+            // UI 测试永远进真实首页。放在最前面，避免哪天某个 demo 参数被同时传进来。
+            if ModelContainerFactory.isUITest {
+                NoteListView()
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-gallery") {
                 DebugGalleryView()
             } else if ProcessInfo.processInfo.arguments.contains("--search-demo") {
                 SearchView(initialQuery: "评审")

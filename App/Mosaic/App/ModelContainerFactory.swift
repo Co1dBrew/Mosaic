@@ -44,7 +44,42 @@ enum ModelContainerFactory {
         let isCloudKitBacked: Bool
     }
 
+    // MARK: UI 测试的存储隔离
+
+    /// UI 测试用的独立 store 目录。
+    ///
+    /// **不用 in-memory**：Core Flow 2 要验证「重启后内容还在」，而 in-memory
+    /// 一退出就没了，那条用例会变成永远通过。所以给一个真实的磁盘 store，
+    /// 只是路径与用户数据分开，并且可以在启动时按需清空。
+    static let uiTestStoreName = "MosaicUITest"
+
+    static var isUITest: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-test")
+    }
+
+    /// `--ui-test-reset` 时把测试 store 删掉，保证每条用例从空状态开始。
+    /// 不传这个参数的重启会保留数据 —— Core Flow 2 就靠它。
+    private static func resetUITestStoreIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-test-reset") else { return }
+        let fm = FileManager.default
+        guard let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        else { return }
+        for suffix in ["store", "store-shm", "store-wal"] {
+            for name in [uiTestStoreName, "\(uiTestStoreName)Derived"] {
+                try? fm.removeItem(at: support.appendingPathComponent("\(name).\(suffix)"))
+            }
+        }
+    }
+
     static func makeNoteStore(cloudKitRequested: Bool, inMemory: Bool = false) -> NoteStore {
+        if isUITest {
+            resetUITestStoreIfRequested()
+            let config = ModelConfiguration(uiTestStoreName, schema: schema,
+                                            isStoredInMemoryOnly: false, cloudKitDatabase: .none)
+            if let container = try? ModelContainer(for: schema, configurations: [config]) {
+                return NoteStore(container: container, isCloudKitBacked: false)
+            }
+        }
         if inMemory {
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             // In-memory must succeed; a failure here is a programmer error.
@@ -92,6 +127,13 @@ enum ModelContainerFactory {
     ])
 
     static func makeDerived(inMemory: Bool = false) -> ModelContainer {
+        if isUITest {
+            let config = ModelConfiguration("\(uiTestStoreName)Derived", schema: derivedSchema,
+                                            isStoredInMemoryOnly: false, cloudKitDatabase: .none)
+            if let container = try? ModelContainer(for: derivedSchema, configurations: [config]) {
+                return container
+            }
+        }
         if inMemory {
             let config = ModelConfiguration(schema: derivedSchema, isStoredInMemoryOnly: true)
             return try! ModelContainer(for: derivedSchema, configurations: [config])

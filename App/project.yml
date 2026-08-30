@@ -69,6 +69,7 @@ targets:
     scheme:
       testTargets:
         - MosaicTests
+        - MosaicUITests
         - MosaicBench
 
   # 真机性能基准。**独立 target**：它只依赖内核，不用 `@testable`，
@@ -125,6 +126,24 @@ targets:
       - target: Mosaic
       - package: MosaicKit
         product: MosaicKit
+
+  # UI 测试：Core E2E + smoke（DECISION_CONFIG: UI_TEST_SCOPE = CORE_E2E_AND_SMOKE）。
+  # **独立 target**，因为 XCUITest 是黑盒（跨进程驱动 app），
+  # 与 `@testable` 的单元测试不能共处。
+  MosaicUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: MosaicUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: com.qingdonggong.mosaic.uitests
+        SWIFT_VERSION: "5.0"
+        TEST_TARGET_NAME: Mosaic
+    dependencies:
+      - target: Mosaic
 
   MosaicTests:
     type: bundle.unit-test
