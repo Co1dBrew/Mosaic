@@ -14,8 +14,9 @@
 - **UI v2 全部落地**，旧的三级导航已删除
 - **评测集换成 `scenario-v5`**：207 条场景化 query，九类能力，分级标注，dev/holdout
 - **Gate v1**：baseline 相对 + 统计置信 + 绝对下限
-- **修掉四个真缺陷**：删文件夹的 derived 泄漏 · iCloud 状态说谎 ·
-  **中文 query 在词法路全灭** · **拉丁词 AND 让噪声 query 整条不命中**
+- **修掉五个真缺陷**：删文件夹的 derived 泄漏 · iCloud 状态说谎 ·
+  **中文 query 在词法路全灭** · **拉丁词 AND 让噪声 query 整条不命中** ·
+  **搜标签时谎称「没有完全匹配的关键词」**
 
 **当前判定：development / holdout 双双 PASS。**
 但 PASS 的是 **baseline（keyword）**—— 本机语义路对 R@1 的贡献是精确的 0
@@ -82,7 +83,7 @@ xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration
 
 | 套件 | 结果 | 条件 |
 |---|---|---|
-| 内核 checks | ✅ 3637 断言 | Mac · debug · 约 4 分钟 · **无云端凭据** |
+| 内核 checks | ✅ 3643 断言 | Mac · debug · 约 4 分钟 · **无云端凭据** |
 | App 单测 | ✅ 93 tests | iPhone 17 Pro 模拟器 |
 | UI 测试 | ✅ 6 flows | 同上 |
 | MosaicBench | ⏭ 7 条 skip | 模拟器上按设计跳过 |

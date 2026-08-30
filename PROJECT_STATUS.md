@@ -65,6 +65,7 @@ B1 与 B2 是同一件事的两面：质量要从云端来。
 | 三路检索 + 融合 | ✅ 默认 `weighted(keyword: 0.7, vector: 0.3)`（RRF 实测在本地臂**有害**） |
 | CJK query 切分 | ✅ **本轮新修**：二元组 + `minimum_should_match`。修复前中文长 query 在词法路全灭 |
 | 拉丁词 `minimum_should_match` | ✅ **本轮新修**：三个以上词时命中一半即可。修复前多一个词就整条不命中 |
+| 标题/标签命中的判定 | ✅ **本轮新修**：它是字面命中。修复前搜标签会显示「没有完全匹配的关键词」 |
 | 检索质量（Mac · 本机模型） | R@1 **0.175 → 0.478**（development）· **0.173 → 0.604**（holdout） |
 | 归一化缓存 | ✅ 2.36×（真机 2.29–2.30×），语义逐位不变 |
 | derived 数据一致性 | ✅ **本轮新修**：删文件夹会清理 · 启动清历史孤儿 · 陈旧项不占 topK 名额 |
@@ -96,7 +97,7 @@ B1 与 B2 是同一件事的两面：质量要从云端来。
 
 | 套件 | 结果 | 条件 |
 |---|---|---|
-| `swift run mosaic-checks` | ✅ **3637 断言** | Mac · debug · 约 4 分钟 · 无云端凭据 |
+| `swift run mosaic-checks` | ✅ **3643 断言** | Mac · debug · 约 4 分钟 · 无云端凭据 |
 | `xcodebuild test -scheme Mosaic` | ✅ **93 单测 + 6 UI 测试** | iPhone 17 Pro 模拟器 |
 | `MosaicBench` | ⏭ 7 条在模拟器上按设计 skip | 要真机 |
 | `./tools/verify_release.sh` | ✅ 全部通过 | Release 产物核对 |
