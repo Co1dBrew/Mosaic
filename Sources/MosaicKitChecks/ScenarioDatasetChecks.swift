@@ -62,6 +62,58 @@ enum ScenarioDatasetChecks {
             r.expect(lowered.contains(forbidden),
                      "免责声明明确否认「\(forbidden)」")
         }
+
+        checkHumanProvenanceIsImportable(r)
+    }
+
+    /// # 将来那份人工评测集，今天就要能导进来
+    ///
+    /// `provenance` 是**可选枚举**：遇到不认识的字符串不是解成 nil，
+    /// 而是整个文件解析失败。也就是说，少一个 case 的后果不是「字段丢了」，
+    /// 而是「拿到人工数据那天，第一件事是发现导不进来」——
+    /// 那时的补救成本比现在加一行高得多。
+    ///
+    /// 这条**不制造任何假的人工数据**（`HUMAN_AUTHORED_EVAL = FUTURE`）。
+    /// 它只证明容器是通的：喂一条最小的 human_authored JSON，能解出来。
+    private static func checkHumanProvenanceIsImportable(_ r: CheckRunner) {
+        r.suite("scenario-v5 · human_authored 是合法来源（为将来的人工评测集留的口）")
+
+        let json = """
+        {
+          "id": "HUMAN_SMOKE_1",
+          "query": "上次说的那个押金多久退",
+          "expectedNoteIDs": ["N1"],
+          "style": "natural",
+          "queryLanguage": "zh",
+          "expectedLanguage": "zh",
+          "scope": "in-scope",
+          "note": "容器连通性用例，不是评测数据",
+          "provenance": "human_authored",
+          "notesVisibleWhileAuthoring": false,
+          "category": "semantic_recall",
+          "split": "holdout"
+        }
+        """
+        let decoded = try? JSONDecoder().decode(GoldenSetFixture.Candidate.self,
+                                                from: Data(json.utf8))
+        r.expectNotNil(decoded, "human_authored 的用例能被现有解析器读出来")
+        r.expect(decoded?.provenance == .humanAuthored, "provenance 解成 human_authored")
+        r.expect(decoded?.provenance?.isHumanSourced == true, "它被识别为真人来源")
+        r.expect(decoded?.notesVisibleWhileAuthoring == false,
+                 "「写 query 时看不看得见笔记」这一位读得出来 —— 它决定这份数据能证明什么")
+        r.expect(decoded?.evalCase.expectedNoteIDs == ["N1"],
+                 "它能变成一条可跑的 EvalCase，而不只是能解析")
+
+        // 同样要能读旧的标注者口径，两个值并存。
+        let annotated = try? JSONDecoder().decode(
+            GoldenSetFixture.Candidate.self,
+            from: Data(json.replacingOccurrences(of: "human_authored", with: "human_annotated").utf8))
+        r.expect(annotated?.provenance == .humanAnnotated, "human_annotated 同样合法")
+
+        // **当前这一份仍然是 agent 写的。** 上面几条不改变这个事实，
+        // 而把它写成别的就是撒谎（`EVAL_SPEC.md` §1）。
+        r.expect(GoldenSetFixture.Provenance.agentAuthoredRealistic.isHumanSourced == false,
+                 "agent_authored_realistic 不算真人来源 —— 报告里不能混为一谈")
     }
 
     // MARK: 2 · 类别分布

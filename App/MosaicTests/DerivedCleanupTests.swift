@@ -54,7 +54,7 @@ final class DerivedCleanupTests: XCTestCase {
                                       derived: derived,
                                       noteContext: notesContainer.mainContext,
                                       extractor: StubExtractor(),
-                                      config: RetrievalConfig(chunkStrategy: .block),
+                                      config: RetrievalConfig(mode: .hybrid, chunkStrategy: .block),
                                       debounceNanos: 20_000_000)
         return Stack(notes: notesContainer, derivedContainer: dc,
                      context: notesContainer.mainContext, derived: derived,

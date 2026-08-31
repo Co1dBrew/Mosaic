@@ -23,7 +23,23 @@ final class ProductionSearchTests: XCTestCase {
         let provider: (any EmbeddingProvider)?
     }
 
-    private func makeStack(provider: (any EmbeddingProvider)?? = nil) -> Stack {
+    /// - Parameter mode: 这个 stack 的**生产配置**走哪条路。
+    ///
+    ///   默认是 `.hybrid`（= `RetrievalConfig.localHybridExperimental` 那一路），
+    ///   **不是**当前的生产配置。理由：这个文件里多数用例验的是检索**机制** ——
+    ///   两条通道各自防抖、慢通道的长度门控、索引不可用时降级 ——
+    ///   而机制只有在两条通道都在的时候才验得动。用 keyword 跑它们，
+    ///   每一条都会因为「慢通道压根没启动」而通过，那是假绿。
+    ///
+    ///   当前生产配置（keyword）自己的行为由 `testProductionIsKeywordOnly…`
+    ///   那两条单独验。
+    /// - Parameter maintainsVectorIndex: 覆盖「这次构建要不要维护向量索引」。
+    ///   `nil` = 跟着构建配置走（测试跑在 Debug 下，于是恒为 true）。
+    ///   传 `false` 才能走到 **Release + keyword 生产**那条分支 ——
+    ///   不传的话那条分支在测试里根本执行不到。
+    private func makeStack(provider: (any EmbeddingProvider)?? = nil,
+                           mode: RetrievalMode = .hybrid,
+                           maintainsVectorIndex: Bool? = nil) -> Stack {
         let notes = ModelContainerFactory.make(cloudKitEnabled: false, inMemory: true)
         let derived = DerivedDataStore(container: ModelContainerFactory.makeDerived(inMemory: true))
         let vectors = InMemoryVectorStore()
@@ -32,7 +48,8 @@ final class ProductionSearchTests: XCTestCase {
                                        vectors: vectors,
                                        derived: derived,
                                        noteContext: notes.mainContext,
-                                       config: RetrievalConfig(chunkStrategy: .block))
+                                       config: RetrievalConfig(mode: mode, chunkStrategy: .block),
+                                       maintainsVectorIndex: maintainsVectorIndex)
         return Stack(notes: notes, context: notes.mainContext, derived: derived,
                      vectors: vectors, indexing: indexing, provider: resolved)
     }
@@ -285,5 +302,91 @@ final class ProductionSearchTests: XCTestCase {
 
         try await search(vm, "延期")
         XCTAssertTrue(vm.rows.isEmpty, "笔记删了就不该再出现在结果里")
+    }
+
+    // MARK: 7 · 生产配置是 keyword —— 语义那一整条不发生
+
+    /// `PRODUCTION_RETRIEVAL = KEYWORD`。这条验的是**运行时真的照做了**，
+    /// 而不只是常量写着 keyword。
+    ///
+    /// 判据选 `capability`：语义路不在这一版产品里，状态栏就不该谈论它。
+    /// 之前的行为是 —— 没有 provider → `semanticUnavailable` →
+    /// 常驻一行「智能搜索暂不可用」加一个「重试」按钮，
+    /// 而其实没有任何东西坏掉。**没承诺过的能力，不存在「不可用」。**
+    func testProductionIsKeywordOnlyAndDoesNotAdvertiseSemantics() async throws {
+        // 生产配置 = `RetrievalConfig.production`（keyword），provider 故意给 nil：
+        // 这正是「本机没有句向量模型」那台设备上的情形。
+        let stack = makeStack(provider: .some(nil), mode: RetrievalConfig.production.mode)
+        try seed(stack.context, title: "延期毕业", texts: ["延期一个学期毕业。"])
+        await stack.indexing.indexAll()
+
+        XCTAssertEqual(RetrievalConfig.production.mode, .keyword,
+                       "前置：产品决策是 keyword —— 改了这里就要改这条用例")
+
+        let vm = makeViewModel(stack)
+        try await search(vm, "延期毕业的流程是什么")
+
+        XCTAssertEqual(vm.capability, .full,
+                       "纯词法生产下 capability 必须是 full —— 没有任何东西不可用")
+        XCTAssertFalse(vm.rows.isEmpty, "词法路照常出结果")
+        XCTAssertEqual(vm.phase, .ready)
+    }
+
+    /// 发布构建 + keyword 生产时，索引状态**不该**卡在「建立中」。
+    ///
+    /// 这一条防的是修复的反面：如果 `IndexingService` 一边不做嵌入、
+    /// 一边仍把这些 chunk 记成 pending，`IndexStateMachine` 会永远返回 `.building` ——
+    /// 用户看到一个永远转不完的「正在准备智能搜索…」。
+    ///
+    /// **`maintainsVectorIndex: false` 是必需的**：测试跑在 Debug 下，
+    /// 而 Debug 构建会照常维护向量索引（Developer Tools 的实验臂要用它）。
+    /// 不覆盖的话这条用例测的是 Debug 的行为，而不是用户装的那一份。
+    func testKeywordProductionLeavesIndexReadyRatherThanForeverBuilding() async throws {
+        let stack = makeStack(provider: .some(nil), mode: .keyword, maintainsVectorIndex: false)
+        try seed(stack.context, title: "排期", texts: ["下周三评审。", "会后同步结论。"])
+        await stack.indexing.start()
+
+        XCTAssertEqual(stack.indexing.state, .ready,
+                       "keyword 生产下索引没有欠着的工作 —— 状态是 ready，不是 building/failed")
+        XCTAssertEqual(stack.indexing.pendingChunks, 0,
+                       "不做的事不该记成「还欠着」")
+
+        // 反面：**带着 Developer Tools 的构建照常建索引**，因为实验臂要拿它做对比。
+        // 两条一起才说明这个闸门是「按理由开关」，不是「一律不建」。
+        let devStack = makeStack(provider: nil, mode: .keyword, maintainsVectorIndex: true)
+        try seed(devStack.context, title: "排期", texts: ["下周三评审。"])
+        await devStack.indexing.start()
+        XCTAssertGreaterThan(devStack.indexing.indexedChunks, 0,
+                             "带 Developer Tools 的构建仍然建索引 —— 否则 local-hybrid 实验臂没有对照物")
+    }
+
+    // MARK: 8 · 归一化缓存必须跨查询存活
+
+    /// # 缓存实现了、测过了、基准跑过了 —— 但没有到达用户
+    ///
+    /// `retrieve` 每次都新建一个 `RetrievalService`，而它的 `normalizedText`
+    /// 默认参数是 `NormalizedTextCache()` —— 于是**每一次按键都拿到一个空缓存**，
+    /// 线上永远走冷路径（真机 20k 上冷 103.0 ms vs 热 67.6 ms）。
+    ///
+    /// 这类缺陷不会让任何既有测试变红：两条路的**结果逐位相同**，只是慢。
+    /// 所以断言不能断结果，只能断「第二次查询确实更省」—— 这里断的是
+    /// 缓存里有没有留下东西。
+    func testNormalizedCacheSurvivesAcrossQueriesInASearchSession() async throws {
+        let stack = makeStack(provider: .some(nil), mode: .keyword)
+        for i in 0..<40 {
+            try seed(stack.context, title: "笔记\(i)", texts: ["第 \(i) 段 关于排期与延期毕业的记录。"])
+        }
+        await stack.indexing.indexAll()
+
+        let vm = makeViewModel(stack)
+        try await search(vm, "排期")
+        let afterFirst = await vm.normalizedCacheCountForTesting
+        XCTAssertGreaterThan(afterFirst, 0,
+                             "第一次查询之后缓存里必须有东西 —— 没有就说明每次查询都新建了一个空缓存")
+
+        try await search(vm, "延期")
+        let afterSecond = await vm.normalizedCacheCountForTesting
+        XCTAssertEqual(afterSecond, afterFirst,
+                       "第二次查询复用同一份缓存（语料没变，条目数不该重新长起来）")
     }
 }

@@ -23,9 +23,20 @@ public enum RetrievalCapability: String, Sendable, Equatable, CaseIterable {
     /// - Parameter semanticProviderAvailable: 本机有没有可用的句向量模型。
     ///   没有模型时索引状态可能仍是 `.ready`（没有任何待办），但语义**确实**不可用 ——
     ///   只看 `IndexState` 会在空库上报出 `full`，那是一句假话。
+    /// - Parameter semanticInProduction: 当前**生产配置**里有没有语义路
+    ///   （`RetrievalConfig.production.mode.usesVector`）。
+    ///
+    ///   这一维是必需的，否则会说出另一种假话：生产配置是纯词法时，
+    ///   `semanticProviderAvailable == false` 会让状态栏常驻
+    ///   「智能搜索暂不可用」并给出一个「重试」按钮 —— 而其实没有任何东西坏掉，
+    ///   语义路根本不是这一版产品的一部分。**没有承诺过的能力，不存在「不可用」。**
     public static func derive(indexState: IndexState,
                               semanticProviderAvailable: Bool,
+                              semanticInProduction: Bool = true,
                               offline: Bool = false) -> RetrievalCapability {
+        // 顺序有意义：先问「这一版有没有这条路」，再问「这条路现在通不通」。
+        // 反过来的话，纯词法生产在离线时会报 `.offline`，而词法路根本不用网。
+        guard semanticInProduction else { return .full }
         if offline { return .offline }
         guard semanticProviderAvailable else { return .semanticUnavailable }
         switch indexState {

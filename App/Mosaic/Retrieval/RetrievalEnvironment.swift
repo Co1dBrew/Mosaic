@@ -69,8 +69,14 @@ final class RetrievalEnvironment {
             cloudConfigured: settings?.isCloudEmbeddingConfigured ?? false,
             cloudConsentGranted: settings?.hasAcceptedCloudEmbeddingNotice ?? false,
             corpusContainsHan: corpusHasHan,
-            corpusContainsLatin: corpusHasLatin)
+            corpusContainsLatin: corpusHasLatin,
+            semanticInProduction: indexing.config.mode.usesVector)
     }
+
+    /// 这一版的生产配置里有没有语义路。UI 侧「要不要谈论智能搜索」全读它 ——
+    /// 而不是各自去问 provider 在不在。**能力不在产品里** 与
+    /// **能力在产品里但这台设备上不可用** 是两件事，用户看到的话术也不同。
+    var semanticInProduction: Bool { indexing.config.mode.usesVector }
 
     /// 按当前语料 + 设置**应该**走的路线。与 `route`（当前生效的）不同时，
     /// 说明需要一次重建索引才能切过去。

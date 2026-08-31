@@ -174,6 +174,37 @@ public struct RetrievalConfigRegistry: Sendable, Equatable, Codable {
         return records[index]
     }
 
+    // MARK: 迁移
+
+    /// # 把「从未被 Promote 过的」生产记录迁移到当前编译期默认
+    ///
+    /// 这条存在的理由是一个具体的失败：产品决策把生产从 hybrid 改成 keyword、
+    /// `RetrievalConfig.production` 也改了，但**老设备上已经落盘的注册表里
+    /// 那条根记录还是 hybrid**。`ReleaseStore` 优先读文件，于是这台手机上
+    /// 线上跑的仍然是 hybrid —— 代码、文档、Gate 全都说 keyword，只有真机在说另一件事。
+    /// 这正是「文档说 Keyword，代码默认 Hybrid」那类不一致的持久化版本。
+    ///
+    /// **只迁移根记录**（`promotedAt == nil`）。经过 Gate Promote 上线的配置
+    /// 是一次有记录的人为决定，不能被一次 App 更新悄悄改掉；它需要的是
+    /// 再走一次 Promote。
+    ///
+    /// - Returns: 真的换掉了返回 `true`。调用方据此决定要不要落盘。
+    @discardableResult
+    public mutating func migrateRootProduction(to target: RetrievalConfig,
+                                               createdAt: Date = Date()) -> Bool {
+        guard let index = records.firstIndex(where: { $0.role == .production }) else { return false }
+        guard records[index].promotedAt == nil else { return false }
+        guard records[index].config != target else { return false }
+        let old = records[index]
+        records[index] = RetrievalConfigRecord(id: old.id,
+                                               config: target,
+                                               createdAt: createdAt,
+                                               derivedFrom: old.derivedFrom,
+                                               role: .production,
+                                               promotedAt: nil)
+        return true
+    }
+
     /// 删一条 draft。生产与候选不能删 —— 删掉当前生产配置之后，线上跑的是什么就没有记录了。
     public mutating func remove(id: String) throws {
         guard let index = records.firstIndex(where: { $0.id == id }) else { throw ConfigError.unknownRecord(id) }

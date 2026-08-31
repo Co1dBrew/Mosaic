@@ -55,7 +55,7 @@ final class RetrievalIndexingTests: XCTestCase {
                                       derived: derived,
                                       noteContext: notes.mainContext,
                                       extractor: extractor,
-                                      config: RetrievalConfig(chunkStrategy: .block),
+                                      config: RetrievalConfig(mode: .hybrid, chunkStrategy: .block),
                                       debounceNanos: debounceNanos)
         return Stack(notes: notes, context: notes.mainContext, derived: derived,
                      vectors: vectors, counter: counter, service: service)
@@ -112,7 +112,7 @@ final class RetrievalIndexingTests: XCTestCase {
                                         vectors: InMemoryVectorStore(),
                                         derived: stack.derived,
                                         noteContext: stack.context,
-                                        config: RetrievalConfig(chunkStrategy: .block))
+                                        config: RetrievalConfig(mode: .hybrid, chunkStrategy: .block))
         await restarted.start()
 
         let afterRestart = await stack.counter.value()

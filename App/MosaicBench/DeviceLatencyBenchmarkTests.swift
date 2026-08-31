@@ -617,6 +617,95 @@ final class DeviceLatencyBenchmarkTests: XCTestCase {
         """)
     }
 
+    // MARK: 7 · 五个已修缺陷的证人 —— 真机 · 生产配置 · 逐条点名
+
+    /// # 为什么整体指标回答不了「D3 修好了没有」
+    ///
+    /// `test6` 出的是 60 条 holdout 的汇总。一条用例翻面在那里只值 0.017 ——
+    /// 中文长 query 的修复要是又坏了，汇总数字上看不出来，
+    /// 而它恰恰是上一轮把 R@1 从 0.175 抬到 0.478 的那个修复。
+    ///
+    /// 所以这里**逐条点名**，每个证人一个断言，失败时直接说出是哪一条。
+    ///
+    /// ## 为什么用 keyword 而不是 hybrid
+    ///
+    /// D3（中文长 query 在词法路全灭）· D4（拉丁词 AND 让噪声 query 整条不命中）
+    /// · D5（标题/标签命中被谎称成「没有完全匹配的关键词」）三个缺陷**都在词法路上**，
+    /// 而词法路正是当前生产配置（`RetrievalConfig.production` = keyword）。
+    ///
+    /// 拿 hybrid 跑等于让语义路替词法路的缺陷兜底：词法路再坏一次也测不出来。
+    /// **回归证人必须跑在它要保护的那条路上。**
+    func test7_fixedDefectWitnessesUnderProductionConfig() async throws {
+        try skipUnlessPhysicalDevice()
+        guard let data = Self.goldenSetData() else {
+            throw XCTSkip("测试 bundle 里没有 HumanLikeGoldenSet.json —— 检查 project.yml 的 sources")
+        }
+        let dataset = try GoldenSetFixture.decode(data)
+        let chunks = dataset.chunks
+
+        // 回归集 = 已修行为的棘轮（`GATE_POLICY.md` §7）。两个 split 的都取 ——
+        // 这里不是发布判定，不受 holdout 冻结约束；它问的是「修好的东西还好着吗」。
+        //
+        // 从 **fixture 的 candidate** 上取而不是从 `EvalCase` 上取：category 与
+        // queryLanguage 只在 fixture 那一层有，而这条用例的价值恰恰在于
+        // 「挂的是哪一类」。
+        let witnesses = dataset.cases.filter { $0.isRegression == true }
+        XCTAssertFalse(witnesses.isEmpty, "回归集不该是空的 —— 空集合会让通过率恒为 1.0")
+
+        // **生产配置本身**，不是就地拼一套参数。拼一套等于测了一个没人在用的东西。
+        let production = RetrievalConfig.production
+        XCTAssertEqual(production.mode, .keyword,
+                       "前置：产品决策是 keyword。改了它就要重新想这条用例该跑哪条路")
+
+        let service = RetrievalService(provider: nil, vectors: InMemoryVectorStore())
+        let config = RetrievalConfig(version: production.version, mode: production.mode,
+                                     embeddingProvider: "none", embeddingVersion: "none",
+                                     chunkStrategy: .default, topK: 10)
+        let runner = EvalRunner(service: service, chunksProvider: { chunks })
+        let run = try await runner.run(cases: witnesses.map(\.evalCase), config: config)
+
+        print("""
+
+        ══════ 已修缺陷的证人（真机 · \(production.version) · \(witnesses.count) 条）══════
+          case     lang  category            @1  @5    RR     延迟
+        """)
+        var byID: [String: EvalCaseOutcome] = [:]
+        for o in run.outcomes { byID[o.caseID] = o }
+
+        var failedIDs: [String] = []
+        for w in witnesses.sorted(by: { $0.id < $1.id }) {
+            guard let o = byID[w.id] else { failedIDs.append("\(w.id)(无结果)"); continue }
+            print(String(format: "  %-8@ %-5@ %-18@ %@  %@  %.2f  %6.2fms",
+                         w.id as NSString,
+                         w.queryLanguage.rawValue as NSString,
+                         (w.category?.rawValue ?? "-") as NSString,
+                         (o.hitAt1 ? "✅" : "· ") as NSString,
+                         (o.hitAt5 ? "✅" : "❌") as NSString,
+                         o.reciprocalRank, o.latencyMs))
+            if !o.hitAt5 { failedIDs.append(w.id) }
+        }
+        print("")
+
+        // 逐条断言。**一条一个断言**，不是一个「通过率 ≥ 98%」——
+        // 通过率会把「哪一条挂了」这个唯一有用的信息压掉。
+        for w in witnesses.sorted(by: { $0.id < $1.id }) {
+            XCTAssertEqual(byID[w.id]?.hitAt5, true,
+                           "回归证人 \(w.id)（\(w.category?.rawValue ?? "-") · "
+                           + "\(w.queryLanguage.rawValue)）在真机生产配置下必须命中 Top5："
+                           + "「\(w.query)」")
+        }
+        XCTAssertTrue(failedIDs.isEmpty, "真机上挂掉的回归证人：\(failedIDs.joined(separator: ", "))")
+
+        // D3 / D4 的**类别覆盖**要显形：证人里必须真的有中文长 query 和噪声 query，
+        // 否则这条用例可以在两个缺陷都复发的情况下通过。
+        let hasChineseNaturalLanguage = witnesses.contains {
+            $0.queryLanguage == .zh && $0.query.count >= 8
+        }
+        let hasNoisy = witnesses.contains { $0.category?.rawValue == "noisy_query" }
+        XCTAssertTrue(hasChineseNaturalLanguage, "D3 的证人（中文自然语言长 query）必须在回归集里")
+        XCTAssertTrue(hasNoisy, "D4 的证人（噪声 query）必须在回归集里")
+    }
+
     // MARK: 工具
 
     /// 云端凭据。**不进仓库、不进环境变量。**

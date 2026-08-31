@@ -4,13 +4,20 @@
 
 - **笔记**：一条笔记里混装文字、图片、录音、文档、链接；AI 生成一句话概述与
   完整总结，之后每次实质修改追加一条「这次变了什么」。
-- **搜索**：词法 + 语义混合检索，用户侧没有任何模式开关。
+- **搜索**：**关键词检索**（`PRODUCTION_RETRIEVAL = KEYWORD`），用户侧没有任何模式开关。
 - **质量平台**：场景化评测集 · 分级标注 · development / holdout · 统计置信的发布判定 ·
   真机延迟基准 · 内部开发者工具。
 
-> **当前发布结论：不可上线（BLOCKED）。** 判定链路是闭合的，但候选配置在
-> development 上没有达到质量下限，云端臂缺凭据未跑。详见
-> [`GATE_POLICY.md`](GATE_POLICY.md) §5 与 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)。
+> **生产检索是 keyword，不是 hybrid。**
+> 本机语义路对 R@1 的贡献实测是精确的 **+0.000**（95% CI `[0, 0]`），
+> 而它把真机 P50 从 2.22 ms 推到 8.75 ms，并且让「本来就没有答案」的 query
+> 的克制率从 **100% 塌到 0%**。所以 local-hybrid 保留为**实验臂**，不是默认。
+> 依据见 [`GATE_POLICY.md`](GATE_POLICY.md) §5c。
+>
+> **发布就绪度：Internal / External Beta 的代码侧就绪（code-ready）；
+> App Store 需要 Apple 账号配置（account-ready 未完成）。**
+> 质量承诺仍受限于「评测集不是真实用户数据」这一条。
+> 详见 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)。
 
 ---
 
@@ -93,7 +100,7 @@ cd App && xcodegen generate
 xcodebuild test -scheme Mosaic -project App/Mosaic.xcodeproj -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
-### 发布前核对
+### 发布前核对（**不需要真机**）
 
 ```bash
 ./tools/verify_release.sh
@@ -101,6 +108,19 @@ xcodebuild test -scheme Mosaic -project App/Mosaic.xcodeproj -destination 'platf
 
 检查 Release **产物**：内部工具是否真的不在包里、隐私清单与图标是否打包、
 权限说明是否与实际用途一致、CloudKit 标记是否与 entitlements 一致。
+
+### 真机核对（**需要连真机**）
+
+```bash
+./tools/verify_device.sh
+```
+
+自己发现设备（不硬编码 udid），跑 Debug / Release 真机构建，再核对
+**arm64 发布切片**：内部工具符号、隐私清单、图标、以及生产检索配置版本号
+是不是真的编进去了。加 `--with-bench` 连真机基准一起跑。
+
+两个脚本分开是刻意的：合成一个的话，CI 上永远拿不到设备，
+于是连那些本来不需要设备的检查也一起被跳过。
 
 ### 真机性能基准（需要连真机）
 
@@ -114,11 +134,28 @@ xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration
 
 ## 检索与评测（Goal 1）
 
-### 生产搜索
+### 生产搜索 —— **keyword**
 
-隐式混合检索，用户侧没有 mode 开关（`design/SEARCH_CONTRACT.md` §1.1）。
-结果行三槽位：标题 · **命中片段** · 文件夹与时间。命中片段的唯一职责是回答
-「为什么这条与我搜的有关」，它不是笔记摘要。
+`RetrievalConfig.production.mode == .keyword`。用户侧没有 mode 开关
+（`design/SEARCH_CONTRACT.md` §1.1）。结果行三槽位：标题 · **命中片段** ·
+文件夹与时间。命中片段的唯一职责是回答「为什么这条与我搜的有关」，
+它不是笔记摘要。
+
+**语义路不在这一版产品里**，因此：
+
+- 搜索页不会说「智能搜索暂不可用」——没承诺过的能力不存在「不可用」
+- 高级设置里没有 Embedding 参数与云端同意开关——不给一个开了也没用的开关
+- **发布构建不建向量索引**（Debug / `INTERNAL_BUILD` 仍建，实验臂要拿它做对比）
+
+三处读的是同一个事实：`RetrievalConfig.production.mode.usesVector`。
+`ProductionConfigChecks` 盯着它，改产品决策就得连着改那一组断言。
+
+### local-hybrid：**实验臂**
+
+`RetrievalConfig.localHybridExperimental`。它保留的理由是「以后云端臂或更好的
+本机模型到位时，比较的对照组要还在」，不是「它随时可以上线」。
+要上线得走 Release Gate 的 Promote（`RetrievalConfigRegistry.promote`，
+只接受一个 PASS 且版本号对得上的 `GateDecision`）。
 
 中文 query 走 **CJK 二元组切分**：在此之前一句没有空格的中文是一个 token，
 匹配要求整句原样出现在笔记里，于是长口语 query 在词法路上**全灭**
@@ -160,7 +197,7 @@ Retrieval Lab / Compare / Trace / Eval Center / Release Gate。
 |---|---|
 | 笔记文字 + 图片 → AI 总结 | 首次弹窗 |
 | 录音音频 → 云端转写 | 首次弹窗（Apple 本地转写不上传音频，是默认值） |
-| 笔记文字 → 云端智能搜索 | 设置 → 高级，默认关闭 |
+| 笔记文字 → 云端智能搜索 | **这一版不存在这条外发路径** —— 生产检索是 keyword，设置里也不再提供这个开关 |
 
 ---
 
@@ -169,6 +206,8 @@ Retrieval Lab / Compare / Trace / Eval Center / Release Gate。
 | | 状态 |
 |---|---|
 | **iCloud 同步** | **此版本不提供**。entitlements 里没有 CloudKit 容器，设置页据实显示「此版本不提供」而不是给一个必然失败的开关 |
+| **语义检索（local-hybrid）** | **EXPERIMENTAL，不是生产默认**。只在 Developer Tools 与 `MosaicBench` 里出现 |
+| **云端语义检索** | **DEFERRED（产品决策）**。代码在，凭据缺失时判 `SKIPPED — CREDENTIALS NOT CONFIGURED`，**不构成项目 FAIL** |
 | **语义弃答（abstention）** | **EXPERIMENTAL，未接入生产**。TD-10 未解决（余量 0.0002）。有断言守着它不出现在生产路径里 |
 | **App 图标** | **临时品牌资产**，由 `tools/branding/make_app_icon.py` 生成，等最终品牌设计替换 |
 | **媒体文件同步** | 未实现。媒体存在 App 沙盒（`MediaStore`），元数据可同步、二进制不同步 |

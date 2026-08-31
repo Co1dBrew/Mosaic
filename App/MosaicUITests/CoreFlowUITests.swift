@@ -264,12 +264,20 @@ final class CoreFlowUITests: XCTestCase {
         app.buttons["notes.settings"].tap()
         wait(element("settings.advanced"), 10, "设置第一屏应当有「高级」入口")
 
-        // 第一屏**不**放这些低频项（v2 §6 的分层）。
-        XCTAssertFalse(element("settings.cloudSearchConsent").exists,
-                       "云端搜索同意开关属于「高级」，不该在第一屏")
+        // 第一屏**不**放低频项（v2 §6 的分层）。
+        XCTAssertFalse(element("settings.search.keywordOnly").exists,
+                       "搜索方式说明属于「高级」，不该在第一屏")
 
         element("settings.advanced").tap()
-        wait(element("settings.cloudSearchConsent"), 10, "高级页应当有云端搜索同意开关")
+
+        // 搜索：`PRODUCTION_RETRIEVAL = KEYWORD` 之下，「智能搜索」那一整段
+        // （Embedding 模型 / 维度 / Base URL / 云端同意开关）**不该出现** ——
+        // 它们对搜索行为没有任何影响，而那个开关还要用户授权一次数据外发。
+        // 与 iCloud 同一条原则：不给必然无效的开关。
+        wait(element("settings.search.keywordOnly"), 10,
+             "纯词法生产下高级页应当据实说明「搜索方式：关键词」")
+        XCTAssertFalse(element("settings.cloudSearchConsent").exists,
+                       "这一版不跑语义路，云端搜索同意开关不该存在 —— 那是个开了也没用的开关")
 
         // iCloud：这个构建没有 CloudKit 能力（entitlements 是空的），
         // 所以必须**不给开关**，而是明说不提供。它在高级页靠下，要滚过去。

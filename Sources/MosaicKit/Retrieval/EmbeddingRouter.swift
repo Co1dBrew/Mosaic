@@ -119,11 +119,17 @@ public enum EmbeddingRouter {
     /// **返回的是判断，不是文案。** 用户可见的句子由 App 侧的 `Copy` 提供 ——
     /// `SEARCH_CONTRACT.md` §1.1.1 有一张禁用词表（向量 / 语义检索 / chunk / index …），
     /// 而内核不该、也没法执行那张表。内核只回答「这一刻值不值得说一句」。
+    ///
+    /// **第五个条件是这一版有没有语义路。** `PRODUCTION_RETRIEVAL = KEYWORD` 之下
+    /// 这句提示是一句空头支票：用户照着开了云端，搜索行为一点不变 ——
+    /// 因为语义那一整条压根不跑。它比不提示更糟，因为它还要用户去授权一次数据外发。
     public static func shouldOfferCloudUpgrade(route: EmbeddingRoute,
                                                cloudConfigured: Bool,
                                                cloudConsentGranted: Bool,
                                                corpusContainsHan: Bool,
-                                               corpusContainsLatin: Bool) -> Bool {
+                                               corpusContainsLatin: Bool,
+                                               semanticInProduction: Bool = true) -> Bool {
+        guard semanticInProduction else { return false }
         guard !route.usesCloud else { return false }
         guard cloudConfigured, !cloudConsentGranted else { return false }
         guard corpusContainsHan && corpusContainsLatin else { return false }

@@ -91,10 +91,30 @@ public enum GoldenSetFixture {
     /// **这一项存在的唯一目的是防止把它说成真实用户数据。**
     /// Agent 写出来的场景化用例可以叫「production-style / human-like / 场景化」，
     /// 不能叫 real user logs / actual user queries / organic traffic。
+    /// 这批用例是**谁写的**。
+    ///
+    /// 它不是元数据装饰：一份 agent 写的评测集和一份真人写的评测集，
+    /// 支撑的结论强度完全不同。所以它进每一条数据、有断言守着，
+    /// 而不是只写在文档里（数据会被拷走，文档不会）。
+    ///
+    /// **`human_*` 两个值现在没有数据在用**，它们存在是为了让将来那份
+    /// 人工评测集**不需要改 schema 就能导入**。这一点必须现在就成立：
+    /// `provenance` 是可选枚举，遇到不认识的字符串**不是**解成 nil 而是
+    /// 整个文件解析失败 —— 也就是说，少一个 case 就等于「拿到人工数据那天，
+    /// 第一件事是发现导不进来」。
     public enum Provenance: String, Codable, Sendable {
         case agentAuthoredRealistic = "agent_authored_realistic"
-        /// 留给将来真的拿到用户标注时用。
+        /// 真人在**看得到笔记**的情况下标注既有 query（标注者，不是提问者）。
         case humanAnnotated = "human_annotated"
+        /// 真人**没看笔记**、按自己真实的回忆写下 query（提问者）。
+        ///
+        /// 与 `humanAnnotated` 分开是因为两者的偏差方向相反：
+        /// 看着笔记写 query 会不自觉地抄词面（高估词法路），
+        /// 凭记忆写 query 才是产品要面对的输入。
+        case humanAuthored = "human_authored"
+
+        /// 这一条是不是真人产出的。将来报告里「多少条来自真人」读它。
+        public var isHumanSourced: Bool { self != .agentAuthoredRealistic }
     }
 
     public struct Note: Codable, Equatable {
@@ -184,6 +204,13 @@ public enum GoldenSetFixture {
         public var rationale: String?
         public var provenance: Provenance?
         public var split: Split?
+        /// 写这条 query 的时候，作者**看得见目标笔记吗**。
+        ///
+        /// 只对 `human_authored` 有意义，所以是可选的（现有 agent 数据不带它）。
+        /// 记它的理由：看着笔记写出来的 query 会不自觉地抄词面，
+        /// 于是词法路的分数虚高 —— 那种数据能证明的东西比它看起来少得多。
+        /// **将来那份人工评测集必须能回答这个问题**，字段现在就留好。
+        public var notesVisibleWhileAuthoring: Bool?
         /// 这条同时属于**回归集**。
         ///
         /// 回归集不是另一批数据（`DECISION_LOG` D-UI-DEV-009：Golden 与 Regression

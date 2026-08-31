@@ -62,6 +62,9 @@ final class IndexingService {
     private var dirtyNoteIDs: Set<String> = []
     private var flushTask: Task<Void, Never>?
 
+    /// 只由测试传入。`nil` = 按构建配置与生产 mode 自己判断（见 `maintainsVectorIndex`）。
+    private let maintainsVectorIndexOverride: Bool?
+
     init(provider: (any EmbeddingProvider)?,
          vectors: InMemoryVectorStore,
          derived: DerivedDataStore,
@@ -69,7 +72,8 @@ final class IndexingService {
          extractor: (any ImageTextExtractor)? = nil,
          config: RetrievalConfig = .production,
          maxConcurrent: Int = 2,
-         debounceNanos: UInt64 = 600_000_000) {
+         debounceNanos: UInt64 = 600_000_000,
+         maintainsVectorIndex: Bool? = nil) {
         self.provider = provider
         self.vectors = vectors
         self.derived = derived
@@ -78,10 +82,41 @@ final class IndexingService {
         self.config = config
         self.coordinator = AIJobCoordinator(policy: .init(maxConcurrent: maxConcurrent))
         self.debounceNanos = debounceNanos
+        self.maintainsVectorIndexOverride = maintainsVectorIndex
     }
 
     var embeddingVersion: String { provider?.modelInfo.version ?? "unavailable" }
     var isAvailable: Bool { provider != nil }
+
+    /// # 这次构建要不要维护向量索引
+    ///
+    /// 两个理由**各自独立**，任一成立就要建：
+    ///
+    /// 1. **生产配置里有语义路** —— 线上要查它。
+    /// 2. **这个构建带着 Developer Tools** —— 实验臂（local-hybrid）要拿它做对比，
+    ///    Retrieval Lab 与 Compare Modes 读的都是这个共享 store。
+    ///
+    /// 两个都不成立就是 Release + `PRODUCTION_RETRIEVAL = KEYWORD`：
+    /// 此时全库嵌入是**纯粹的浪费** —— 用户的电池、CPU 和内存为一个没有任何
+    /// 消费者的向量库买单。产品决策说 keyword，运行时就不该偷偷还在跑语义那一半。
+    ///
+    /// **OCR 不在这个闸门之内**：图片块的可检索文本来自 OCR，而词法路要用它。
+    ///
+    /// ## 为什么可以被构造函数覆盖
+    ///
+    /// 不给覆盖口的话，Release 那一侧的行为**在测试里根本到不了** ——
+    /// 测试跑在 Debug 下，`#if DEBUG` 恒真，于是「keyword 生产下不建索引」
+    /// 这条分支从来没有被执行过一次。一条只在发布构建里生效、
+    /// 却从来没被测过的分支，等于没写。
+    private var maintainsVectorIndex: Bool {
+        if let maintainsVectorIndexOverride { return maintainsVectorIndexOverride }
+        if config.mode.usesVector { return true }
+        #if DEBUG || INTERNAL_BUILD
+        return true
+        #else
+        return false
+        #endif
+    }
 
     // MARK: 触发入口
 
@@ -101,11 +136,15 @@ final class IndexingService {
     /// 把 derived store 里的向量灌进内存索引。索引没有构建步骤，
     /// 所以它不可能相对来源过期（`RETRIEVAL_ARCHITECTURE.md` §9.6）。
     func loadPersistedIndex() async {
+        await vectors.removeAll()
+        // 不维护向量索引的构建**不把它灌进内存**。落盘的记录留着不删
+        // （derived 数据本来就可重建，删了只会让将来一次 Promote 要重嵌全库），
+        // 但它不占内存、也不参与任何检索。
+        guard maintainsVectorIndex else { indexedChunks = 0; return }
         // 只灌回**当前** embedding 版本的记录。换过 provider 的旧向量
         // 维度不同，留在内存里会污染检索。
         let version = embeddingVersion
         let matching = derived.allRecords().filter { $0.embeddingVersion == version }
-        await vectors.removeAll()
         await vectors.upsert(matching)
         indexedChunks = await vectors.count()
     }
@@ -263,6 +302,14 @@ final class IndexingService {
             await vectors.removeChunks(plan.orphanChunkIDs)
         }
 
+        // 不维护向量索引时到此为止：OCR 已经做完（词法路要用），嵌入不做。
+        // pending 记 0 而不是 `plan.pending.count` —— 这里没有欠着的工作，
+        // 是这一版根本不做这件事。记成欠着会让索引状态永远停在「建立中」。
+        guard maintainsVectorIndex else {
+            scanned[noteID] = (plan.totalChunks, 0)
+            return
+        }
+
         guard let provider, !plan.pending.isEmpty else {
             scanned[noteID] = (plan.totalChunks, provider == nil ? plan.pending.count : 0)
             return
@@ -349,7 +396,10 @@ final class IndexingService {
                                          pendingChunks: pendingChunks,
                                          runningJobs: await coordinator.inFlightCount,
                                          hasEmbeddings: indexedChunks > 0,
-                                         failure: provider == nil
+                                         // 不维护向量索引时 provider 缺席不是失败 ——
+                                         // 没有人在等它。报 failure 会让状态栏说
+                                         // 「智能搜索暂不可用」，而这一版没承诺过智能搜索。
+                                         failure: (provider == nil && maintainsVectorIndex)
                                              ? (lastError ?? "语义检索不可用；关键词搜索不受影响")
                                              : lastError)
     }

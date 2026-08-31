@@ -61,6 +61,27 @@ final class SearchViewModel {
     private var cachedChunks: [NoteChunk] = []
     private var cachedChunkKey = ""
 
+    /// # 归一化缓存 —— **由 ViewModel 持有，不是每次查询新建一个**
+    ///
+    /// 这里原来什么都没有，`retrieve` 每次都 `RetrievalService(...)` 新建一个 service，
+    /// 而 service 的 `normalizedText` 默认参数是 `NormalizedTextCache()` ——
+    /// 于是**每一次按键都拿到一个空缓存**。
+    ///
+    /// 后果是：这个缓存被实现了、被单测守着、被基准测过（真机 20k 上冷 103.0 ms
+    /// vs 热 67.6 ms），**唯独没有到达用户**。线上跑的永远是冷路径。
+    /// 这类缺陷不会让任何测试变红 —— 两条路的结果逐位相同，只是慢。
+    ///
+    /// 放在 ViewModel 上，它的生命周期就是「一次搜索会话」：进搜索屏建一次，
+    /// 之后每次按键复用。**失效不靠记得清**：缓存按 `chunk.id + contentHash` 命中，
+    /// 编辑过的 chunk 哈希变了自然不命中（见 `NormalizedTextCache`）。
+    private let normalizedText = NormalizedTextCache()
+
+    /// 只给测试用。缓存是否**跨查询存活**没有别的可观察后果 ——
+    /// 冷热两条路的结果逐位相同，只是慢，所以断言只能断到这里。
+    var normalizedCacheCountForTesting: Int {
+        get async { await normalizedText.count }
+    }
+
     init(provider: (any EmbeddingProvider)?,
          vectors: InMemoryVectorStore,
          recorder: RetrievalTraceRecorder? = nil,
@@ -89,8 +110,18 @@ final class SearchViewModel {
     /// 索引口径必须与 `IndexingService` 一致 —— 用另一套 chunk 策略去查同一个索引，
     /// vector 命中的 chunkID 在当前语料里找不到，会被静默丢弃。
     private var indexedStrategy: ChunkStrategy {
-        indexing?.config.chunkStrategy ?? RetrievalConfig.production.chunkStrategy
+        productionConfig.chunkStrategy
     }
+
+    /// 线上真正在跑的那一套。取**索引服务当前持有的**（Promote 之后它就变了），
+    /// 编译期常量只是它的初值。
+    private var productionConfig: RetrievalConfig {
+        indexing?.config ?? .production
+    }
+
+    /// 生产配置里有没有语义路。`PRODUCTION_RETRIEVAL = KEYWORD` 之下它是 `false` ——
+    /// 于是慢通道整条不发生：不嵌 query、不查向量、状态栏也不谈论语义。
+    private var semanticInProduction: Bool { productionConfig.mode.usesVector }
 
     private var liveRoute: EmbeddingRoute {
         if let version = liveProvider?.modelInfo.version {
@@ -129,9 +160,15 @@ final class SearchViewModel {
             await runKeyword(query)
         }
 
-        // 慢通道：长度门控 + 更长的防抖 + capability 允许。
+        // 慢通道：**生产配置里有语义路** + 长度门控 + 更长的防抖 + capability 允许。
+        //
+        // 第一个条件是这一版的产品决策（`RetrievalConfig.production` = keyword）。
+        // 它放在最前面，因为后面几条都是「语义路该不该在这次 query 上跑」，
+        // 而这一条问的是「语义路在不在这一版产品里」—— 不同的问题，不同的量级。
+        //
         // 本机英文索引上的中文 query 不能拿去嵌（换语言 = 换空间）。
-        guard SemanticGate.shouldRunSemantic(query: query),
+        guard semanticInProduction,
+              SemanticGate.shouldRunSemantic(query: query),
               !EmbeddingRouter.shouldSkipSemantic(query: query, route: liveRoute) else { return }
         semanticTask = Task { @MainActor [weak self, semanticDebounceNanos] in
             try? await Task.sleep(nanoseconds: semanticDebounceNanos)
@@ -154,7 +191,8 @@ final class SearchViewModel {
     func refreshCapability() {
         let state = indexing?.state ?? .ready
         capability = RetrievalCapability.derive(indexState: state,
-                                                semanticProviderAvailable: liveProvider != nil)
+                                                semanticProviderAvailable: liveProvider != nil,
+                                                semanticInProduction: semanticInProduction)
     }
 
     /// `semanticUnavailable` 那条状态栏上的「重试」。用户侧文案不含技术词。
@@ -162,7 +200,9 @@ final class SearchViewModel {
     var onRetrySemantic: (() async -> Void)?
 
     func retrySemantic() {
-        guard let indexing else { return }
+        // 纯词法生产下这个入口不存在（状态栏根本不显示），这里再挡一次 ——
+        // UI 与行为各自判断同一件事，迟早会漂移。
+        guard semanticInProduction, let indexing else { return }
         Task { @MainActor in
             await onRetrySemantic?()
             await indexing.indexAll()
@@ -192,7 +232,7 @@ final class SearchViewModel {
         let chunks = chunks()
         // 生产参数取**索引服务当前的那一套**（Promote 之后它就变了），
         // 而不是编译期常量 —— 否则 Release Gate 判过的配置和线上真正跑的不是一回事。
-        let production = indexing?.config ?? RetrievalConfig.production
+        let production = productionConfig
         let config = RetrievalConfig(version: production.version,
                                      mode: mode,
                                      embeddingProvider: liveProvider?.modelInfo.identifier ?? "unavailable",
@@ -200,7 +240,8 @@ final class SearchViewModel {
                                      chunkStrategy: indexedStrategy,
                                      topK: 50,
                                      fusion: production.fusion)
-        let service = RetrievalService(provider: liveProvider, vectors: vectors, recorder: recorder)
+        let service = RetrievalService(provider: liveProvider, vectors: vectors,
+                                       recorder: recorder, normalizedText: normalizedText)
         return await service.retrieve(query: query, chunks: chunks, config: config,
                                       indexState: indexing?.state ?? .ready)
     }

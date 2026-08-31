@@ -78,6 +78,28 @@ Gate v0 只比较两个点估计，零容差。在 in-scope 67 条用例上，
 R@1 ≥ 0.35    R@5 ≥ 0.40    MRR ≥ 0.38
 ```
 
+### ⚠️ 这三个数字是 **PROVISIONAL HARD FLOORS**
+
+> These thresholds are engineering/product **provisional** thresholds based on the
+> current **scenario-authored** evaluation corpus. They **must be recalibrated**
+> after human-authored evaluation becomes available.
+>
+> 中文同义：**这三个下限是临时值。** 它们的依据是当前这份
+> **agent 编写的场景化评测集**（`provenance = agent_authored_realistic`），
+> 不是真实用户数据。拿到人工编写的评测集之后**必须重新校准**。
+>
+> 「临时」不等于「可以随便改」——
+> 改动规则见本节末尾，任何一次改动都要 bump 版本号并重跑 baseline。
+
+`GATE_POLICY_VERSION = V1_PROVISIONAL`
+
+| 项 | 值 | 角色 |
+|---|---:|---|
+| Recall@1 | ≥ 0.35 | **主指标** |
+| MRR | ≥ 0.38 | **主指标** |
+| Recall@5 | ≥ 0.40 | 安全网（v2 起不再是主指标，见 §5） |
+| P95 | < 250 ms | 性能天花板（用户可感知的搜索延迟） |
+
 ### 依据
 
 这三个数字是**产品判断**，不是从 baseline 推出来的（从 baseline 推出来的东西
@@ -212,6 +234,101 @@ holdout       R@1  Δ +0.000  [+0.000, +0.000]  n=48
 「lexical_trap 0.095 而 exact_fact 0.905」说明得很清楚：
 系统能找到原词，找不到换了说法的同一件事 —— 而那正是语义路本该解决的问题，
 也正是本机语义路没能解决的问题。
+
+---
+
+## 5b. Gate 与 Promotion 是两个问题
+
+这一节把 §5 末尾那段话固定成规则，因为它每一轮都会被重新问一遍。
+
+| | Gate | Promotion（产品决策） |
+|---|---|---|
+| 问的是 | 候选**有没有把系统弄坏** | 候选**值不值得替换生产** |
+| 输入 | 绝对下限 · 相对 baseline · 统计置信 · 延迟天花板 · 回归集 | Gate 结论 **+ 收益/代价的量级** |
+| 输出 | PASS / BLOCKED / STALE | PROMOTE / DO NOT PROMOTE |
+| 谁定 | 代码（`ReleaseGate.evaluate`） | 人 |
+
+**`PASS` + `DO NOT PROMOTE` 是一个合法且常见的状态。**
+它说的是：「这个候选没坏，但它带来的好处不值它的代价。」
+
+本轮就是这个状态：
+
+```
+local-hybrid   Gate       = PASS（Mac 与真机各判一次，都 PASS）
+local-hybrid   Promotion  = NO
+```
+
+理由是量级：**质量增益 ≈ 0，延迟代价确定。** 详见 §5 与 §5c。
+
+> **不要为了得到想要的产品结论去改 Gate。**
+> 如果结论是「不该上候选」，正确的表达方式是 `PASS` + `DO NOT PROMOTE`，
+> 而不是把阈值调到让候选 FAIL。后者会污染一个本来还能用来判断
+> 「有没有弄坏」的工具 —— 而那正是 Gate 唯一的用途。
+
+---
+
+## 5c. 真机判定（iPhone Air · iOS 27.0 · Release）
+
+Mac 上的数字**不能用来下延迟结论**（`perf-v2` 的环境闸门）。这一节是真机上跑出来的。
+
+设备：`iPhone Air (iPhone18,4)` · iOS `27.0.0` · arm64 · Release ·
+thermal `nominal` · 低电量模式关闭。
+
+### 质量与延迟（同一次跑批 · scenario-v5 **holdout** · 242 notes / 278 chunks）
+
+| arm | R@1 | R@3 | R@5 | MRR | P50 | P95 | 负例克制率 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **keyword**（生产） | **0.604** | **0.654** | **0.673** | 0.625 | **2.29 ms** | **13.14 ms** | **100.0%** |
+| local-hybrid（实验） | 0.604 | 0.635 | 0.673 | 0.627 | 8.96 ms | 16.75 ms | 0.0% |
+
+```
+Gate（真机 · candidate local-hybrid · baseline keyword · layer semanticLocal）→ PASS
+  ✅ Recall @1/@5   R@1 Δ +0.000 [+0.000, +0.000] n=48 · R@5 Δ +0.000 [+0.000, +0.000] n=52
+  ✅ MRR            Δ +0.002 [-0.004, +0.010] n=52
+  ✅ Absolute Floor R@1 0.604 · R@5 0.673 · MRR 0.627
+  ✅ Metric B · Semantic  P50 9 ms · P95 17 ms（≤ 250 ms）
+  ✅ Regression     100% · 3/3
+```
+
+### Promotion 决策：**NO**
+
+三条理由，每一条都来自上面那张表：
+
+1. **质量增益 ≈ 0。** R@1 与 R@5 的 delta 是精确的 `+0.000`（CI `[0, 0]`），
+   MRR `+0.002` 的区间跨过 0。而 **R@3 反而更低**（0.654 → 0.635）。
+2. **延迟代价确定：P50 +291%**（2.29 → 8.96 ms），P95 +27%。
+   两者都远在 250 ms 天花板之内，但**天花板之内不等于免费** ——
+   产品判断看的是相对量，不是有没有触顶。
+3. **负例克制率从 100% 塌到 0%。** 这一条 Gate 不看，但它是三条里最严重的：
+   keyword 对「本来就没有答案」的 query 会如实返回空，
+   而 local-hybrid 把整个语料按余弦排下来，**每一条无答案的 query 都会拿到一屏结果**
+   （TD-10：向量路没有相关性下限）。
+
+> 第 3 条单独就足以否掉这次 promotion。它也解释了为什么 `abstention`
+> 必须先能上生产，语义路才谈得上替换 keyword。
+
+### 用户可感知延迟（Metric A · keyword 生产路径 · 真机 Release）
+
+| chunks | 冷 P50 | 冷 P95 | 热 P50 | 热 P95 |
+|---:|---:|---:|---:|---:|
+| 1 000 | 4.72 ms | 11.18 ms | 3.22 ms | 4.67 ms |
+| 5 000 | 19.59 ms | 29.39 ms | 15.56 ms | 23.69 ms |
+| 10 000 | 38.95 ms | 58.71 ms | 33.69 ms | 48.48 ms |
+| 20 000 | **81.54 ms** | **118.95 ms** | 67.12 ms | 102.20 ms |
+
+预算：冷热两侧都要 P50 < 100 ms 且 P95 < 250 ms。**全部通过**，
+最大档上 P95 余量 2.1×。
+
+> **这一轮先 FAIL 过一次。** 第一次真机跑批 20k 冷 P50 = **103.01 ms**，
+> 超了 100 ms 的预算。根因不是「keyword 慢」，是**归一化每次查询重算全库**
+> （占冷路径 35.4 ms），而它天然可并行却在串行跑。
+> 并行折叠之后 103.01 → 81.54 ms。
+>
+> 同一轮还发现一个更要紧的东西：生产搜索**每次按键都新建一个 `RetrievalService`**，
+> 于是那个归一化缓存**从来没有到达过用户** —— 线上永远走冷路径。
+> 缓存实现了、单测守着、基准测过，唯独没接上。
+> 两条路的结果逐位相同，所以没有任何既有测试会因此变红
+> （`ProductionSearchTests.testNormalizedCacheSurvivesAcrossQueriesInASearchSession` 现在守着它）。
 
 ---
 

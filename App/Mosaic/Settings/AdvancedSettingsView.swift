@@ -57,29 +57,51 @@ struct AdvancedSettingsView: View {
                 Toggle("使用 JSON 输出模式", isOn: $settings.jsonModeEnabled)
             }
 
-            // 注：这一段的字段名刻意保留 Embedding 等英文原词 —— 用户是照着服务商
-            // 文档填参数，改成「智能搜索模型」反而对不上。SEARCH_CONTRACT §1.1.1 的
-            // 禁用词表约束的是**搜索产品界面**的叙述性文案（标题与说明已按它改写）。
-            Section {
-                TextField("Embedding 模型", text: $settings.embeddingModel,
-                          prompt: Text("text-embedding-3-small"))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                TextField("Embedding 维度", value: $settings.embeddingDimension, format: .number)
-                    .keyboardType(.numberPad)
-                TextField("Embedding Base URL（留空复用上方）",
-                          text: $settings.embeddingBaseURLOverride,
-                          prompt: Text(settings.resolvedBaseURL))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                Toggle("允许把笔记文字发送到云端以启用智能搜索",
-                       isOn: $settings.hasAcceptedCloudEmbeddingNotice)
-                    .accessibilityIdentifier("settings.cloudSearchConsent")
-            } header: {
-                Text("智能搜索")
-            } footer: {
-                Text("纯英文笔记优先使用本机模型（离线、不上传）。笔记含中文且本机没有可离线使用的中文模型时，需要打开上面的开关才会把笔记文字发送到你配置的第三方服务；开关关闭时只按关键词搜索，不会发送任何内容。Kimi / DeepSeek 若未提供 /v1/embeddings 接口，请把 Base URL 指到支持该接口的地址。")
+            // # 「智能搜索」这一段是否出现，取决于**生产配置里有没有语义路**
+            //
+            // 与 iCloud 那一段同一条原则（也是同一个教训）：
+            // 不给一个必然无效的开关。`PRODUCTION_RETRIEVAL = KEYWORD` 之下，
+            // 这三个字段与那个同意开关对搜索行为**没有任何影响** ——
+            // 语义那一整条不跑。留着它比留一个 iCloud 假开关更糟：
+            // 它还要求用户授权一次「把笔记文字发到第三方」，
+            // 换来的却是零变化。
+            //
+            // 判据取 `RetrievalConfig.production.mode`，与搜索页读的是同一个事实。
+            if RetrievalConfig.production.mode.usesVector {
+                // 注：这一段的字段名刻意保留 Embedding 等英文原词 —— 用户是照着服务商
+                // 文档填参数，改成「智能搜索模型」反而对不上。SEARCH_CONTRACT §1.1.1 的
+                // 禁用词表约束的是**搜索产品界面**的叙述性文案（标题与说明已按它改写）。
+                Section {
+                    TextField("Embedding 模型", text: $settings.embeddingModel,
+                              prompt: Text("text-embedding-3-small"))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField("Embedding 维度", value: $settings.embeddingDimension, format: .number)
+                        .keyboardType(.numberPad)
+                    TextField("Embedding Base URL（留空复用上方）",
+                              text: $settings.embeddingBaseURLOverride,
+                              prompt: Text(settings.resolvedBaseURL))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                    Toggle("允许把笔记文字发送到云端以启用智能搜索",
+                           isOn: $settings.hasAcceptedCloudEmbeddingNotice)
+                        .accessibilityIdentifier("settings.cloudSearchConsent")
+                } header: {
+                    Text("智能搜索")
+                } footer: {
+                    Text("纯英文笔记优先使用本机模型（离线、不上传）。笔记含中文且本机没有可离线使用的中文模型时，需要打开上面的开关才会把笔记文字发送到你配置的第三方服务；开关关闭时只按关键词搜索，不会发送任何内容。Kimi / DeepSeek 若未提供 /v1/embeddings 接口，请把 Base URL 指到支持该接口的地址。")
+                }
+            } else {
+                Section {
+                    LabeledContent("搜索方式", value: "关键词")
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("settings.search.keywordOnly")
+                } header: {
+                    Text("搜索")
+                } footer: {
+                    Text("这一版按关键词搜索，全部在本机完成，不会把笔记内容发送到任何服务。")
+                }
             }
 
             if settings.transcriptionMode == .cloudAPI {

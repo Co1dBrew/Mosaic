@@ -39,8 +39,15 @@ final class ReleaseStore {
         self.fileURL = dir.appendingPathComponent("release-config.json")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let loaded = Self.load(from: fileURL)
-        self.registry = loaded?.registry ?? RetrievalConfigRegistry()
+        var registry = loaded?.registry ?? RetrievalConfigRegistry()
+        // 落盘的注册表可能比这个 App 版本还老。产品决策换了生产配置
+        // （hybrid → keyword）之后，老设备上那条根记录仍然是 hybrid，
+        // 而生产搜索读的正是它 —— 于是真机上跑的和代码/文档说的不是一回事。
+        // 只迁移根记录；经 Gate Promote 上线过的配置不动（见 `migrateRootProduction`）。
+        let migrated = registry.migrateRootProduction(to: .production)
+        self.registry = registry
         self.thresholds = loaded?.thresholds ?? .default
+        if migrated { save() }
     }
 
     private struct Persisted: Codable {

@@ -599,12 +599,16 @@ enum RetrievalWeek6Checks {
 
         // ⑤ Promote 被拒。
         var registry = RetrievalConfigRegistry()
-        let candidate = try! registry.duplicate(from: registry.production.id) { $0.mode = .keyword }
+        let productionMode = registry.production.config.mode
+        // 候选必须与生产**不同**，否则「没有被换掉」这条断言在两者相同时恒成立，
+        // 也就什么都保护不了。生产是 keyword，那候选就取 hybrid。
+        let candidate = try! registry.duplicate(from: registry.production.id) { $0.mode = .hybrid }
         try! registry.setCandidate(id: candidate.id)
         var promoteFailed = false
         do { _ = try registry.promote(id: candidate.id, decision: decision) } catch { promoteFailed = true }
         r.expect(promoteFailed, "BLOCKED 的判定无法 promote —— 完整闭环到此成立")
-        r.expect(registry.production.config.mode == .hybrid, "生产配置没有被换成 keyword-only")
+        r.expect(registry.production.config.mode == productionMode && productionMode == .keyword,
+                 "生产配置仍是 keyword，没有被换成候选的 hybrid")
     }
 
     // MARK: 6.6 · 无障碍朗读顺序
