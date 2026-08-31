@@ -121,6 +121,51 @@ final class CoreFlowUITests: XCTestCase {
         return target
     }
 
+    /// 从首页进搜索页并返回搜索框。
+    ///
+    /// 与 `openNewFolderSheet` 同一个理由：真机上「点了没反应」是常态而不是例外，
+    /// 尤其在刚刚发生过一次大改动（比如删掉一个文件夹、整页从列表变成空状态）之后 ——
+    /// 那一刻 SwiftUI 正在重建视图树，第一次点击会落进去。
+    /// 用 `tapUntil` 而不是「等 8 秒再断言」：等更久只会让失败来得更慢。
+    @discardableResult
+    private func openSearch(file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let button = app.buttons["notes.search"]
+        wait(button, 8, "首页应当有搜索入口", file: file, line: line)
+        let field = app.searchFields.firstMatch
+        if !tapUntil(field, tapping: button, timeout: 8) {
+            XCTFail("点搜索之后没有出现搜索框。当前界面：\n\(app.debugDescription)",
+                    file: file, line: line)
+        }
+        field.tap()
+        return field
+    }
+
+    /// 打开笔记页的文件夹选择器，并点进「新建文件夹…」。
+    ///
+    /// 单独抽出来是因为它在真机上**间歇性失败**：`picker.tap()` 打开的是一个
+    /// Menu，`waitForExistence` 能看见「新建文件夹…」，但等到真的去点的时候
+    /// 那一帧的元素已经失效（真机上菜单动画比模拟器慢）。
+    /// 报错是 `No matches found`，看起来像功能没了 —— 其实只是慢了一拍。
+    ///
+    /// `tapUntil` 就是为这种情况准备的：点一下，等目标，没等到就**再点一次**。
+    /// 只重试一次 —— 真正的产品缺陷不会因为多点一下就好。
+    private func openNewFolderSheet(file: StaticString = #filePath, line: UInt = #line) {
+        let picker = app.buttons["note.folderPicker"]
+        wait(picker, 8, "笔记页导航栏应当有文件夹选择器", file: file, line: line)
+        let nameField = app.textFields["folder.name"]
+        let newFolder = app.buttons["新建文件夹…"]
+        picker.tap()
+        wait(newFolder, 6, "选择器里应当有「新建文件夹…」", file: file, line: line)
+        if tapUntil(nameField, tapping: newFolder, timeout: 6) { return }
+        // 菜单可能已经关掉了 —— 重开一次再点。
+        picker.tap()
+        wait(newFolder, 6, "重开选择器后应当仍有「新建文件夹…」", file: file, line: line)
+        tapUntil(nameField, tapping: newFolder, timeout: 6)
+        XCTAssertTrue(nameField.waitForExistence(timeout: 6),
+                      "新建文件夹表单应当出现。当前界面：\n\(app.debugDescription)",
+                      file: file, line: line)
+    }
+
     /// 新建一条笔记并写入标题与一段正文，返回标题。
     ///
     /// 正文用**随机 token**：搜索用例要能证明「搜到的是这一条」，
@@ -151,6 +196,23 @@ final class CoreFlowUITests: XCTestCase {
         let back = app.navigationBars.buttons.element(boundBy: 0)
         wait(back, 5, "导航栏应当有返回按钮")
         back.tap()
+    }
+
+    /// 一路退回首页，**按结果判断而不是按次数**。
+    ///
+    /// 单独一个 `goBack()` 在搜索页上不够可靠：键盘起来的时候第一次点可能只是
+    /// 清空输入框，人看不出区别，而下一步「首页应该有 chip 行」会以一个
+    /// 完全不相关的理由失败（实测就是这么浪费掉一轮的）。
+    /// 所以这里退到**看见首页的新建按钮**为止。
+    private func returnToNoteList(maxTaps: Int = 3) {
+        let home = app.buttons["notes.compose"]
+        for _ in 0..<maxTaps {
+            if home.waitForExistence(timeout: 3) { return }
+            let back = app.navigationBars.buttons.element(boundBy: 0)
+            if back.exists { back.tap() }
+        }
+        XCTAssertTrue(home.waitForExistence(timeout: 5),
+                      "点了 \(maxTaps) 次返回仍然没回到首页。当前界面：\n\(app.debugDescription)")
     }
 
     // MARK: Core Flow 1 —— 新建 → 持久化 → 搜索 → 打开结果
@@ -288,6 +350,98 @@ final class CoreFlowUITests: XCTestCase {
                        "不可用时不该出现 iCloud 开关 —— 那是个陷阱")
     }
 
+    // MARK: Core Flow 6 —— 删掉文件夹之后，里面的笔记也搜不到（D1 端到端）
+
+    /// # 这条走的是 derived 数据最容易漏的那条路
+    ///
+    /// 删笔记有 cascade，删**文件夹**没有 —— derived 数据在另一个 container 里，
+    /// 没有任何 cascade 能到达它。漏掉的后果不是「多占点磁盘」，
+    /// 而是**已删除的笔记继续占 topK 名额**：搜索返回一条点进去是空的结果。
+    ///
+    /// 单测层面有 `DerivedCleanupTests` 守着，但那是在内核上验的。
+    /// 这一条从用户的手指开始：建笔记 → 建文件夹 → 删文件夹 → 搜索。
+    /// **它在真机上跑** —— 上一个只在真机上现形的缺陷是删笔记直接 crash。
+    func testCoreFlow6_deletingAFolderAlsoRemovesItsNotesFromSearch() {
+        launch()
+        let token = "FolderPurge\(Int.random(in: 10_000...99_999))"
+        composeNote(title: "归档笔记 \(token)", body: "这条笔记属于一个马上会被删掉的文件夹 \(token)")
+
+        // 在笔记页把它放进一个新建的文件夹。
+        openNewFolderSheet()
+
+        // **按 identifier 定位，不用 `textFields.firstMatch`** —— 那会命中
+        // sheet 背后笔记页的标题框（它存在但不可点），错误信息是
+        // 「not hittable」，与真正的问题差得很远。
+        let nameField = app.textFields["folder.name"]
+        wait(nameField, 8, "新建文件夹表单应当有名称输入框")
+        nameField.tap()
+        nameField.typeText("Purge\(token)")
+        let save = app.buttons["folder.save"]
+        wait(save, 5, "新建文件夹表单应当有保存入口")
+        save.tap()
+
+        returnToNoteList()
+
+        // 先确认**删之前搜得到** —— 否则下面那条断言可能只是因为它从来就没被索引。
+        let search = openSearch()
+        search.typeText(token)
+        let hit = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'search.result.'"))
+            .firstMatch
+        XCTAssertTrue(hit.waitForExistence(timeout: 12),
+                      "前置：删文件夹之前这条笔记必须搜得到")
+        returnToNoteList()
+
+        // 进文件夹管理页，滑动删除那个文件夹（会连带删掉里面的笔记）。
+        let manageChip = app.buttons["notes.chip.manage"]
+        if !manageChip.waitForExistence(timeout: 8) {
+            // chip 行只在**有用户文件夹**时出现（v2 §2.2）。找不到它通常意味着
+            // 上面那个文件夹压根没建成，而不是 chip 行的问题 —— 把树打出来，
+            // 否则只能靠猜。
+            XCTFail("chip 行末尾应当有进管理页的 ⋯。当前界面：\n\(app.debugDescription)")
+            return
+        }
+        manageChip.tap()
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'folders.row.'"))
+            .firstMatch
+        wait(row, 8, "管理页应当列出刚建的文件夹")
+
+        // 左滑露出删除。**滑的是 cell，不是行内容** —— `swipeActions` 挂在
+        // `List` 的行上，滑行内容本身在部分 iOS 版本上不触发。
+        let cell = app.cells.firstMatch.exists ? app.cells.firstMatch : row
+        cell.swipeLeft()
+
+        // 优先按 identifier 找；`swipeActions` 里的 Button 在部分 iOS 版本上
+        // 拿不到 identifier，所以留一条按文案的退路（这一处文案是稳定的系统级动作词）。
+        let byID = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'folders.delete.'"))
+            .firstMatch
+        let deleteButton = byID.waitForExistence(timeout: 3) ? byID : app.buttons["删除"].firstMatch
+        if !deleteButton.waitForExistence(timeout: 5) {
+            XCTFail("左滑应当露出删除。当前界面：\n\(app.debugDescription)")
+            return
+        }
+        deleteButton.tap()
+        // `.firstMatch`：alert 的按钮在无障碍树里会出现不止一处（alert 本身 +
+        // 它的容器），直接用 query 会报 "Multiple matching elements found"。
+        let confirm = app.buttons["folders.confirmDelete"].firstMatch
+        wait(confirm, 5, "删除文件夹应当有二次确认")
+        confirm.tap()
+
+        returnToNoteList()
+
+        // 再搜一次：不该再有结果。
+        let search2 = openSearch()
+        search2.typeText(token)
+        let stale = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'search.result.'"))
+            .firstMatch
+        // 给检索真的跑完的时间再断言「没有」—— 直接断言不存在会在还没跑完时误判通过。
+        XCTAssertFalse(stale.waitForExistence(timeout: 10),
+                       "删掉文件夹之后，里面的笔记不该还留在搜索结果里")
+    }
+
     // MARK: Smoke —— 文件夹管理页可达且能新建
 
     func testSmoke_folderManagerReachable() {
@@ -295,15 +449,10 @@ final class CoreFlowUITests: XCTestCase {
         // chip 行在没有用户文件夹时整行隐藏（§2.2），所以先建一个文件夹
         // 只能从笔记页的文件夹选择器进 —— 这里走另一条路：先建笔记再进选择器。
         composeNote(title: "SmokeNote", body: "内容")
-        let picker = app.buttons["note.folderPicker"]
-        wait(picker, 8, "笔记页导航栏应当有文件夹选择器")
-        picker.tap()
-        let newFolder = app.buttons["新建文件夹…"]
-        wait(newFolder, 5, "选择器里应当有「新建文件夹…」")
-        newFolder.tap()
+        openNewFolderSheet()
 
         // 新建文件夹 sheet 出现即可 —— 这条是 smoke，不验证完整的创建流程。
-        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 5),
+        XCTAssertTrue(app.textFields["folder.name"].waitForExistence(timeout: 5),
                       "新建文件夹表单应当出现")
     }
 

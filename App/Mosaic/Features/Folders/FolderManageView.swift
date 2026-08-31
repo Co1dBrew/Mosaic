@@ -37,10 +37,14 @@ struct FolderManageView: View {
                         FolderRowView(folder: folder)
                             .contentShape(Rectangle())
                             .onTapGesture { editingFolder = folder }
+                            // 稳定 id：UI 测试要能点到**某一个具体的**文件夹，
+                            // 而名字是用户输入的、会变。
+                            .accessibilityIdentifier("folders.row.\(folder.id.uuidString)")
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) { folderToDelete = folder } label: {
                                     Label("删除", systemImage: "trash")
                                 }
+                                .accessibilityIdentifier("folders.delete.\(folder.id.uuidString)")
                                 Button { editingFolder = folder } label: {
                                     Label("重命名", systemImage: "pencil")
                                 }.tint(.orange)
@@ -89,6 +93,7 @@ struct FolderManageView: View {
                 if let folder = folderToDelete { delete(folder) }
                 folderToDelete = nil
             }
+            .accessibilityIdentifier("folders.confirmDelete")
         } message: {
             if let folder = folderToDelete {
                 Text("将同时删除其中 \(folder.cardCount) 张笔记，此操作不可撤销。")

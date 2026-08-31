@@ -35,6 +35,7 @@ struct FolderEditSheet: View {
             Form {
                 Section {
                     TextField("文件夹名称", text: $name)
+                        .accessibilityIdentifier("folder.name")
                 }
                 Section("颜色") {
                     LazyVGrid(columns: columns, spacing: 12) {
@@ -85,6 +86,7 @@ struct FolderEditSheet: View {
                         ))
                         dismiss()
                     }
+                    .accessibilityIdentifier("folder.save")
                 }
             }
         }
