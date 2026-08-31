@@ -87,18 +87,70 @@ struct NoteDetailView: View {
 
     // MARK: 布局
 
+    /// # 这一屏的笔记还在不在
+    ///
+    /// **SwiftData 里删掉的对象不能再读属性 —— 读一下就是 trap。**
+    /// 真机实测（iPhone Air / iOS 27）：在笔记页删掉笔记，App 当场 crash，
+    /// 栈是 `Card.tags.getter ← NoteDetailView.blockList ← body`，
+    /// 底下是 SwiftData 的 `_assertionFailure`（`EXC_BREAKPOINT`）。
+    ///
+    /// 根因不是「删错了」，是**时序**：`dismiss()` 不是同步生效的。
+    /// 从点下「删除」到这一屏真正消失之间，SwiftUI 至少还会重算一次 body，
+    /// 而那次重算读的是一个已经不在上下文里的对象。
+    /// 所以不能靠「删完就走」，得让 body 自己**不去读**。
+    ///
+    /// 两个条件各自独立：
+    /// - `didDelete` —— 从这一屏删的。它在删除**之前**就置位（见 `deleteNote`）
+    /// - `card.isDeleted` —— 从别处删的（删文件夹会连着删掉里面的笔记，
+    ///   而这一屏可能正开着）。这条 `didDelete` 覆盖不到
+    ///
+    /// 模拟器上不复现。这是这一轮真机验证抓到的唯一一个产品缺陷。
+    /// # 三个条件，缺一不可
+    ///
+    /// 修这个 crash 的时候错了两次，两次都值得记下来。
+    ///
+    /// **错误一：守卫放在 `body` 顶层。** 崩溃栈原样复现，只是多了一层
+    /// `noteContent.getter`。原因是 SwiftUI 会直接重算 `GeometryReader` /
+    /// `ScrollViewReader` / `List` 里那些**已经建好的内容闭包**，
+    /// 不一定重新走一遍顶层 body。所以守卫必须放在**真正读 `card` 的那一层**。
+    ///
+    /// **错误二：以为 `card.isDeleted` 一直为真。** 实测不是
+    /// （`ProductionSearchTests.testDeletionSignalsCoverBothWindows`）：
+    ///
+    /// | | `delete()` 之后 | `save()` 之后 |
+    /// |---|---|---|
+    /// | `isDeleted` | **true** | false |
+    /// | `modelContext == nil` | false | **true** |
+    ///
+    /// 两个信号各自只覆盖一半窗口，**合起来才是完整的**。
+    /// 两个都读得安全（不会 trap）—— 这一点本身有断言守着，
+    /// 因为整道守卫都压在它上面：如果读一下就 trap，这道守卫等于不存在。
+    ///
+    /// `didDelete` 是第三条，覆盖「已标记但还没走到 `delete()`」那一小段。
+    private var noteIsGone: Bool {
+        didDelete || card.isDeleted || card.modelContext == nil
+    }
+
     var body: some View {
         GeometryReader { geo in
             ScrollViewReader { proxy in
                 VStack(spacing: 0) {
-                    NoteSummaryBarView(state: summaryBarState,
-                                       isExpanded: $summaryExpanded,
-                                       summary: card.summary,
-                                       onRetry: { gate { generateBase() } },
-                                       onAddTopicAsTag: addTopicAsTag,
-                                       onOpenSettings: { showSettings = true })
-                    Divider()
-                    blockList(proxy: proxy)
+                    // 守卫放在**真正读 card 的那一层**，不是顶层 body。
+                    // 放顶层挡不住 SwiftUI 对已建好的内容闭包的重算（见 `noteIsGone`）。
+                    if noteIsGone {
+                        // 退场中的这一屏渲染一个**完全不读 card** 的占位。
+                        // 它只存在于「已经删了、还没 pop 完」那一两帧里。
+                        Color.clear.accessibilityIdentifier("note.dismissing")
+                    } else {
+                        NoteSummaryBarView(state: summaryBarState,
+                                           isExpanded: $summaryExpanded,
+                                           summary: card.summary,
+                                           onRetry: { gate { generateBase() } },
+                                           onAddTopicAsTag: addTopicAsTag,
+                                           onOpenSettings: { showSettings = true })
+                        Divider()
+                        blockList(proxy: proxy)
+                    }
                 }
                 .onAppear { viewportHeight = geo.size.height }
                 .onChange(of: geo.size.height) { _, new in viewportHeight = new }
@@ -143,6 +195,9 @@ struct NoteDetailView: View {
 
     private func blockList(proxy: ScrollViewProxy) -> some View {
         List {
+            // 第二道。`List` 的 content 同样是个会被单独重算的闭包 ——
+            // 崩溃栈里 `Section.init` 的上一帧就是它。
+            if noteIsGone { EmptyView() } else {
             Section {
                 TextField("标题（可留空，由 AI 生成）", text: $card.userTitle)
                     .font(.title3.bold())
@@ -176,6 +231,7 @@ struct NoteDetailView: View {
                 }
                 .onMove(perform: moveBlocks)
             }
+            }   // if noteIsGone
         }
         .listStyle(.plain)
         .accessibilityIdentifier("note.blocks")
@@ -676,6 +732,15 @@ struct NoteDetailView: View {
 
     private func deleteNote() {
         let noteID = card.id.uuidString
+        // **先标记，再删。**
+        //
+        // 这一行原来在最后。顺序反过来的代价是一次真机 crash：
+        // `modelContext.delete` 之后、`dismiss()` 生效之前，body 还会重算一次，
+        // 读到 `card.tags` 就 trap（见 `noteIsGone` 上的说明）。
+        // 先置位，body 从这一刻起走占位分支，不再碰这个对象。
+        //
+        // 它同时是 `handleExit` 的闸门：退场时不该再对一个已删除的对象做任何事。
+        didDelete = true
         for block in card.blocks ?? [] { MediaStore.shared.deleteMedia(for: block) }
         modelContext.delete(card)
         try? modelContext.save()
@@ -683,8 +748,6 @@ struct NoteDetailView: View {
         if let retrieval {
             Task { await retrieval.noteWasDeleted(noteID) }
         }
-        // 标记之后 `handleExit` 不再对一个已删除的对象做任何事。
-        didDelete = true
         dismiss()
     }
 

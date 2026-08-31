@@ -360,6 +360,41 @@ final class ProductionSearchTests: XCTestCase {
                              "带 Developer Tools 的构建仍然建索引 —— 否则 local-hybrid 实验臂没有对照物")
     }
 
+    // MARK: 7b · 删掉的笔记还能不能被安全地「问一句」
+
+    /// # 这条守的是一次真机 crash
+    ///
+    /// 在笔记页删掉笔记，App 当场挂掉：`Card.tags.getter` → SwiftData 的
+    /// `_assertionFailure`（`EXC_BREAKPOINT`）。根因是 `dismiss()` 不同步生效，
+    /// 中间那一帧 body 还在读一个已经删掉的对象。**模拟器上不复现。**
+    ///
+    /// 修复的关键是让 view 能问一句「这个对象还在吗」而**不触发 trap**。
+    /// 整个修复都压在这一点上：如果 `isDeleted` 本身就会 trap，那道守卫是空的。
+    /// 所以这里单独证明它 —— 一条断言对应一个明确主张。
+    func testDeletionSignalsCoverBothWindows() throws {
+        let stack = makeStack()
+        let card = try seed(stack.context, title: "会被删掉", texts: ["内容"], tags: ["标签"])
+        XCTAssertFalse(card.isDeleted, "前置：还没删")
+        XCTAssertNotNil(card.modelContext, "前置：还在上下文里")
+
+        // ── 窗口一：delete 之后、save 之前 ──
+        stack.context.delete(card)
+        XCTAssertTrue(card.isDeleted, "delete 之后 isDeleted 为真")
+        XCTAssertNotNil(card.modelContext, "但此时 modelContext 还在 —— 只看它会漏掉这一段")
+
+        // ── 窗口二：save 之后 ──
+        try stack.context.save()
+        XCTAssertFalse(card.isDeleted,
+                       "落盘之后 isDeleted **变回假** —— 只看它会漏掉这一段。"
+                       + "第一版守卫就栽在这里")
+        XCTAssertNil(card.modelContext, "而 modelContext 变成 nil")
+
+        // 两个信号都**读得安全**。这一条是整道守卫的地基：
+        // 如果读一下就 trap，守卫本身就是那个 crash。
+        // 上面每一次读都没有 trap —— 跑到这里就是证明。
+        XCTAssertTrue(true, "两个信号在删除前后都可以安全读取")
+    }
+
     // MARK: 8 · 归一化缓存必须跨查询存活
 
     /// # 缓存实现了、测过了、基准跑过了 —— 但没有到达用户
