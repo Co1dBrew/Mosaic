@@ -33,24 +33,62 @@ bad() { say "  ❌ $*"; FAIL=1; }
 say "── 0 · 设备发现 ──"
 UDID="${1:-}"
 LINE=""
-if [ -z "$UDID" ]; then
-  # `xctrace list devices` 的「== Devices ==」段里，除 Mac 之外的第一台就是连着的 iPhone/iPad。
-  LINE=$(xcrun xctrace list devices 2>/dev/null \
-         | awk '/^== Devices ==/{f=1;next} /^== Devices Offline ==|^== Simulators ==/{f=0} f' \
-         | grep -v "^$" | grep -vi "^MacBook\|^Mac \|^iMac\|^Mac Studio\|^Mac mini" | head -1)
-  UDID=$(printf '%s' "$LINE" | sed -n 's/.*(\([0-9A-Fa-f-]\{25,\}\))$/\1/p')
-else
-  LINE=$(xcrun xctrace list devices 2>/dev/null | grep "$UDID" | head -1)
-fi
+
+# **不用 `xctrace list devices` 做唯一来源。**
+# 它只把**当前 USB 连着**的设备列进「== Devices ==」，通过网络配对的会落进
+# 「== Devices Offline ==」—— 而那种设备 `xcodebuild` 照样能装能跑
+# （本轮 98 条真机单测与 MosaicBench 就是这么跑的）。
+# 只认 xctrace 的话，脚本会在设备明明可用时报「没有设备」，
+# 而「没有设备」恰恰是这一轮不允许的那个借口。
+#
+# 所以用 `devicectl` 的 JSON：它给硬件 udid（xcodebuild 的 `id=` 要的就是它），
+# 也给连接状态，两者一起报出来。
+DEVJSON=$(mktemp -t mosaic-devices)
+xcrun devicectl list devices --json-output "$DEVJSON" >/dev/null 2>&1 || true
+
+read -r FOUND_UDID FOUND_DESC <<EOF
+$(python3 - "$DEVJSON" "$UDID" <<'PY'
+import json, sys
+path, wanted = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else "")
+try:
+    devices = json.load(open(path))["result"]["devices"]
+except Exception:
+    devices = []
+# 排序：连上的优先；同等条件下先来的优先。unavailable 的（比如没在手边的 iPad）永远靠后。
+rank = {"connected": 0, "disconnected": 1}
+picked = None
+for d in devices:
+    hp, cp, dp = d.get("hardwareProperties", {}), d.get("connectionProperties", {}), d.get("deviceProperties", {})
+    if hp.get("platform") != "iOS":
+        continue
+    state = cp.get("tunnelState", "unavailable")
+    if state == "unavailable":
+        continue
+    udid = hp.get("udid", "")
+    if wanted and udid != wanted:
+        continue
+    key = (rank.get(state, 2),)
+    if picked is None or key < picked[0]:
+        picked = (key, udid,
+                  f'{hp.get("marketingName", "?")} · iOS {dp.get("osVersionNumber", "?")} · '
+                  f'{hp.get("cpuType", {}).get("name", "arm64")} · 链路 {state}')
+print(picked[1] if picked else "", picked[2] if picked else "")
+PY
+)
+EOF
+
+UDID="$FOUND_UDID"
+LINE="$FOUND_DESC"
+rm -f "$DEVJSON"
 
 if [ -z "$UDID" ]; then
-  say "  ❌ 没有发现已连接的真机。"
+  say "  ❌ 没有发现可用的真机。"
   say ""
   say "  这不是「跳过」的理由 —— 先按顺序查这四件事："
   say "    1. 数据线连着，手机已解锁，且在手机上点过「信任此电脑」"
   say "    2. 手机 ▸ 设置 ▸ 隐私与安全性 ▸ 开发者模式 = 开（改完要重启手机）"
   say "    3. Xcode ▸ Window ▸ Devices and Simulators 里能看到它"
-  say "    4. \`xcrun xctrace list devices\` 的「== Devices ==」段里有它"
+  say "    4. \`xcrun devicectl list devices\` 里它不是 unavailable"
   exit 1
 fi
 ok "设备：${LINE}"

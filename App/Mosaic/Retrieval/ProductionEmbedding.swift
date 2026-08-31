@@ -18,21 +18,39 @@ enum ProductionEmbedding {
     /// 两个布尔分开传，是因为「没配」和「配了但没同意」的下一步动作完全不同：
     /// 一个是去设置里填，一个是问用户要不要开。合成一个 `cloudOK` 就只能给一句
     /// 什么都没说的「不可用」。
+    ///
+    /// - Parameters:
+    ///   - localChineseAvailable / localEnglishAvailable: 本机模型可用性。
+    ///     **默认读真实的 `NLEmbedding`，但可以覆盖** —— 这两个参数是为测试加的，
+    ///     理由是一个具体的失败：
+    ///
+    ///     这个函数原来直接读真实可用性，于是它的行为随**跑在哪台机器上**而变。
+    ///     模拟器上没有中文模型，真机上有（iOS 27 实测 640 维），
+    ///     结果是「没同意就不构造云端 provider」这条**全文件最重要的隐私断言**
+    ///     在真机上被 `XCTSkipIf` 跳过 —— 也就是说，它在用户真正会用的那台机器上
+    ///     从来没有被验证过。而它恰恰是一条关于「整库笔记会不会被发出去」的断言。
+    ///
+    ///     可注入之后，隐私闸门在任何机器上都验得动；
+    ///     「这台设备上实际有哪些模型」是另一个问题，由 `MosaicBench.test1` 如实记录。
     static func decide(corpusContainsHan: Bool,
                        cloudConfigured: Bool,
                        cloudConsentGranted: Bool,
+                       localChineseAvailable: Bool = NLEmbeddingProvider.isAvailable(.simplifiedChinese),
+                       localEnglishAvailable: Bool = NLEmbeddingProvider.isAvailable(.english),
                        makeCloud: () -> Result<any EmbeddingProvider, EmbeddingProviderError>) -> Decision {
 
         let route = EmbeddingRouter.choose(
             corpusContainsHan: corpusContainsHan,
-            localChineseAvailable: NLEmbeddingProvider.isAvailable(.simplifiedChinese),
-            localEnglishAvailable: NLEmbeddingProvider.isAvailable(.english),
+            localChineseAvailable: localChineseAvailable,
+            localEnglishAvailable: localEnglishAvailable,
             cloudConfigured: cloudConfigured,
             cloudConsentGranted: cloudConsentGranted
         )
 
         switch route {
         case .localChinese:
+            // `try?` 而不是断言：路由说「该走这条」，构造仍可能失败（模型正在下载 /
+            // 被系统回收）。此时 provider 为 nil，语义整条缺席，keyword 照常。
             return Decision(route: route, provider: try? LocalEmbedding.make(language: .simplifiedChinese))
         case .localEnglish:
             return Decision(route: route, provider: try? LocalEmbedding.make(language: .english))

@@ -51,13 +51,24 @@ final class RetrievalWeek5Tests: XCTestCase {
     /// 这些用例测的是 **Promote 机制**（谁能换生产配置），不是性能。
     /// 用生产的 `perf-v2` 会让它们全部 STALE —— 那个行为本身由
     /// `testDefaultPolicyBlocksPromoteFromSimulatorNumbers` 单独守。
+    /// 一套「延迟怎么都过」的 policy。
+    ///
+    /// 这些用例测的是 **Promote 的副作用**（生产配置换没换、索引重建没重建、
+    /// 重启后还在不在），不是延迟。所以延迟预算给到 100 秒。
+    ///
+    /// **环境要求取「当前这台机器」，不写死。**
+    /// 原来写死的是 `requiredDeviceClass: .simulator` / `"debug"` ——
+    /// 于是整组用例一放到真机上就全部判 STALE（12 条一起红），
+    /// 因为真机的 `deviceClass` 是 `physicalDevice`。
+    /// 也就是说，它们**只在模拟器上验得动**，而这正是这一轮要清掉的那类东西。
     private func installPermissivePerformancePolicy(_ store: ReleaseStore) {
+        let here = RunEnvironment.capture()
         store.updateThresholds(GateThresholds(performance: PerformanceGatePolicy(
             version: "test-permissive",
             firstResultP50Ms: 100_000, firstResultP95Ms: 100_000,
             semanticLocalP95Ms: 100_000,
-            requiredDeviceClass: .simulator,
-            requiredBuildConfiguration: "debug")))
+            requiredDeviceClass: here.deviceClass,
+            requiredBuildConfiguration: here.buildConfiguration)))
     }
 
     // MARK: 1 · 注册表落盘
@@ -220,12 +231,16 @@ final class RetrievalWeek5Tests: XCTestCase {
     /// 判定 BLOCKED 时，Promote 不只是按钮置灰 —— 注册表本身拒绝。
     func testBlockedDecisionCannotPromoteEvenIfCalledDirectly() throws {
         let release = ReleaseStore(directory: tempDirectory())
-        // 环境宽松（允许模拟器），但**延迟预算保持严格** —— 这一条测的正是
-        // 「P95 超预算时不能 promote」，宽松的延迟预算会让它测不到东西。
+        // 环境要求取**当前这台机器**（写死 `.simulator` 会让这条在真机上判 STALE，
+        // 于是它测的东西就不再是「P95 超预算被拦住」而是「环境不合格」），
+        // 但**延迟预算保持严格** —— 这一条测的正是「P95 超预算时不能 promote」，
+        // 把延迟预算也放宽会让它测不到东西。
+        let here = RunEnvironment.capture()
         release.updateThresholds(GateThresholds(performance: PerformanceGatePolicy(
             version: "test-strict-latency",
             firstResultP50Ms: 100, firstResultP95Ms: 250,
-            requiredDeviceClass: .simulator, requiredBuildConfiguration: "debug")))
+            requiredDeviceClass: here.deviceClass,
+            requiredBuildConfiguration: here.buildConfiguration)))
         let candidate = try XCTUnwrap(release.duplicate(from: release.registry.production.id) { $0.topK = 30 })
         release.setCandidate(id: candidate.id)
 
