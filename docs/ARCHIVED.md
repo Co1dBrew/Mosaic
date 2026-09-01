@@ -18,6 +18,14 @@
 | `design/IMPLEMENTATION_QA.md` 里的 I-P0-2 / I-P0-3 | **部分自动化** | `App/MosaicUITests` | **真机装机**与 **Dynamic Type + 深色**已自动化（Core Flow 7 在真机上跑最大无障碍字号 + Dark，断言核心控件仍点得着）。**VoiceOver 朗读顺序**有内核断言（`RetrievalWeek6Checks` §6.6），但**真人听一遍仍未做**；**云端同意流程**在纯词法生产下已不存在（见 `PROJECT_STATUS.md` §9.3） |
 | `design/GOAL1_UI_COVERAGE.md` | **ARCHIVED** | — | 旧 UI 的覆盖对照。UI v2 已替换旧 UI |
 
+## v1 关闭之后的文档角色
+
+| 文件 | 角色 |
+|---|---|
+| `PROJECT_CLOSURE.md` | **终点记录** —— 冻结了什么、还缺什么、什么条件下重开 |
+| `PROJECT_STATUS.md` | 现状 |
+| `HANDOFF_NEXT.md` | **重新进入的五个条件**（v1 关闭后它不再是 backlog） |
+
 ## 规则
 
 新增文档前先确认它不是在重复上表里的某一份。

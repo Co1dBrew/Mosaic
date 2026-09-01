@@ -1,4 +1,17 @@
-# 万象记 / Mosaic
+# 万象记 / Mosaic **v1**
+
+```
+ENGINEERING COMPLETE · DEVICE VALIDATED · PROJECT CLOSED
+```
+
+| | |
+|---|---|
+| **Production Retrieval** | **Keyword** |
+| **UI** | **v2** |
+| **Local Hybrid** | 🧪 Experimental（Gate PASS · Promotion NO） |
+| **Cloud Semantic** | ⏸ Deferred |
+| **iCloud Sync** | ⛔ 此版本不提供 |
+| **Human Evaluation** | ⏭ Future |
 
 一个 iOS 多媒体笔记 App，外加一套**可以用数据判断该不该上线**的检索质量平台。
 
@@ -8,16 +21,19 @@
 - **质量平台**：场景化评测集 · 分级标注 · development / holdout · 统计置信的发布判定 ·
   真机延迟基准 · 内部开发者工具。
 
+> **项目已关闭。** 关闭记录见 [`PROJECT_CLOSURE.md`](PROJECT_CLOSURE.md)，
+> 重新进入的五个条件见 [`HANDOFF_NEXT.md`](HANDOFF_NEXT.md)。
+> **默认不恢复功能开发。**
+
 > **生产检索是 keyword，不是 hybrid。**
 > 本机语义路对 R@1 的贡献实测是精确的 **+0.000**（95% CI `[0, 0]`），
-> 而它把真机 P50 从 2.22 ms 推到 8.75 ms，并且让「本来就没有答案」的 query
+> 而它把真机 P50 从 2.3 ms 推到 9.2 ms，并且让「本来就没有答案」的 query
 > 的克制率从 **100% 塌到 0%**。所以 local-hybrid 保留为**实验臂**，不是默认。
 > 依据见 [`GATE_POLICY.md`](GATE_POLICY.md) §5c。
 >
 > **发布就绪度：Internal / External Beta 的代码侧就绪（code-ready）；
 > App Store 需要 Apple 账号配置（account-ready 未完成）。**
 > 质量承诺仍受限于「评测集不是真实用户数据」这一条。
-> 详见 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)。
 
 ---
 
@@ -35,7 +51,8 @@
 | [`GATE_POLICY.md`](GATE_POLICY.md) | 发布标准：达到什么条件才允许上线 |
 | [`RETRIEVAL_ARCHITECTURE.md`](RETRIEVAL_ARCHITECTURE.md) | 工程决策记录（长，按 § 查） |
 | [`design/DECISION_LOG.md`](design/DECISION_LOG.md) | 产品决策 |
-| [`HANDOFF_NEXT.md`](HANDOFF_NEXT.md) | 下一步做什么 |
+| [`PROJECT_CLOSURE.md`](PROJECT_CLOSURE.md) | **项目关闭记录** —— 冻结了什么、还缺什么 |
+| [`HANDOFF_NEXT.md`](HANDOFF_NEXT.md) | **重新进入的五个条件**（不是 backlog） |
 
 已归档、**不要据此判断现状**的文档见 [`docs/ARCHIVED.md`](docs/ARCHIVED.md)。
 

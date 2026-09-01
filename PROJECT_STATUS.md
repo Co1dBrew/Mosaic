@@ -1,22 +1,35 @@
 # Mosaic · 项目现状
 
-> **这份文件回答「现在到底是什么状态」。** 计划与历史在别处（`design/`、`HANDOFF.md`）。
+> **这份文件回答「现在到底是什么状态」。** 计划与历史在别处（`design/`、`HANDOFF.md`），关闭记录在 `PROJECT_CLOSURE.md`。
 > 一份同时描述「打算怎么做」和「现在怎么样」的文档一定会过期，所以这两件事分开写。
 >
-> 最后更新：2026-09-01 · 本轮新增的是**真机验证**
+> 最后更新：2026-09-01 · **v1 已关闭**，关闭记录见 [`PROJECT_CLOSURE.md`](PROJECT_CLOSURE.md)
 
 ---
 
 ## 0. 一句话
 
 ```
-ENGINEERING COMPLETE
-DEVICE VALIDATED
-
-PRODUCT VALIDATION PENDING   人工编写的评测 query
-DEFERRED                     云端语义检索（产品决策）
-EXTERNAL                     App Store / TestFlight 账号配置
+PRODUCTION_RETRIEVAL  = KEYWORD
+LOCAL_HYBRID          = EXPERIMENTAL   (Gate PASS · Promotion NO)
+CLOUD_SEMANTIC        = DEFERRED
+ABSTENTION            = EXPERIMENTAL
+UI_V2                 = PRODUCTION
+ICLOUD                = DISABLED_UNTIL_REAL_CLOUDKIT_AVAILABLE
+GATE_POLICY_VERSION   = V1_PROVISIONAL
+HUMAN_AUTHORED_EVAL   = FUTURE_PRODUCT_VALIDATION
+DEVICE_VALIDATION     = COMPLETE
+ENGINEERING           = COMPLETE
+PROJECT               = CLOSED
 ```
+
+```
+PENDING    人工编写的评测 query（唯一实质阻断项）
+EXTERNAL   App Store / TestFlight 账号配置
+```
+
+> **默认不恢复功能开发。** 重新进入的五个条件见
+> [`HANDOFF_NEXT.md`](HANDOFF_NEXT.md)。
 
 产品（UI v2）与检索质量平台都已落地、有测试守着、**并且在一台真实 iPhone 上验证过**。
 生产检索是 **keyword**，代码、配置、UI、Gate、文档现在说的是同一件事 ——

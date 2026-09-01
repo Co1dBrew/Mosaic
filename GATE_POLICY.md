@@ -1,5 +1,8 @@
 # Mosaic 发布判定 · GATE_POLICY v1
 
+> **v1 已关闭**（`PROJECT_CLOSURE.md`）。这份文件的内容随之冻结 ——
+> 改动 Gate 需要先满足 `HANDOFF_NEXT.md` 里的重新进入条件。
+>
 > Source of Truth。**发布标准写在这里，只写在这里。**
 > 评测方法在 `EVAL_SPEC.md`；这份文件只回答「达到什么条件才允许上线」。
 >
@@ -437,7 +440,8 @@ Gate 的第四行变成 42.9%，永久红。**那不是回归，是还没做到�
 一个永远红的 Gate 会被忽略，而这正是「一个总是被跳过的 Gate 等于没有 Gate」。
 
 所以回归集只保留**当前通过**的 7 条，覆盖 4 个类别。
-剩下 5 条进 backlog（`HANDOFF_NEXT.md`），它们是待办不是回归：
+剩下 5 条归入 **FUTURE RETRIEVAL RESEARCH**（`PROJECT_CLOSURE.md`）——
+它们不是回归，也不是待办，是**已知的排序能力边界**：
 
 ```
 HG041  搜索功能到底什么时候能给内部测试，为什么没上线   两个来源都要召回
