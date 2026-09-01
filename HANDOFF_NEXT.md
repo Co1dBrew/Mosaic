@@ -142,7 +142,7 @@ xcodebuild test -scheme Mosaic -project App/Mosaic.xcodeproj -configuration Debu
 | App 单测 | 107 条 | 模拟器 **与** 真机（真机 0 skip） |
 | UI 测试 | 12 条 | 模拟器 **与** 真机 |
 | `MosaicBench` | 8 条 · 7 过 · 1 skip | 真机 Release（skip = 云端臂） |
-| 20k 冷 P50 | 78.08 – 90.99 ms | 真机 Release（预算 100 ms） |
+| 20k 冷 P50 | 78.08 – 90.99 ms（三次） | 真机 Release（预算 100 ms，余量仅 10–22%） |
 
 **报结果时写明跑在哪台机器上，以及云端臂跑没跑。**
 

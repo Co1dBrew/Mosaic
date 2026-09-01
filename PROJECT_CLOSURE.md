@@ -6,7 +6,7 @@
 > 现状读 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)，
 > 重新进入的条件读 [`HANDOFF_NEXT.md`](HANDOFF_NEXT.md)。
 >
-> 关闭日期：2026-09-01 · 最终提交 `7b5b90a` · tag `mosaic-device-validated-v1`
+> 关闭日期：2026-09-01 · 最终提交 `1953aa6` · tag `mosaic-device-validated-v1`（本地）
 
 ---
 
@@ -117,6 +117,23 @@ Promotion 问的是「值不值得替换生产」（不值得）。三条独立�
 
 设备：`iPhone Air (iPhone18,4)` · iOS `27.0.0` · arm64 · Release ·
 thermal `nominal` · 低电量模式关闭。
+
+**关闭时的 Metric A（keyword 生产路径 · 真机 Release）：**
+
+| chunks | 冷 P50 | 冷 P95 | 热 P50 | 热 P95 |
+|---:|---:|---:|---:|---:|
+| 1 000 | 5.02 ms | 12.30 ms | 3.17 ms | 6.45 ms |
+| 5 000 | 20.11 ms | 31.15 ms | 16.93 ms | 26.31 ms |
+| 10 000 | 40.83 ms | 59.75 ms | 33.73 ms | 49.59 ms |
+| 20 000 | **80.47 ms** | **128.69 ms** | 72.80 ms | 116.07 ms |
+
+预算冷热两侧都是 P50 < 100 ms / P95 < 250 ms —— **全部通过**。
+
+⚠️ **余量要说准**：最大档冷 P50 三次跑批读数是 78.08 / 80.47 / 90.99 ms，
+预算 100 ms，**余量只有 10–22%，而跑批之间自身就摆动约 13 ms**。
+P95 那一侧余量 1.9×，是舒服的；P50 这一侧不是。
+20k 是 PRD 的上限档 —— 1k 上冷 P50 只有 5 ms。
+**下一次动词法路时必须重测这一格。**
 
 `MosaicBench` 唯一的 skip 是云端臂（`CLOUD_CREDENTIAL_REQUIRED`），
 理由由脚本逐条打印并核对 —— **skip 是真的 skip，pass 是真的 pass。**
