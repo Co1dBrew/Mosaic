@@ -17,6 +17,11 @@ struct SettingsView: View {
     @State private var apiKeyDraft = ""
     @State private var testState: TestState = .idle
 
+    /// 这一屏的输入框。**枚举而不是 Bool** —— 焦点是「在哪一个」而不是「有没有」，
+    /// 用 Bool 的话两个输入框之间切换会先经过一次「无焦点」，键盘会闪。
+    private enum Field: Hashable { case baseURL, model, apiKey }
+    @FocusState private var focus: Field?
+
     enum TestState: Equatable {
         case idle, testing, success, failure(String)
     }
@@ -40,14 +45,25 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                        .focused($focus, equals: .baseURL)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .model }
+                        .accessibilityIdentifier("settings.baseURL")
                     TextField("模型名称", text: $settings.modelName)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focus, equals: .model)
+                        .submitLabel(.done)
+                        .onSubmit { focus = nil }
+                        .accessibilityIdentifier("settings.modelName")
                 }
 
                 SecureField("API Key", text: $apiKeyDraft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .focused($focus, equals: .apiKey)
+                    .submitLabel(.done)
+                    .onSubmit { focus = nil }
                     .onChange(of: apiKeyDraft) { _, newValue in
                         settings.setAPIKey(newValue, for: settings.provider)
                     }
@@ -127,6 +143,7 @@ struct SettingsView: View {
         }
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
+        .settingsKeyboardDismissal(focus: $focus)
         .onAppear { apiKeyDraft = settings.currentAPIKey }
         .onChange(of: settings.provider) { _, _ in
             apiKeyDraft = settings.currentAPIKey

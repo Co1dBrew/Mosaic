@@ -16,6 +16,16 @@ struct AdvancedSettingsView: View {
 
     @State private var sttKeyDraft = ""
 
+    /// 这一屏的输入框。**`embeddingDimension` 是关键的一个** ——
+    /// 它是 `numberPad`，键盘上**没有 Return 键**，
+    /// 所以它只能靠键盘工具条上的「完成」退出。这也是那条工具条存在的理由。
+    private enum Field: Hashable {
+        case baseURL, model
+        case embeddingModel, embeddingDimension, embeddingBaseURL
+        case sttModel, sttBaseURL, sttKey
+    }
+    @FocusState private var focus: Field?
+
     var body: some View {
         @Bindable var settings = settingsEnv
 
@@ -28,6 +38,10 @@ struct AdvancedSettingsView: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .keyboardType(.URL)
+                            .focused($focus, equals: .baseURL)
+                            .submitLabel(.done)
+                            .onSubmit { focus = nil }
+                            .accessibilityIdentifier("advanced.baseURL")
                         if settings.provider == .kimi {
                             Text("Kimi 国内 Key 请改用 https://api.moonshot.cn/v1")
                                 .font(.caption2).foregroundStyle(.secondary)
@@ -37,6 +51,10 @@ struct AdvancedSettingsView: View {
                         TextField("模型名称", text: $settings.modelName)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .focused($focus, equals: .model)
+                            .submitLabel(.done)
+                            .onSubmit { focus = nil }
+                            .accessibilityIdentifier("advanced.modelName")
                         if !settings.provider.recommendedModels.isEmpty {
                             Menu {
                                 ForEach(settings.provider.recommendedModels, id: \.self) { model in
@@ -76,14 +94,23 @@ struct AdvancedSettingsView: View {
                               prompt: Text("text-embedding-3-small"))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focus, equals: .embeddingModel)
+                        .submitLabel(.done)
+                        .onSubmit { focus = nil }
+                    // **数字键盘没有 Return 键** —— 这一项只能靠键盘工具条的「完成」退出。
                     TextField("Embedding 维度", value: $settings.embeddingDimension, format: .number)
                         .keyboardType(.numberPad)
+                        .focused($focus, equals: .embeddingDimension)
+                        .accessibilityIdentifier("advanced.embeddingDimension")
                     TextField("Embedding Base URL（留空复用上方）",
                               text: $settings.embeddingBaseURLOverride,
                               prompt: Text(settings.resolvedBaseURL))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                        .focused($focus, equals: .embeddingBaseURL)
+                        .submitLabel(.done)
+                        .onSubmit { focus = nil }
                     Toggle("允许把笔记文字发送到云端以启用智能搜索",
                            isOn: $settings.hasAcceptedCloudEmbeddingNotice)
                         .accessibilityIdentifier("settings.cloudSearchConsent")
@@ -109,12 +136,22 @@ struct AdvancedSettingsView: View {
                     TextField("STT 模型（如 whisper-1）", text: $settings.sttModel)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focus, equals: .sttModel)
+                        .submitLabel(.done)
+                        .onSubmit { focus = nil }
+                        .accessibilityIdentifier("advanced.sttModel")
                     TextField("STT Base URL（留空复用上方）", text: $settings.sttBaseURLOverride,
                               prompt: Text(settings.resolvedBaseURL))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                        .focused($focus, equals: .sttBaseURL)
+                        .submitLabel(.done)
+                        .onSubmit { focus = nil }
                     SecureField("STT API Key（留空复用上方 Key）", text: $sttKeyDraft)
+                        .focused($focus, equals: .sttKey)
+                        .submitLabel(.done)
+                        .onSubmit { focus = nil }
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .onChange(of: sttKeyDraft) { _, newValue in settings.sttAPIKey = newValue }
@@ -188,6 +225,7 @@ struct AdvancedSettingsView: View {
         }
         .navigationTitle("高级")
         .navigationBarTitleDisplayMode(.inline)
+        .settingsKeyboardDismissal(focus: $focus)
         .onAppear { sttKeyDraft = settings.sttAPIKey }
     }
 }

@@ -492,6 +492,62 @@ final class CoreFlowUITests: XCTestCase {
         wait(app.textFields["note.title"], 8, "大字号下点结果仍要能进笔记页")
     }
 
+    // MARK: Core Flow 8 —— 设置页输入完成后键盘收起（R1）
+
+    /// # 判据是「键盘真的不在了」，不是「状态变量为 nil」
+    ///
+    /// XCUITest 里判断键盘在不在，可靠的做法是看 `app.keyboards` ——
+    /// 它反映的是**系统键盘窗口**，而不是 App 自己的焦点状态。
+    /// 后者是 App 自己说的话，用它来验证 App 自己的行为等于什么都没验。
+    ///
+    /// 顺带验第二件事：**收起键盘 ≠ 取消输入。** 设置项是即时保存的，
+    /// 点完「完成」之后值必须还在 —— 修键盘时改坏保存语义是很容易的。
+    func testCoreFlow8_settingsKeyboardDismissesAfterEntry() {
+        launch()
+        app.buttons["notes.settings"].tap()
+        wait(element("settings.advanced"), 10, "设置第一屏应当有「高级」入口")
+        element("settings.advanced").tap()
+
+        // 用「高级」页的模型名：**它在默认服务商下无条件存在**，
+        // 不必先去动服务商 Picker（Picker 的展开方式随 iOS 版本变，
+        // 用它当前置条件会让这条用例以一个与键盘无关的理由失败）。
+        // 这一屏同时也是唯一带 `numberPad` 的一屏 —— 工具条正是为它存在的。
+        let field = app.textFields["advanced.modelName"]
+        wait(field, 10, "高级页应当有模型名输入框")
+        field.tap()
+
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 8), "点输入框应当弹出键盘")
+
+        let typed = "kb\(Int.random(in: 10_000...99_999))"
+        field.typeText(typed)
+
+        // 「完成」：键盘工具条上的那个。它是唯一能覆盖所有键盘类型的退出路径
+        // （`numberPad` 上没有 Return 键）。
+        let done = app.buttons["keyboard.done"].firstMatch
+        wait(done, 5, "键盘上方应当有「完成」")
+        done.tap()
+
+        // **键盘真的消失了。** `waitForNonExistence` 而不是 `!exists` ——
+        // 收起是有动画的，立刻查会查到一个正在退场的键盘。
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 8),
+                      "点「完成」之后键盘必须真的消失。当前界面：\n\(app.debugDescription)")
+
+        // 值还在 —— **收起键盘 ≠ 取消输入**。设置项是即时保存的，
+        // 修键盘时把保存语义改坏是很容易的，所以这一条必须一起断言。
+        let value = (field.value as? String) ?? ""
+        XCTAssertTrue(value.contains(typed),
+                      "收起键盘不该丢掉刚输入的值，实际是「\(value)」")
+
+        // 离开这一屏再回来，键盘不该自己弹出来（焦点在 onDisappear 被清掉）。
+        goBack()
+        wait(element("settings.advanced"), 8, "应当回到设置第一屏")
+        element("settings.advanced").tap()
+        wait(app.textFields["advanced.modelName"], 8, "应当再次进入高级页")
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 3),
+                       "重新进入设置页时不该自动弹出键盘")
+    }
+
     // MARK: Smoke —— 文件夹管理页可达且能新建
 
     func testSmoke_folderManagerReachable() {
