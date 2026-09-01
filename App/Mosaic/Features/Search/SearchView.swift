@@ -159,7 +159,7 @@ struct SearchView: View {
             ForEach(viewModel.rows) { row in
                 if let card = viewModel.card(for: row.noteID) {
                     // anchor 由检索层给出，UI 不猜（§3.1）。
-                    Button { router.push(.note(card: card, anchor: row.anchor)) } label: {
+                    Button { router.push(.note(card: card, anchor: row.anchor, isNewDraft: false)) } label: {
                         SearchResultRow(row: row, card: card)
                     }
                     .buttonStyle(.plain)

@@ -29,6 +29,12 @@ struct NoteDetailView: View {
     @Bindable var card: Card
     /// 从搜索结果进来时的落点。平时是 `nil` —— 那时既不滚动也不高亮。
     var landing: SearchAnchor?
+    /// 这一次是不是「点新建」进来的。**只有它为真时**，退出时的空笔记才会被丢弃。
+    ///
+    /// 打开一条已有笔记、把内容删空、再退出 —— **不会**触发丢弃。
+    /// 「清空」和「删除」是两个不同的意图，替用户做决定是越权；
+    /// 何况删除入口本来就在 `⋯` 菜单里，一步可达。
+    var isNewDraft: Bool = false
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.summaryService) private var summaryService
@@ -782,6 +788,11 @@ struct NoteDetailView: View {
         cleanupEmptyBlocks()
         commitNow()
 
+        // 什么都没写就离开的新建草稿 → **不留下任何东西**。
+        // 放在 `commitNow()` 之后：判定要基于落盘后的真实内容，
+        // 而不是内存里可能还没提交的那一份。
+        if discardEmptyDraftIfNeeded() { return }
+
         let action = SummaryOnExit.action(
             autoUpdateEnabled: settings.autoUpdateSummary,
             privacyAccepted: settings.hasAcceptedAIPrivacyNotice,
@@ -802,6 +813,74 @@ struct NoteDetailView: View {
 
     /// 空文字块在退出时清理，不留脏数据。**保留最后一个** —— 下次进来时
     /// 「末尾永远有一个可写文字块」还得靠它，而且笔记完全为空时也需要它。
+    /// # 空白新建草稿的丢弃
+    ///
+    /// 点「新建」只表达一次**创建意图**，不等于数据库里已经有了一条永久笔记。
+    /// 在这条规则之前，每一次误触悬浮按钮都会在笔记流里留下一行「未命名笔记」——
+    /// 一个由 App 制造、却要用户自己去长按删除的烂摊子。
+    ///
+    /// ## 为什么是「先建后删」而不是「延迟落盘」
+    ///
+    /// 延迟落盘（草稿态编辑器，有内容才 insert）是更干净的架构，但它要动的是
+    /// `@Bindable var card: Card`、`AppRoute` 持有的对象、以及每一个内容块的
+    /// `modelContext` 写入路径 —— 在收口阶段做这件事，风险远大于收益。
+    /// 「建了再删」是产品语义相同、改动面小得多的等价实现，
+    /// **前提是清理必须完整**（见下）。
+    ///
+    /// ## 清理必须完整
+    ///
+    /// 走的是**删除笔记那条既有路径**，不是新写一遍：
+    /// `MediaStore` 的媒体文件 → SwiftData 的 Card（级联删块）→
+    /// `retrieval.noteWasDeleted` 清 derived（chunk / OCR / 内存向量索引）。
+    ///
+    /// 复用而不是重写，是因为这条路径正是上一轮修 D1（删文件夹的 derived 泄漏）时
+    /// 收口过的那一条。**再写一遍就等于再制造一次 orphan derived data。**
+    ///
+    /// - Returns: 真的丢弃了返回 `true`，调用方据此跳过后面的总结生成 ——
+    ///   给一条刚被删掉的笔记生成摘要既花钱又毫无意义。
+    @discardableResult
+    private func discardEmptyDraftIfNeeded() -> Bool {
+        // **`onDisappear` 不等于「这一屏走了」。**
+        //
+        // 在 `NavigationStack` 里，往上推一屏（这里唯一的一处是笔记页 →「设置」）
+        // 同样会让当前这屏收到 `onDisappear`。那一刻笔记还在栈里、用户马上会回来 ——
+        // 此时删掉它，用户返回时会看到一个空壳。
+        //
+        // 摘要生成走这条路只是白花一次钱；**删除走这条路是丢数据**，
+        // 所以这一条必须显式挡住。判据用「有没有往上推」而不是别的：
+        // 它就是那个区别本身。
+        guard !showSettings else { return false }
+
+        guard NoteDraftPolicy.shouldDiscardOnExit(isNewDraft: isNewDraft,
+                                                  title: card.userTitle,
+                                                  tags: card.tags,
+                                                  blocks: card.blockContents(),
+                                                  derivedTexts: derivedTextsForDraftCheck())
+        else { return false }
+
+        let noteID = card.id.uuidString
+        didDelete = true
+        for block in card.blocks ?? [] { MediaStore.shared.deleteMedia(for: block) }
+        modelContext.delete(card)
+        try? modelContext.save()
+        if let retrieval {
+            Task { await retrieval.noteWasDeleted(noteID) }
+        }
+        return true
+    }
+
+    /// OCR / 转写这类**衍生**文本。
+    ///
+    /// 它们不是用户直接输入的，所以是兜底而不是主判据 —— 有 OCR 就一定有图片块，
+    /// 而图片块本身已经被 `blockContents()` 判到了。留着它是为了防一种情况：
+    /// 媒体文件因为某种原因丢了引用，但识别出来的文字还在。
+    /// 那时这条笔记里仍然有用户能搜到的东西，不该被当成空的删掉。
+    private func derivedTextsForDraftCheck() -> [String] {
+        guard let retrieval else { return [] }
+        let ocr = retrieval.derived.ocrTextByBlockID(noteID: card.id.uuidString)
+        return Array(ocr.values) + (card.blocks ?? []).compactMap { $0.transcript }
+    }
+
     private func cleanupEmptyBlocks() {
         let ordered = card.orderedBlocks
         let empties = ordered.filter { $0.isEffectivelyEmpty }

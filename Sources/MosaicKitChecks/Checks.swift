@@ -30,6 +30,7 @@ struct Checks {
         EmbeddingRouterChecks.run(r)
         EmbeddingRouterChecks.runCloudUpgradeHint(r)
         ProductionConfigChecks.run(r)
+        NoteDraftChecks.run(r)
         DerivedConsistencyChecks.run(r)
         CloudSyncChecks.run(r)
         NotesUIChecks.run(r)

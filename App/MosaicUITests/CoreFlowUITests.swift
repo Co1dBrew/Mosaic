@@ -121,6 +121,17 @@ final class CoreFlowUITests: XCTestCase {
         return target
     }
 
+    /// 首页笔记流里有没有任何一行。
+    ///
+    /// 用行标题的 identifier 前缀判断，而不是数 cell —— chip 行、空状态引导
+    /// 也都是 cell，数 cell 会把它们算进来。
+    private func anyNoteRowExists(timeout: TimeInterval = 3) -> Bool {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'notes.rowTitle.'"))
+            .firstMatch
+            .waitForExistence(timeout: timeout)
+    }
+
     /// 从首页进搜索页并返回搜索框。
     ///
     /// 与 `openNewFolderSheet` 同一个理由：真机上「点了没反应」是常态而不是例外，
@@ -546,6 +557,90 @@ final class CoreFlowUITests: XCTestCase {
         wait(app.textFields["advanced.modelName"], 8, "应当再次进入高级页")
         XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 3),
                        "重新进入设置页时不该自动弹出键盘")
+    }
+
+    // MARK: Core Flow 9 —— 新建后什么都不写，不该留下笔记（R2）
+
+    /// 点「新建」只表达一次**创建意图**。用户什么都没写就离开，
+    /// 笔记流里不该多出一行「未命名笔记」——
+    /// 那是 App 制造、却要用户自己去长按删除的烂摊子。
+    func testCoreFlow9_emptyNewNoteLeavesNoPersistentNote() {
+        launch()
+        // 全新安装 → 空状态。它本身就是「一条笔记都没有」的可断言形式。
+        wait(element("notes.empty.all"), 12, "全新安装应当是空状态")
+
+        app.buttons["notes.compose"].tap()
+        wait(app.textFields["note.title"], 8, "应当进入笔记页")
+        // **什么都不输入**，直接返回。
+        returnToNoteList()
+
+        XCTAssertTrue(element("notes.empty.all").waitForExistence(timeout: 8),
+                      "空白新建笔记不该留下任何东西 —— 首页应当仍然是空状态。"
+                      + "当前界面：\n\(app.debugDescription)")
+        XCTAssertFalse(anyNoteRowExists(), "笔记流里不该出现「未命名笔记」")
+
+        // 搜索里也不该有。空草稿绝不能进 Feed / 索引 / 结果。
+        let search = openSearch()
+        search.typeText("未命名")
+        let ghost = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'search.result.'"))
+            .firstMatch
+        XCTAssertFalse(ghost.waitForExistence(timeout: 8), "搜索里也不该有空草稿")
+    }
+
+    // MARK: Core Flow 10 —— 只输入空格换行，同样不该留下笔记（R3）
+
+    /// 空白字符不算内容。用户不小心碰到键盘打了个空格，
+    /// 不该因此得到一条永久笔记。
+    func testCoreFlow10_whitespaceOnlyNewNoteLeavesNoPersistentNote() {
+        launch()
+        wait(element("notes.empty.all"), 12, "全新安装应当是空状态")
+
+        app.buttons["notes.compose"].tap()
+        let titleField = app.textFields["note.title"]
+        wait(titleField, 8, "应当进入笔记页")
+        titleField.tap()
+        titleField.typeText("   ")
+
+        let editor = app.textViews.firstMatch
+        if editor.waitForExistence(timeout: 4) {
+            editor.tap()
+            editor.typeText("\n \n")
+        }
+        returnToNoteList()
+
+        XCTAssertTrue(element("notes.empty.all").waitForExistence(timeout: 8),
+                      "只有空格与换行不算内容 —— 首页应当仍然是空状态")
+        XCTAssertFalse(anyNoteRowExists(), "纯空白草稿不该留下笔记")
+    }
+
+    // MARK: Core Flow 11 —— 有真实内容的新建笔记必须留下（R4，防止修过头）
+
+    /// 这一条是上面两条的对照组。**没有它，「全删掉」也能让上面两条通过。**
+    func testCoreFlow11_newNoteWithRealContentPersistsAcrossRestart() {
+        launch()
+        let token = "KeepMe\(Int.random(in: 10_000...99_999))"
+        composeNote(title: "真实笔记 \(token)", body: "这条有内容，必须留下 \(token)")
+        returnToNoteList()
+
+        XCTAssertTrue(anyNoteRowExists(), "有内容的新建笔记必须出现在首页")
+
+        // **不 reset 地重启** —— 证明它是真的落盘了，不是只在内存里。
+        app.terminate()
+        launch(reset: false)
+
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'notes.rowTitle.'"))
+            .firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 12), "重启后这条笔记必须还在")
+
+        // 搜得到 —— 它真的进了索引，而不是只躺在列表里。
+        let search = openSearch()
+        search.typeText(token)
+        let hit = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'search.result.'"))
+            .firstMatch
+        XCTAssertTrue(hit.waitForExistence(timeout: 12), "重启后仍然搜得到")
     }
 
     // MARK: Smoke —— 文件夹管理页可达且能新建

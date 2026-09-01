@@ -59,6 +59,8 @@ EXTERNAL                     App Store / TestFlight 账号配置
 | 权限被拒 | ✅ 麦克风有完整 UX（解释 · 打开设置 · 取消 · 回前台自动重试）。文案与「给不给去设置按钮」的判断在内核，有断言守着 |
 | 总结生成时机 | ✅ 统一到「退出笔记页」一条规则。点进去看一眼不会花钱 |
 | **删除笔记** | ✅ **本轮修了一个真机 crash**（§9.4）。模拟器上不复现 |
+| **新建笔记** | ✅ **什么都不写就离开 → 不留下任何东西**（§9.5）。空白字符不算内容；只有图片 / 录音 / 文档 / 链接的笔记照常保留 |
+| **设置页键盘** | ✅ **输入完成后键盘会收起**（§9.6）。三条退出路径：键盘「完成」· Return · 滑动列表 |
 | iCloud 同步 | ⛔ **此版本不提供**，据实显示；不给必然失败的开关 |
 | 语义弃答 | ⛔ **EXPERIMENTAL，未接入生产**（TD-10 余量 0.0002），有断言守着 |
 | PDF 导出 · 媒体文件同步 | ⛔ 未实现 |
@@ -138,14 +140,14 @@ ABSTENTION             = EXPERIMENTAL     🧪 未接生产
 
 | 套件 | 结果 | 条件 |
 |---|---|---|
-| `swift run mosaic-checks` | ✅ **3687 断言** | Mac · debug · 约 7 分钟 · **无云端凭据** |
+| `swift run mosaic-checks` | ✅ **3714 断言** | Mac · debug · 约 7 分钟 · **无云端凭据** |
 
 ### 模拟器（iPhone 17 Pro · iOS 26.5）
 
 | 套件 | 结果 |
 |---|---|
-| `MosaicTests` | ✅ **99 条** |
-| `MosaicUITests` | ✅ **8 条** |
+| `MosaicTests` | ✅ **107 条** |
+| `MosaicUITests` | ✅ **12 条** |
 | Release 构建 | ✅ |
 | `tools/verify_release.sh` | ✅ 全过 |
 | Debug / Release 构建警告 | ✅ **0** |
@@ -156,8 +158,8 @@ ABSTENTION             = EXPERIMENTAL     🧪 未接生产
 |---|---|---|
 | Debug 真机构建 | ✅ | 个人 Team + `-allowProvisioningUpdates` |
 | Release 真机构建 | ✅ | 同上 |
-| `MosaicTests` | ✅ **99 条 · 0 skip** | Debug |
-| `MosaicUITests` | ✅ **8 条** | Debug · 需要设备开「UI 自动化」 |
+| `MosaicTests` | ✅ **107 条 · 0 skip** | Debug |
+| `MosaicUITests` | ✅ **12 条** | Debug · 需要设备开「UI 自动化」 |
 | `MosaicBench` | ✅ **8 条 · 7 过 · 1 skip** | **Release**。skip 的是云端臂（DEFERRED） |
 | `tools/verify_device.sh` | ✅ 全过 | 验的是 **arm64 Release 切片** |
 
@@ -239,9 +241,12 @@ L2a query 嵌入 P50 4.35 – 4.39 ms（占同批次 20k 端到端 5.3%）。
 
 ---
 
-## 9. 本轮真机验证抓到的四件事
+## 9. 本轮抓到的六件事
 
-**这一节存在的意义是：以上四条没有一条能在模拟器上发现。**
+前四条来自**真机验证**，没有一条能在模拟器上发现。
+后两条（§9.5 / §9.6）是收口前用户实际使用时提出的 —— 它们不需要真机才能发现，
+只需要**有人真的把 App 当 App 用一遍**。这本身是个结论：
+自动化测试覆盖的是「功能做没做对」，覆盖不了「用起来是不是这么回事」。
 
 ### 9.1 文档说 keyword，代码默认 hybrid
 
@@ -283,6 +288,63 @@ NoteDetailView.blockList ← body`，底下是 SwiftData 的 `_assertionFailure`
 修的过程中错了两次，两次都写进注释了：守卫放在 `body` 顶层挡不住
 （SwiftUI 会直接重算已建好的内容闭包）；`card.isDeleted` **不是**一直为真
 （`delete()` 后为真，`save()` 后变假 —— 要配 `modelContext == nil` 才完整）。
+
+---
+
+### 9.5 新建笔记会留下「未命名笔记」（收口期发现）
+
+> **Late Closure Finding: new-note creation persisted empty drafts as untitled notes.**
+
+点「新建」立刻 `insert` + `save` 一条 `Card`，用户什么都不写就返回 ——
+笔记流里留下一行「未命名笔记」。每一次误触悬浮按钮都会产生一条，
+而清理它要用户自己去长按删除：**一个由 App 制造、却要用户收拾的烂摊子。**
+
+产品语义改成：点「新建」只表达一次**创建意图**，不等于数据库里已经有了一条笔记。
+
+判定在内核（`NoteDraftPolicy`），因为它必须**只有一处实现** ——
+两处迟早会在「图片算不算内容」这种问题上分叉，而分叉的后果是删掉用户的照片。
+有效内容 = 标题 / 标签 / 任意非空内容块（文字 · 图片 · 录音 · 文档 · 链接）/
+OCR 与转写文本，任一即可；空白字符 trim 后判空。
+
+三处收口：
+
+1. **退出笔记页时丢弃**（`NoteDetailView.handleExit`）。走的是删除笔记那条**既有**
+   清理路径（媒体文件 → Card → derived），不是新写一遍 ——
+   重写一遍就等于再制造一次 orphan derived data（上一轮 D1 修的正是这个）。
+2. **只管新建，不管已有笔记。** `isNewDraft` 是必需的第二个条件：
+   用户把一条老笔记清空再退出，**不能**替他删掉。「清空」和「删除」是两个意图。
+3. **启动时清幽灵**（`EmptyDraftSweep`）。App 在空笔记里被划掉时 `onDisappear`
+   跑不到，会留下一条。判据用的是同一个内核规则，所以被清掉的只可能是
+   一条用户看不到任何内容的笔记。
+
+另有一处防御：`onDisappear` **不等于**「这一屏走了」——
+往上推一屏（笔记页 →「设置」）同样会触发它。摘要生成走这条路只是白花一次钱，
+**删除走这条路是丢数据**，所以显式挡住了。
+
+### 9.6 设置页输入完成后键盘不收起（收口期发现）
+
+> **Late Closure Finding: settings keyboard focus was not dismissed after text entry.**
+
+设置里的每一个输入框（Base URL / 模型名 / API Key / STT / Embedding 维度）
+输入完成后键盘都留在屏幕上。表单下面还有 Toggle 和按钮，
+于是用户要么盲点被挡住的区域，要么退出这一屏 —— 两种都不是「完成输入」。
+
+修法是一个可复用的 `settingsKeyboardDismissal(focus:)`，基于 `@FocusState`，
+**不用 `UIApplication.endEditing`** —— 那是一句绕过 SwiftUI 焦点系统的全局命令，
+会让 `@FocusState` 与真实焦点不一致，而且不可组合（每屏复制一遍，下一个新增的
+输入框一定会漏）。
+
+三条退出路径对应三种**不同的用户意图**，缺一条就会在某个场景卡住：
+
+| 路径 | 靠什么 | 覆盖 |
+|---|---|---|
+| 键盘上的「完成」 | `ToolbarItemGroup(placement: .keyboard)` | **全部**，含 `numberPad` 这种没有 Return 键的 |
+| 软键盘 Return | `.submitLabel(.done)` + `.onSubmit` | 单行文本 / URL / 密码 |
+| 滑动列表 | `.scrollDismissesKeyboard(.interactively)` | 想看被挡住的内容时的自然动作 |
+
+**收起键盘 ≠ 取消输入**：设置项仍然是即时保存，这个修饰符不碰数据。
+真机用例断言的是 `app.keyboards` 真的消失，**不是**某个状态变量为 nil ——
+用 App 自己说的话去验证 App 自己的行为等于什么都没验。
 
 ---
 

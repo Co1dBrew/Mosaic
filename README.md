@@ -71,8 +71,8 @@ Mosaic/
     │   ├── Retrieval/            # 索引服务 · derived store · 检索栈持有者
     │   ├── Settings/             # 设置（两层）
     │   └── DeveloperTools/       # **只在 DEBUG / INTERNAL_BUILD 编译**
-    ├── MosaicTests/              # XCTest（99 条）—— 模拟器与真机都跑
-    ├── MosaicUITests/            # XCUITest 核心流程（8 条）—— 模拟器与真机都跑
+    ├── MosaicTests/              # XCTest（107 条）—— 模拟器与真机都跑
+    ├── MosaicUITests/            # XCUITest 核心流程（12 条）—— 模拟器与真机都跑
     └── MosaicBench/              # 真机性能基准（独立 scheme，8 条）
 ```
 
@@ -89,7 +89,7 @@ Mosaic/
 swift run mosaic-checks
 ```
 
-3687 条断言，覆盖服务商配置、JSON 解析健壮性、内容哈希、快照 diff、检索管线、
+3714 条断言，覆盖服务商配置、JSON 解析健壮性、内容哈希、快照 diff、检索管线、
 评测集质量、发布判定口径、生产配置一致性、UI 取值规则。
 失败时非零退出，可直接当 CI 闸门。
 

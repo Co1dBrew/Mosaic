@@ -23,7 +23,18 @@
 它的 skip 条件恰好在 iPhone 上永远成立，也就是说它在用户真正会用的机器上
 从来没有验证过。
 
-四件事都已修，细节见 `PROJECT_STATUS.md` §9。
+另外两件是**收口前用户自己用出来的**，不需要真机也能发现，
+只需要有人真的把 App 当 App 用一遍：
+
+5. **新建笔记什么都不写也会留下「未命名笔记」** —— 每次误触悬浮按钮产生一条
+6. **设置页输入完成后键盘不收起** —— 表单下面还有 Toggle 和按钮，全被挡住
+
+六件事都已修，细节见 `PROJECT_STATUS.md` §9。
+
+> 第 5、6 条是这一轮最值得记的教训：**自动化测试覆盖的是「功能做没做对」，
+> 覆盖不了「用起来是不是这么回事」。** 12 条 UI 流程当时全绿，
+> 而它们恰好都没有「点了新建又什么都不写」和「在设置里输入完然后想点下面的开关」
+> 这两个动作 —— 因为写测试的人是照着功能写的，不是照着人写的。
 
 **当前状态**：
 
@@ -128,9 +139,9 @@ xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration
 
 | 套件 | 结果 | 机器 |
 |---|---|---|
-| 内核 checks | ✅ 3687 断言 | Mac · debug · **无云端凭据** |
-| App 单测 | ✅ 99 条 | 模拟器 **与** 真机（真机 0 skip） |
-| UI 测试 | ✅ 8 条 | 模拟器 **与** 真机 |
+| 内核 checks | ✅ 3714 断言 | Mac · debug · **无云端凭据** |
+| App 单测 | ✅ 107 条 | 模拟器 **与** 真机（真机 0 skip） |
+| UI 测试 | ✅ 12 条 | 模拟器 **与** 真机 |
 | `MosaicBench` | ✅ 8 条 · 7 过 · 1 skip | **真机 Release**（skip 的是云端臂） |
 | 发布核对 | ✅ 全过 | `verify_release` + `verify_device` |
 
@@ -138,7 +149,7 @@ xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration
 
 ---
 
-## 3. 八个容易踩的坑
+## 3. 九个容易踩的坑
 
 1. **新增 App 文件后必须 `cd App && xcodegen generate`**，否则 Xcode 工程里没有它。
 2. **`MosaicBench` 必须走自己的 scheme**。`MosaicTests` 用 `@testable`，Release 下不可用。
@@ -174,4 +185,8 @@ xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration
 6. **测试要能证明退出标准，不是刷数量。** 一条断言如果只是把当前行为抄了一遍，
    它保护不了任何东西。反过来，**一条永远被 skip 的断言等于不存在** ——
    本轮就有一条隐私断言因此在真机上从未运行。
-7. **只在模拟器上绿不算绿。** 本轮的四个缺陷没有一个能在模拟器上发现。
+7. **只在模拟器上绿不算绿。** §0 的前四个缺陷没有一个能在模拟器上发现。
+8. **测试全绿也不算做完。** §0 的第 5、6 条是用户自己用出来的 ——
+   12 条 UI 流程当时全绿，只是没有人做过「点了新建又什么都不写」
+   和「在设置里输入完然后想点下面的开关」这两个动作。
+   **每一轮收口前，自己把 App 当 App 用一遍。**

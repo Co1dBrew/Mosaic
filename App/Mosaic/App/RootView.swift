@@ -62,7 +62,8 @@ struct RootView: View {
     @ViewBuilder
     private func destination(_ route: AppRoute) -> some View {
         switch route {
-        case let .note(card, anchor):  NoteDetailView(card: card, landing: anchor)
+        case let .note(card, anchor, isNewDraft):
+            NoteDetailView(card: card, landing: anchor, isNewDraft: isNewDraft)
         case .search:                  SearchView()
         case .settings:                SettingsView()
         case .advancedSettings:        AdvancedSettingsView()

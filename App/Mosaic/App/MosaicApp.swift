@@ -71,11 +71,33 @@ struct MosaicApp: App {
                 .environment(\.summaryService, summaryService)
                 .environment(\.transcriptionService, transcriptionService)
                 .environment(retrieval)
-                // 启动：灌回已落盘的向量，再补齐这次启动前发生的改动
-                // （重启不恢复队列，而是重新推导要做什么 —— `DerivedWorkScanner`）。
-                .task { await retrieval.startIndexing() }
+                // 启动：
+                // 1 · 先扫掉「幽灵空笔记」—— App 在新建的空笔记里被划掉时留下的。
+                //     **必须在建索引之前**：否则它们会先被灌进索引，
+                //     清掉之后又变成一批 orphan derived 记录。
+                // 2 · 再灌回已落盘的向量、补齐这次启动前发生的改动
+                //     （重启不恢复队列，而是重新推导要做什么 —— `DerivedWorkScanner`）。
+                .task {
+                    await sweepGhostDrafts()
+                    await retrieval.startIndexing()
+                }
         }
         .modelContainer(container)
+    }
+}
+
+private extension MosaicApp {
+    /// 见 `EmptyDraftSweep`。清掉的笔记要连着 derived 数据一起清 ——
+    /// 它们大概率还没被索引（索引有 600ms 防抖），但「大概率」不是不变量。
+    @MainActor
+    func sweepGhostDrafts() async {
+        let derived = retrieval.derived
+        let removed = EmptyDraftSweep.sweep(context: container.mainContext) { card in
+            let ocr = derived.ocrTextByBlockID(noteID: card.id.uuidString)
+            return Array(ocr.values) + (card.blocks ?? []).compactMap { $0.transcript }
+        }
+        guard !removed.isEmpty else { return }
+        await retrieval.notesWereDeleted(removed)
     }
 }
 

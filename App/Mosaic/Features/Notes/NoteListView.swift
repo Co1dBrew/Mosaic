@@ -119,7 +119,7 @@ struct NoteListView: View {
                     // **整行是单一点击区**（§2.3）。用 `Button` 而不是
                     // `.onTapGesture`：实测在 `List` 行上后者不触发。
                     // 也不用 `NavigationLink` —— 它会带回那个设计明确要求删掉的 chevron。
-                    Button { router.push(.note(card: card, anchor: nil)) } label: {
+                    Button { router.push(.note(card: card, anchor: nil, isNewDraft: false)) } label: {
                         NoteRowView(card: card)
                     }
                         .buttonStyle(.plain)
@@ -223,7 +223,7 @@ struct NoteListView: View {
         let card = Card(folder: target)
         modelContext.insert(card)
         commit()
-        router.push(.note(card: card, anchor: nil))
+        router.push(.note(card: card, anchor: nil, isNewDraft: true))
     }
 
     private func togglePin(_ card: Card) {

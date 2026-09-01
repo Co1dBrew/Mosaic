@@ -14,8 +14,17 @@ import MosaicKit
 /// 收敛成**一条路径 + 一个 `navigationDestination(for:)`**：路由是数据，
 /// 目的地只有一处声明。附带的好处是 UI 测试可以直接断言路径，而不必靠找控件。
 enum AppRoute: Hashable {
-    /// 笔记页。`anchor` 只有从搜索结果进来时才有 —— 平时进笔记既不滚动也不高亮。
-    case note(card: Card, anchor: SearchAnchor?)
+    /// 笔记页。
+    ///
+    /// - `anchor`：只有从搜索结果进来时才有 —— 平时进笔记既不滚动也不高亮。
+    /// - `isNewDraft`：**这一次是不是「点新建」进来的。**
+    ///
+    ///   它决定退出时空笔记会不会被丢弃（`NoteDraftPolicy.shouldDiscardOnExit`）。
+    ///   **没有默认值是刻意的**：从列表、从搜索结果、从新建进笔记页是三条不同的路，
+    ///   而「哪一条路进来的」正是这条规则的前提。给它一个默认值，
+    ///   等于让新增的第四条路默默继承一个可能错的答案 ——
+    ///   错在「丢弃」那一侧的代价是删掉用户已有的笔记。
+    case note(card: Card, anchor: SearchAnchor?, isNewDraft: Bool)
     case search
     case settings
     case advancedSettings
