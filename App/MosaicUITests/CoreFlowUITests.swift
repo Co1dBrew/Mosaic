@@ -34,9 +34,9 @@ final class CoreFlowUITests: XCTestCase {
     // MARK: 工具
 
     @discardableResult
-    private func launch(reset: Bool = true) -> XCUIApplication {
+    private func launch(reset: Bool = true, extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-test"] + (reset ? ["--ui-test-reset"] : [])
+        app.launchArguments = ["--ui-test"] + (reset ? ["--ui-test-reset"] : []) + extraArguments
         app.launch()
         self.app = app
         return app
@@ -440,6 +440,56 @@ final class CoreFlowUITests: XCTestCase {
         // 给检索真的跑完的时间再断言「没有」—— 直接断言不存在会在还没跑完时误判通过。
         XCTAssertFalse(stale.waitForExistence(timeout: 10),
                        "删掉文件夹之后，里面的笔记不该还留在搜索结果里")
+    }
+
+    // MARK: Core Flow 7 —— 大字号 + 深色下，核心操作仍然够得着
+
+    /// # 「视觉正常」这件事怎么才算测过
+    ///
+    /// 截图对比在这个阶段没有意义（没有基线，而且换一版 iOS 就全红）。
+    /// 但**排版塌掉的可观察后果是稳定的**：控件被挤出屏幕、被别的东西盖住、
+    /// 或者缩到点不着。所以这一条不比像素，只问一句 ——
+    /// **在最大的无障碍字号 + 深色下，核心路径上的每个控件还点得着吗。**
+    ///
+    /// 它同时覆盖长标题与中英混排的换行：标题用的是一个又长又中英混排的串，
+    /// 塌了的话下面那些控件就够不着了。
+    ///
+    /// 两个 launch argument 是 UIKit 的标准覆盖开关，不需要 App 侧配合。
+    func testCoreFlow7_accessibilityTextSizeAndDarkModeKeepControlsReachable() {
+        launch(extraArguments: [
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL",
+            "-UIUserInterfaceStyle", "Dark"
+        ])
+
+        // 首页：三个入口都要在。空状态下尤其容易被大字号的引导文案顶下去。
+        wait(app.buttons["notes.compose"], 12, "大字号下首页仍要有新建入口")
+        XCTAssertTrue(app.buttons["notes.compose"].isHittable, "新建按钮要点得着，不能只是存在")
+        XCTAssertTrue(app.buttons["notes.search"].isHittable, "搜索入口要点得着")
+        XCTAssertTrue(app.buttons["notes.settings"].isHittable, "设置入口要点得着")
+
+        // 长标题 + 中英混排：两种换行规则在同一行里。
+        let token = "A11y\(Int.random(in: 10_000...99_999))"
+        composeNote(title: "二〇二六年秋季学期 CS5330 Pattern Recognition 期末项目排期与分工 \(token)",
+                    body: "会上确定了 milestone 与 deliverable 的时间点 \(token)")
+
+        // 笔记页：导航栏三件套 + 底部插入工具条都要还在、还点得着。
+        // 大字号最先压垮的就是这两条 —— 它们一个在顶一个在底。
+        XCTAssertTrue(app.buttons["note.folderPicker"].isHittable, "大字号下文件夹选择器仍要点得着")
+        XCTAssertTrue(app.buttons["note.more"].isHittable, "大字号下 ⋯ 仍要点得着")
+        let titleField = app.textFields["note.title"]
+        XCTAssertTrue(titleField.isHittable, "长标题不该把输入框自己挤出屏幕")
+
+        returnToNoteList()
+
+        // 搜索：大字号下结果行仍然可达，落点仍然对。
+        let search = openSearch()
+        search.typeText(token)
+        let result = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'search.result.'"))
+            .firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 12), "大字号下仍要搜得到")
+        tapElement(tappable(prefix: "search.result."))
+        wait(app.textFields["note.title"], 8, "大字号下点结果仍要能进笔记页")
     }
 
     // MARK: Smoke —— 文件夹管理页可达且能新建

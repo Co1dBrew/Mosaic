@@ -45,6 +45,49 @@ organic traffic · production traffic · 真实用户标注
 数据文件自身携带这句声明（`disclaimer` 字段），且有断言守着 ——
 文档会被人忘记，数据会被拷走。
 
+### 1.1 将来那份人工评测集的导入口 —— 今天就是通的
+
+`HUMAN_AUTHORED_EVAL = FUTURE PRODUCT VALIDATION`。**本轮没有制造任何假的人工数据。**
+但导入口必须现在就存在，理由很具体：
+
+`provenance` 是**可选枚举**。Swift 的 Codable 遇到不认识的字符串
+**不是**解成 `nil`，而是让**整个文件解析失败**。也就是说，少一个 case 的后果
+不是「字段丢了」，而是「拿到人工数据那天，第一件事是发现导不进来」——
+那时的补救成本比现在加一行高得多。
+
+所以 schema 现在接受三个来源：
+
+| 值 | 含义 | 当前是否有数据 |
+|---|---|---|
+| `agent_authored_realistic` | agent 按真实使用场景编写 | ✅ 全部 207 条 |
+| `human_annotated` | 真人**看得到笔记**，为既有 query 标注（标注者） | ⏭ 无 |
+| `human_authored` | 真人**没看笔记**，按自己真实的回忆写 query（提问者） | ⏭ 无 |
+
+**后两个分开，是因为它们的偏差方向相反。** 看着笔记写 query 会不自觉地抄词面，
+于是词法路的分数虚高；凭记忆写出来的 query 才是产品真正要面对的输入。
+把两者混成一个 `human` 会让「这份数据能证明什么」变成一个答不上的问题。
+
+配套字段：
+
+```json
+{
+  "query": "…",
+  "provenance": "human_authored",
+  "notesVisibleWhileAuthoring": false,
+  "expectedNoteIDs": [],
+  "relevance": {},
+  "queryLanguage": "zh",
+  "split": "holdout"
+}
+```
+
+`notesVisibleWhileAuthoring` 只对 `human_*` 有意义，所以是可选的
+（现有 agent 数据不带它）。**它必须被记准** —— 它就是上面那条偏差的开关。
+
+`ScenarioDatasetChecks` 里有一条用例喂一份最小的 `human_authored` JSON 进去，
+证明它解得出来、且能变成一条可跑的 `EvalCase`。
+**同时断言当前这份数据仍然全部是 agent 写的** —— 打通导入口不等于可以改口径。
+
 ---
 
 ## 2. 语料（242 篇）
@@ -260,3 +303,11 @@ python3 tools/eval/build_scenario_set.py
 
 以上四条都不能靠加数据解决，需要真实用户数据。在那之前，
 本评测集的结论只用于**两套配置之间的比较**，不用于绝对水平的承诺。
+
+这也是 `GATE_POLICY.md` §3 那三个绝对下限被标成 **`V1_PROVISIONAL`** 的理由：
+
+> These thresholds are engineering/product provisional thresholds based on the
+> current scenario-authored evaluation corpus. They must be recalibrated after
+> human-authored evaluation becomes available.
+
+导入口见 §1.1 —— **基础设施已经就绪，拿到数据不需要改代码。**

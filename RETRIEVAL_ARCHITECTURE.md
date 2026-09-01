@@ -2202,3 +2202,131 @@ D-AI-003 的已知缺口：本地可用 + 云端已配未授权 + **双语库**�
    本地建索引 3.9 分钟、常驻 74.9 MB 都是更靠前的问题。
 
 **重新打开它的条件**：PRD 把语料上限提到 40k 以上，或真机热 P50 越过 60 ms。
+
+---
+
+# §27 真机验证轮（2026-09-01）
+
+> 上一轮的收尾语是「模拟器上全绿」。这一节记的是**把它放到一台真实 iPhone 上之后
+> 发现的四件事**，以及为什么它们没有一件能在模拟器上发现。
+>
+> 设备：`iPhone Air (iPhone18,4)` · iOS `27.0.0` · arm64 · Release · thermal `nominal`。
+
+## 27.1 生产配置与文档的不一致，是**结构性**的
+
+`RetrievalConfig.production` 写作 `RetrievalConfig()`，而初始化器的
+`mode` 默认值是 `.hybrid`。于是：
+
+```
+文档 / Gate baseline / MosaicBench 的 baseline 臂 →  keyword
+RetrievalConfig.production                       →  hybrid   ← 线上跑的
+```
+
+**它不会让任何一条既有断言变红**，因为两条路都能跑通、都返回合理结果。
+一致性靠人核对不成立 —— 核对一次之后，下一次改动没有人会再做第二次。
+
+处理方式有三层，缺一层就会重演：
+
+1. **删掉那个默认值。** `mode` 现在没有默认参数，每个构造点必须写出走哪条路。
+   这是唯一能**结构性**防止它重演的一层 —— 其余两层都只是「这一次修对了」。
+2. **`ProductionConfigChecks`** 把「生产是什么」写成断言（生产是 keyword ·
+   实验臂不是生产 · 注册表根记录一致 · 状态栏不谈论不存在的能力 · 不推销无效开关）。
+3. **落盘注册表的迁移。** 老设备上那条根记录还是 hybrid，而生产搜索读的正是它。
+   `migrateRootProduction` 只迁移**从未被 Promote 过**的根记录 ——
+   经 Gate 上线过的配置是一次有记录的人为决定，不能被一次 App 更新悄悄改掉。
+
+**顺带的结论**：`verify_device.sh` 现在从**真机二进制里 `strings`** 出
+`retrieval-v2-keyword`。从源码读证明不了编译进去了什么，而这一节讲的正是那个差别。
+
+## 27.2 一个「实现了、测过了、基准跑过了，但没到达用户」的优化
+
+真机 Metric A 冷 P50 在 20k 上 **103.01 ms**，超了 100 ms 预算。查下去是两件事：
+
+**(a) 生产搜索每次按键都新建一个 `RetrievalService`。**
+它的 `normalizedText` 默认参数是 `NormalizedTextCache()` —— 每次都是空的。
+线上**永远走冷路径**。缓存实现了（§24.3）、单测守着、基准测过 2.36×，唯独没接上。
+
+这类缺陷的特征是：**两条路的结果逐位相同，只是慢。**
+所以没有任何一条结果断言会变红，而延迟断言当时只在 Mac 上跑
+（Mac 上 `test2` 的冷热两列都测，但那是 bench 自己构造的 service，
+不是生产路径的生命周期）。
+
+现在缓存由 `SearchViewModel` 持有 —— 生命周期是「一次搜索会话」。
+失效仍靠 `chunk.id + contentHash`，不靠记得清。
+`testNormalizedCacheSurvivesAcrossQueriesInASearchSession` 守着它。
+**断言不能断结果**（结果本来就一样），只能断「缓存里留下了东西」。
+
+**(b) 归一化天然可并行，却在串行跑。**
+每个 chunk 的折叠只取决于它自己。`NormalizedTextCache.fold` 现在把未命中的那一批
+按核数切片、用 `TaskGroup` 并行；结果**按切片下标归位再拼接**
+（用「谁先算完谁先进」会让输出与输入对不上 —— 那不是变慢，是把 A 的正文当成 B 的）。
+小于 512 条直接串行：派发本身有成本，而「库里只有几百个 chunk」是常态。
+
+103.01 → **81.54 ms**。冷 P95 144.82 → 118.95 ms。
+
+## 27.3 产品决策会**制造**新的诚实问题
+
+生产从 hybrid 改成 keyword 之后，三处 UI 立刻变成假话：
+
+| 处 | 之前说 | 为什么是假话 |
+|---|---|---|
+| 搜索状态栏 | 「智能搜索暂不可用，已按关键词搜索」+ 重试 | 没有任何东西坏掉。**没承诺过的能力，不存在「不可用」** |
+| 高级设置「智能搜索」段 | Embedding 模型 / 维度 / Base URL / 云端同意开关 | 对搜索行为零影响。比 iCloud 假开关更糟 —— 它还要求授权一次数据外发 |
+| 零结果时的提示 | 「开启云端能搜到另一种语言」 | 用户照着开了，搜索行为一点不变 |
+
+三处现在读的是**同一个事实**：`RetrievalConfig.production.mode.usesVector`。
+不在各处重写条件 —— 两处条件迟早会漂移，而这一节讲的正是漂移的代价。
+
+同一条推理还有一个成本侧的推论：**发布构建不再建向量索引。**
+Release 里 Developer Tools 整目录不编译，也就没有任何消费者 ——
+继续嵌入是让用户的电池为一个没人读的向量库买单。
+Debug / `INTERNAL_BUILD` 仍然建（实验臂要拿它做对比）。
+闸门可由构造函数覆盖，否则**那条分支在测试里根本执行不到**（测试跑在 Debug 下）。
+
+## 27.4 SwiftData：删掉的对象不能再读属性
+
+在笔记页删掉笔记 → App 当场退出：
+
+```
+_assertionFailure          ← SwiftData
+Card.tags.getter
+closure in NoteDetailView.blockList(proxy:)
+...
+GraphHost.flushTransactions
+```
+
+根因是时序：`dismiss()` 不同步生效，中间那一帧 body 还在读一个已删除的对象。
+**修的过程中错了两次**，两次都是有价值的事实：
+
+1. **守卫放在 `body` 顶层挡不住。** SwiftUI 会直接重算
+   `GeometryReader` / `ScrollViewReader` / `List` 里那些**已经建好的内容闭包**，
+   不一定重新走一遍顶层 body。守卫必须放在**真正读 `card` 的那一层**。
+2. **`card.isDeleted` 不是一直为真：**
+
+   | | `delete()` 之后 | `save()` 之后 |
+   |---|---|---|
+   | `isDeleted` | **true** | false |
+   | `modelContext == nil` | false | **true** |
+
+   两个信号各自只覆盖一半窗口。`testDeletionSignalsCoverBothWindows`
+   把这张表写成断言 —— 整道守卫都压在「这两个值读得安全且合起来完整」上，
+   所以它必须是一条能独立失败的用例，而不是注释里的一句话。
+
+## 27.5 测试自身的「只在模拟器上成立」
+
+真机第一轮 `MosaicTests` 96 条挂 14 跳 2，**没有一条是产品缺陷**：
+
+- **12 条**：性能 policy 写死 `requiredDeviceClass: .simulator`。真机上判 STALE，
+  于是「Promote 的前置校验」这件事在真机上从未被验证过。
+- **2 挂 + 2 跳**：路由用例依赖「这台机器有没有中文模型」。
+  模拟器上没有、iPhone 上有（640 维），于是那些 `if isAvailable(...)` 分支里
+  **从没执行过的那一半**第一次被执行，写错的期望第一次暴露。
+
+第二条里最要紧的一点：**「没同意就不构造云端 provider」这条全项目最重要的隐私断言，
+`XCTSkipIf` 的条件恰好在 iPhone 上永远成立。** 一条关于「整库笔记会不会被发出去」
+的断言，在用户真正会用的那台机器上从来没有运行过。
+
+结论写进 `HANDOFF_NEXT.md` §3 的坑列表：
+**要环境就取 `RunEnvironment.capture()` 的当前值；要能力就作为参数传进去。**
+一条永远被 skip 的断言等于不存在 —— 这与「一个总是被跳过的 Gate 等于没有 Gate」
+是同一件事的两个说法。

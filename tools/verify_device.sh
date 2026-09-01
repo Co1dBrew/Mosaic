@@ -103,8 +103,12 @@ if xcodebuild build -scheme Mosaic -project App/Mosaic.xcodeproj \
      -configuration Debug -destination "$DEST" -allowProvisioningUpdates \
      -derivedDataPath App/build/DDDevice > /tmp/mosaic-device-debug.log 2>&1; then
   ok "Debug BUILD SUCCEEDED"
-  IDENTITY=$(grep -m1 "Signing Identity:" /tmp/mosaic-device-debug.log | sed 's/.*Signing Identity: *//')
-  say "     签名身份：${IDENTITY:-未知}"
+  # `|| true`：增量构建全命中时**根本不会跑 CodeSign**，日志里也就没有这一行。
+  # 不加的话 `set -euo pipefail` 会让「构建成功但没什么可签的」变成脚本失败 ——
+  # 一个只在第二次运行时红的核对脚本，比没有还糟。
+  IDENTITY=$(grep -m1 "Signing Identity:" /tmp/mosaic-device-debug.log 2>/dev/null \
+             | sed 's/.*Signing Identity: *//' || true)
+  say "     签名身份：${IDENTITY:-（本次为增量构建，未重新签名）}"
 else
   bad "Debug 真机构建失败 —— 日志 /tmp/mosaic-device-debug.log"
   # 签名失败时把最有用的那几行直接贴出来，省一次「再去翻日志」。
@@ -169,13 +173,35 @@ if [ "$WITH_BENCH" -eq 1 ]; then
   else
     bad "MosaicBench 失败 —— 日志 /tmp/mosaic-device-bench.log"
   fi
-  # skip 必须显形：这套用例在模拟器上按设计 skip，在真机上 skip 就是个问题。
-  SKIPPED=$(grep -c "was skipped" /tmp/mosaic-device-bench.log || true)
-  if [ "$SKIPPED" -eq 0 ]; then
-    ok "0 条 skip"
+  # ── skip 必须显形 ──
+  #
+  # 第一版 `grep -c "was skipped"` 数出来是 0，而实际有 1 条（云端臂）——
+  # xcodebuild 写的是 `skipped (0.001 seconds)`，不是 "was skipped"。
+  # 于是脚本报「0 条 skip」而事实是有一条没跑。**那正是这个脚本要拦的那类假绿。**
+  #
+  # 改成读 xcodebuild 自己的汇总行（`Executed N tests, with M test(s) skipped`）——
+  # 它是权威口径，不依赖单条日志的措辞。
+  SUMMARY=$(grep -oE "Executed [0-9]+ tests?, with ([0-9]+ tests? skipped and )?[0-9]+ failures?"             /tmp/mosaic-device-bench.log | tail -1 || true)
+  SKIPPED=$(printf '%s' "$SUMMARY" | grep -oE "with [0-9]+ tests? skipped" | grep -oE "[0-9]+" || echo 0)
+  say "     $SUMMARY"
+  if [ "${SKIPPED:-0}" -eq 0 ]; then
+    ok "0 条 skip —— 每一条都真的跑了"
   else
-    say "  ⚠️  $SKIPPED 条 skip —— 逐条看原因（缺云端凭据是允许的，缺本地模型不是）"
-    grep "was skipped" /tmp/mosaic-device-bench.log | sed 's/^/     /' | head -10 || true
+    # skip **不判失败**，但必须逐条报出来并说清哪一类是允许的。
+    # 允许：CLOUD_CREDENTIAL_REQUIRED（云端臂已 DEFERRED）。
+    # 不允许：TEST_REQUIRES_UNAVAILABLE_HARDWARE 在真机上出现（那说明设备没被识别）。
+    say "  ⚠️  $SKIPPED 条 skip —— 逐条看原因："
+    # 只看 XCTest 打的**跳过理由**那一行（`Test skipped - …`）。
+    # 第一版拿整份日志 grep「模拟器」，结果被 `test1` 打印的
+    # 「模拟器实测曾是 …」误伤，报出一个不存在的失败 ——
+    # 一个会误报的核对项，下一次就会被当成噪声忽略掉。
+    grep -E "Test skipped -" /tmp/mosaic-device-bench.log | sed -E 's/.*DeviceLatencyBenchmarkTests //; s/\] : Test skipped - /：/; s/^/     · /' || true
+    say "     允许的理由只有一个：CLOUD_CREDENTIAL_REQUIRED（云端臂 = DEFERRED）。"
+    if grep -E "Test skipped -" /tmp/mosaic-device-bench.log | grep -q "模拟器"; then
+      bad "真机跑批里出现了「模拟器上自动跳过」—— destination 指错了，这不是真机结果"
+    else
+      ok "skip 的理由都是缺云端凭据，没有「设备没识别到」那一类"
+    fi
   fi
 fi
 

@@ -57,7 +57,9 @@ Mosaic/
 │   ├── Eval/                     # 评测集 · Runner · 指标 · 发布判定 · 配对 bootstrap
 │   └── Sync/ Security/           # 同步状态口径 · Keychain
 ├── Sources/MosaicKitChecks/      # 断言跑批（3600+ 条），含评测集与基线评测
-├── tools/                        # 评测集生成 · 图标生成 · 发布前核对
+├── tools/                        # 评测集生成 · 图标生成
+│   ├── verify_release.sh         #   发布前核对（**不需要设备**，可进 CI）
+│   └── verify_device.sh          #   真机核对（验 arm64 Release 切片）
 └── App/
     ├── project.yml               # XcodeGen 规格（生成 Mosaic.xcodeproj）
     ├── Mosaic/
@@ -69,9 +71,9 @@ Mosaic/
     │   ├── Retrieval/            # 索引服务 · derived store · 检索栈持有者
     │   ├── Settings/             # 设置（两层）
     │   └── DeveloperTools/       # **只在 DEBUG / INTERNAL_BUILD 编译**
-    ├── MosaicTests/              # XCTest（93 条）
-    ├── MosaicUITests/            # XCUITest 核心流程（6 条）
-    └── MosaicBench/              # 真机性能基准（独立 scheme）
+    ├── MosaicTests/              # XCTest（99 条）—— 模拟器与真机都跑
+    ├── MosaicUITests/            # XCUITest 核心流程（8 条）—— 模拟器与真机都跑
+    └── MosaicBench/              # 真机性能基准（独立 scheme，8 条）
 ```
 
 **边界**：`MosaicKit` 从不 import SwiftData 或 UIKit。App 在边界上把 SwiftData
@@ -87,8 +89,9 @@ Mosaic/
 swift run mosaic-checks
 ```
 
-3600+ 条断言，覆盖服务商配置、JSON 解析健壮性、内容哈希、快照 diff、检索管线、
-评测集质量、发布判定口径、UI 取值规则。失败时非零退出，可直接当 CI 闸门。
+3687 条断言，覆盖服务商配置、JSON 解析健壮性、内容哈希、快照 diff、检索管线、
+评测集质量、发布判定口径、生产配置一致性、UI 取值规则。
+失败时非零退出，可直接当 CI 闸门。
 
 ### iOS App（需要完整 Xcode）
 
@@ -175,6 +178,20 @@ xcodebuild test -scheme MosaicBench -project App/Mosaic.xcodeproj -configuration
 `gate-v1` = baseline 相对（配对 bootstrap 置信区间）+ **绝对下限** + 分层延迟预算 +
 回归通过率。任一项 FAIL 即阻断，不做加权、不算总分。
 详见 [`GATE_POLICY.md`](GATE_POLICY.md)。
+
+三个下限（`R@1 0.35 / R@5 0.40 / MRR 0.38`）是 **`V1_PROVISIONAL`** ——
+依据是当前这份 agent 编写的评测集，**拿到人工编写的评测集之后必须重新校准**。
+
+**Gate 与 Promotion 是两个问题。** Gate 问「候选有没有把系统弄坏」，
+Promotion 问「值不值得替换生产」。本轮 local-hybrid 是
+`Gate = PASS` + `Promotion = NO` —— 那是合法状态，不是矛盾
+（`GATE_POLICY.md` §5b）。
+
+### 真机验证
+
+延迟与「只在真机上才现形的缺陷」都只在真机 Release 上有结论。
+本轮真机跑批抓到的四件事记在 [`PROJECT_STATUS.md`](PROJECT_STATUS.md) §9 ——
+其中两件是「我们以为已经生效的东西其实从来没生效」。
 
 ### 开发者工具
 
