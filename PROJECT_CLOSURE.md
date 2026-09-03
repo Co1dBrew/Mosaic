@@ -8,7 +8,7 @@
 >
 > 关闭日期：2026-09-01 · 分支 `feature/mosaic-mvp-p0`
 >
-> **最终提交 = tag `mosaic-device-validated-v1` 指向的那一个**（本地 tag，未 push）。
+> **最终提交 = tag `mosaic-device-validated-v1` 指向的那一个**（已推到 `origin`）。
 > 这里刻意不写 SHA：写死一个 SHA 之后，任何一次修正这份文档的提交都会让它变成
 > 一句错话，而 tag 本来就是为「指向哪一次」这件事存在的。
 
